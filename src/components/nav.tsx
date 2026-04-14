@@ -22,6 +22,7 @@ export async function Nav() {
           <Link href="/marketplace" className="hover:text-white">Marketplace</Link>
           <Link href="/coaches" className="hover:text-white">Coachs</Link>
           <Link href="/dashboard" className="hover:text-white">Dashboard</Link>
+          <Link href="/coach/apply" className="hover:text-white">Devenir coach</Link>
         </nav>
         <div className="flex items-center gap-3">
           {!clerkEnabled && (
