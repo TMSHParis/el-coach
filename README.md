@@ -1,36 +1,69 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# EL COACH
 
-## Getting Started
+Marketplace de programmes d'entraînement signés par des coachs d'élite. Inspiration TrainHeroic, identité visuelle noir & blanc futuriste.
 
-First, run the development server:
+## Stack
+
+- Next.js 16 (App Router, React 19)
+- TypeScript + Tailwind v4
+- Clerk (auth) — optionnel, l'app fonctionne sans
+- Stripe Checkout (abonnement mensuel) — optionnel
+- Lucide icons, Geist font
+
+## Dev local
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
+pnpm install
+cp .env.example .env.local   # puis remplir les clés Clerk/Stripe
 pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Ouvre [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Variables d'environnement
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Voir `.env.example`. L'app détecte l'absence de clés :
 
-## Learn More
+- **Sans Clerk** : le dashboard passe en mode démo, Sign-in/Sign-up affichent un message.
+- **Sans Stripe** : le bouton checkout retourne une erreur 503 claire.
 
-To learn more about Next.js, take a look at the following resources:
+## Structure
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```
+src/
+├─ app/
+│  ├─ page.tsx                    Landing
+│  ├─ marketplace/                Liste programmes + filtres
+│  ├─ coaches/                    Liste coachs
+│  ├─ coach/[slug]/               Détail coach
+│  ├─ program/[slug]/             Détail programme + checkout
+│  ├─ dashboard/                  Dashboard athlète (protégé)
+│  ├─ sign-in/ sign-up/           Pages Clerk
+│  └─ api/
+│     ├─ checkout/                POST — crée session Stripe
+│     └─ webhook/stripe/          POST — met à jour publicMetadata
+├─ components/                    nav, footer, program-card, coach-card
+├─ lib/                           data (seed), stripe, clerk, utils
+└─ middleware.ts                  protège /dashboard
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Déploiement Vercel
 
-## Deploy on Vercel
+```bash
+vercel link
+vercel --prod
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Ajouter ensuite les env vars via le dashboard Vercel ou `vercel env add`.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### Webhook Stripe
+
+Dans Stripe Dashboard, créer un webhook sur `https://<domain>/api/webhook/stripe` avec l'event `checkout.session.completed` et récupérer le signing secret dans `STRIPE_WEBHOOK_SECRET`.
+
+## Roadmap
+
+- Persistance DB (Neon + Prisma) pour logs de séances
+- Logger sets/reps/RPE dans le dashboard
+- Graphes de progression (PR par exercice)
+- Onboarding coach (dépôt de programme)
+- Version mobile native (React Native / Expo)
