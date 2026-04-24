@@ -178,9 +178,9 @@ function TodayCard({ today }: { today: TodaySession }) {
             {today.day.estimatedMinutes}min · {today.day.blocks.length} blocs
           </div>
         </div>
-        <button className="btn-primary inline-flex">
+        <Link href="/dashboard/session" className="btn-primary inline-flex">
           <Play size={14} /> Démarrer la séance
-        </button>
+        </Link>
       </div>
 
       <div className="mt-8 space-y-4">
