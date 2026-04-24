@@ -36,11 +36,11 @@ function Hero() {
           hypertrophie, mobilité. Suivi quotidien, progression mesurable, aucune fioriture.
         </p>
         <div className="mt-10 flex flex-wrap gap-4">
-          <Link href="/marketplace" className="btn-primary">
-            Explorer les programmes <ArrowRight size={14} />
+          <Link href="/onboarding" className="btn-primary">
+            Essayer la démo <ArrowRight size={14} />
           </Link>
-          <Link href="/coaches" className="btn-ghost">
-            Rencontrer les coachs
+          <Link href="/marketplace" className="btn-ghost">
+            Explorer les programmes
           </Link>
         </div>
         <div className="mt-16 grid grid-cols-2 gap-6 border-t border-[#1f1f1f] pt-8 md:grid-cols-4">
@@ -175,7 +175,8 @@ function CTA() {
         <span className="text-[#8a8a8a]">L&apos;exécution t&apos;appartient.</span>
       </h2>
       <div className="mt-10 flex justify-center gap-4">
-        <Link href="/marketplace" className="btn-primary">Commencer <ArrowRight size={14} /></Link>
+        <Link href="/onboarding" className="btn-primary">Essayer la démo <ArrowRight size={14} /></Link>
+        <Link href="/marketplace" className="btn-ghost">Voir les programmes</Link>
       </div>
     </section>
   );

@@ -27,7 +27,7 @@ export async function Nav() {
         </nav>
         <div className="flex items-center gap-3">
           {!clerkEnabled && (
-            <Link href="/marketplace" className="btn-primary">Explorer</Link>
+            <Link href="/onboarding" className="btn-primary">Essayer</Link>
           )}
           {clerkEnabled && !signedIn && (
             <>
