@@ -20,6 +20,7 @@ export async function Nav() {
         </Link>
         <nav className="label hidden items-center gap-8 md:flex">
           <Link href="/marketplace" className="hover:text-white">Marketplace</Link>
+          <Link href="/training" className="hover:text-white">Training</Link>
           <Link href="/coaches" className="hover:text-white">Coachs</Link>
           <Link href="/dashboard" className="hover:text-white">Dashboard</Link>
           <Link href="/coach/apply" className="hover:text-white">Devenir coach</Link>
