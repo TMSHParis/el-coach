@@ -9,11 +9,13 @@ import {
 const COOKIE_PROGRAM = "el_coach_program";
 const COOKIE_FATIGUE = "el_coach_fatigue";
 const COOKIE_START_DATE = "el_coach_start";
+const COOKIE_WEEK_ORDER = "el_coach_week_order";
 
 export type DemoState = {
   programSlug: string | null;
   fatigueScore: number | null;
   startDate: Date | null;
+  weekOrder: number[] | null; // ordre custom des jours (ex: [3,1,2,4,5,6,7])
 };
 
 export async function getDemoState(): Promise<DemoState> {
@@ -21,12 +23,31 @@ export async function getDemoState(): Promise<DemoState> {
   const programSlug = jar.get(COOKIE_PROGRAM)?.value ?? null;
   const fatigueRaw = jar.get(COOKIE_FATIGUE)?.value;
   const startRaw = jar.get(COOKIE_START_DATE)?.value;
+  const orderRaw = jar.get(COOKIE_WEEK_ORDER)?.value;
+
+  let weekOrder: number[] | null = null;
+  if (orderRaw) {
+    const parsed = orderRaw.split(",").map((n) => parseInt(n, 10));
+    if (parsed.length === 7 && parsed.every((n) => n >= 1 && n <= 7) && new Set(parsed).size === 7) {
+      weekOrder = parsed;
+    }
+  }
 
   return {
     programSlug,
     fatigueScore: fatigueRaw ? Number(fatigueRaw) : null,
     startDate: startRaw ? new Date(startRaw) : null,
+    weekOrder,
   };
+}
+
+/** Renvoie les jours de la programmation réordonnés selon weekOrder, ou ordre par défaut. */
+export function orderedWeek(template: ProgramTemplate, weekOrder: number[] | null): Day[] {
+  const days = template.weeks[0]?.days ?? [];
+  if (!weekOrder) return days;
+  return weekOrder
+    .map((dayNum) => days.find((d) => d.day === dayNum))
+    .filter((d): d is Day => d !== undefined);
 }
 
 /**
@@ -48,11 +69,12 @@ export type TodaySession = {
 export function resolveTodaySession(
   programSlug: string,
   fatigueScore: number | null,
+  overrideDayNumber?: number,
 ): TodaySession | null {
   const template = getTemplate(programSlug);
   if (!template) return null;
 
-  const dayNumber = todayDayNumber();
+  const dayNumber = overrideDayNumber ?? todayDayNumber();
   const week = template.weeks[0];
   const day = week.days.find((d) => d.day === dayNumber);
   if (!day) return null;
@@ -96,4 +118,5 @@ export const COOKIE_KEYS = {
   program: COOKIE_PROGRAM,
   fatigue: COOKIE_FATIGUE,
   startDate: COOKIE_START_DATE,
+  weekOrder: COOKIE_WEEK_ORDER,
 } as const;

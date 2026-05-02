@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { X } from "lucide-react";
-import { youtubeEmbedSrc } from "@/lib/movements";
+import { X, Video as VideoIcon } from "lucide-react";
+import { extractYoutubeId } from "@/lib/movements";
 
 type Props = {
   open: boolean;
@@ -12,7 +12,7 @@ type Props = {
   videoUrl?: string;
 };
 
-export function VideoModal({ open, onClose, title, searchQuery, videoUrl }: Props) {
+export function VideoModal({ open, onClose, title, videoUrl }: Props) {
   const dialogRef = useRef<HTMLDialogElement>(null);
 
   useEffect(() => {
@@ -26,7 +26,10 @@ export function VideoModal({ open, onClose, title, searchQuery, videoUrl }: Prop
     if (e.target === dialogRef.current) onClose();
   }
 
-  const src = open ? youtubeEmbedSrc({ videoUrl, searchQuery, autoplay: true }) : "";
+  const videoId = extractYoutubeId(videoUrl);
+  const embedSrc = videoId
+    ? `https://www.youtube-nocookie.com/embed/${videoId}?rel=0&modestbranding=1&autoplay=1`
+    : null;
 
   return (
     <dialog
@@ -50,15 +53,25 @@ export function VideoModal({ open, onClose, title, searchQuery, videoUrl }: Prop
           </button>
         </div>
         <div className="relative aspect-video w-full bg-black">
-          {open && (
+          {open && embedSrc && (
             <iframe
-              src={src}
+              src={embedSrc}
               title={`Démo · ${title}`}
               className="absolute inset-0 h-full w-full border-0"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
               allowFullScreen
               referrerPolicy="strict-origin-when-cross-origin"
             />
+          )}
+          {open && !embedSrc && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-6 text-center">
+              <VideoIcon size={36} className="text-[color:var(--color-mute)]" />
+              <div className="label">VIDÉO BIENTÔT DISPONIBLE</div>
+              <p className="max-w-sm text-sm text-[color:var(--color-mute)]">
+                La vidéo de démonstration pour <span className="text-white">{title}</span> n&apos;est pas encore intégrée.
+                Elle sera ajoutée dès qu&apos;une URL vérifiée sera référencée.
+              </p>
+            </div>
           )}
         </div>
       </div>

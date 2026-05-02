@@ -9,12 +9,23 @@ import SessionRunner from "./session-runner";
 
 export const metadata = { title: "Séance en cours — EL COACH" };
 
-export default async function SessionRunnerPage() {
+export default async function SessionRunnerPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ day?: string }>;
+}) {
+  const { day: dayParam } = await searchParams;
   const demo = await getDemoState();
 
   if (!demo.programSlug) redirect("/onboarding");
 
-  const today = resolveTodaySession(demo.programSlug, demo.fatigueScore);
+  const overrideDay = dayParam ? Number(dayParam) : undefined;
+  const validOverride =
+    overrideDay !== undefined && overrideDay >= 1 && overrideDay <= 7
+      ? overrideDay
+      : undefined;
+
+  const today = resolveTodaySession(demo.programSlug, demo.fatigueScore, validOverride);
   if (!today) redirect("/dashboard");
 
   if (today.needsFatigueInput) {

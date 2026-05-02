@@ -1,11 +1,20 @@
 import Link from "next/link";
 import { auth, currentUser } from "@clerk/nextjs/server";
-import { Activity, Flame, Target, TrendingUp, Play, RotateCcw } from "lucide-react";
+import {
+  Activity,
+  ArrowDown,
+  ArrowUp,
+  Flame,
+  Target,
+  TrendingUp,
+  Play,
+  RotateCcw,
+} from "lucide-react";
 import { clerkEnabled } from "@/lib/clerk";
 import {
   getDemoState,
+  orderedWeek,
   resolveTodaySession,
-  weekOverview,
   todayDayNumber,
   DAY_SHORT_NAMES,
   DAY_FULL_NAMES,
@@ -16,10 +25,11 @@ import {
   formatExerciseLine,
   resolveExerciseMovement,
   type Block,
+  type Day,
   type Exercise,
 } from "@/lib/programming";
 import { BlockHeader } from "@/components/block-header";
-import { setFatigue, resetDemo } from "./actions";
+import { setFatigue, resetDemo, moveDay, resetWeekOrder } from "./actions";
 
 export const metadata = { title: "Dashboard — EL COACH" };
 
@@ -74,7 +84,7 @@ export default async function DashboardPage() {
         <KPI icon={<TrendingUp size={16} />} label="VOLUME" value="128T" />
       </div>
 
-      <WeekOverview today={today} />
+      <WeekOverview today={today} weekOrder={demo.weekOrder} />
 
       <TodayCard today={today} />
     </section>
@@ -96,37 +106,135 @@ function EmptyState() {
   );
 }
 
-function WeekOverview({ today }: { today: TodaySession }) {
-  const days = weekOverview(today.template);
+function WeekOverview({
+  today,
+  weekOrder,
+}: {
+  today: TodaySession;
+  weekOrder: number[] | null;
+}) {
+  const days = orderedWeek(today.template, weekOrder);
   const currentDay = todayDayNumber();
+  const isCustomOrder = weekOrder !== null;
+
   return (
     <div className="mt-12">
-      <div className="label">[ SEMAINE {today.weekNumber} ]</div>
-      <div className="mt-4 grid gap-px bg-[color:var(--color-line)] grid-cols-7">
-        {days.map((d) => {
-          const isToday = d.day === currentDay;
-          const isRest = d.blocks.length === 0;
-          return (
-            <div
-              key={d.day}
-              className={`bg-[color:var(--color-ash)] p-3 md:p-4 ${isToday ? "!bg-white !text-black" : ""}`}
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div className="label">[ SEMAINE {today.weekNumber} · réorganisable ]</div>
+        {isCustomOrder && (
+          <form action={resetWeekOrder}>
+            <button
+              type="submit"
+              className="label inline-flex items-center gap-2 text-[color:var(--color-mute)] hover:text-white"
             >
-              <div className="mono text-[10px] tracking-[0.2em] opacity-60">
-                {DAY_SHORT_NAMES[d.day - 1]}
-              </div>
-              <div className="mt-2 text-xs md:text-sm font-semibold">
-                {isRest ? "REST" : d.focus.split(" ").slice(0, 3).join(" ")}
-              </div>
-              {!isRest && (
-                <div className={`mono mt-2 text-[10px] ${isToday ? "opacity-60" : "text-[color:var(--color-mute)]"}`}>
-                  {d.estimatedMinutes}min
-                </div>
-              )}
-            </div>
-          );
-        })}
+              <RotateCcw size={12} /> Réinitialiser l&apos;ordre
+            </button>
+          </form>
+        )}
+      </div>
+      <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        {days.map((d, displayIndex) => (
+          <DayCard
+            key={d.day}
+            day={d}
+            displayIndex={displayIndex}
+            totalDays={days.length}
+            isToday={d.day === currentDay}
+          />
+        ))}
       </div>
     </div>
+  );
+}
+
+function DayCard({
+  day,
+  displayIndex,
+  totalDays,
+  isToday,
+}: {
+  day: Day;
+  displayIndex: number;
+  totalDays: number;
+  isToday: boolean;
+}) {
+  const isRest = day.blocks.length === 0;
+  const dayName = DAY_FULL_NAMES[day.day - 1] ?? `Jour ${day.day}`;
+  const shortName = DAY_SHORT_NAMES[day.day - 1] ?? "—";
+  const isFirst = displayIndex === 0;
+  const isLast = displayIndex === totalDays - 1;
+
+  return (
+    <article
+      className={`flex h-full flex-col gap-3 border p-4 md:p-5 ${
+        isToday
+          ? "border-white bg-white/5"
+          : "border-[color:var(--color-line)] bg-[color:var(--color-ash)]"
+      }`}
+    >
+      <header className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="mono text-[11px] tracking-[0.2em] text-[color:var(--color-mute)]">
+            {shortName} · {dayName.toUpperCase()}
+          </div>
+          <h3 className={`mt-1.5 text-base font-semibold leading-tight md:text-lg ${isRest ? "text-[color:var(--color-mute)]" : ""}`}>
+            {isRest ? "REST" : day.focus}
+          </h3>
+        </div>
+        {isToday && (
+          <span className="mono shrink-0 border border-white px-1.5 py-0.5 text-[10px] tracking-[0.15em]">
+            AUJ.
+          </span>
+        )}
+      </header>
+
+      {!isRest && (
+        <div className="mono text-xs text-[color:var(--color-mute)]">
+          {day.estimatedMinutes}min · {day.blocks.length} blocs
+        </div>
+      )}
+
+      <div className="mt-auto flex items-center gap-2 pt-2">
+        {!isRest ? (
+          <Link
+            href={`/dashboard/session?day=${day.day}`}
+            className="btn-primary flex-1 justify-center text-sm"
+          >
+            <Play size={12} /> Démarrer
+          </Link>
+        ) : (
+          <span className="flex-1 px-3 py-2 text-center text-xs text-[color:var(--color-mute)]">
+            {day.notes ?? "OFF"}
+          </span>
+        )}
+        <form action={moveDay}>
+          <input type="hidden" name="day" value={day.day} />
+          <input type="hidden" name="direction" value="up" />
+          <button
+            type="submit"
+            disabled={isFirst}
+            className="border border-[color:var(--color-line)] p-2 text-[color:var(--color-mute)] hover:text-white disabled:opacity-20"
+            aria-label="Monter ce jour"
+            title="Monter"
+          >
+            <ArrowUp size={14} />
+          </button>
+        </form>
+        <form action={moveDay}>
+          <input type="hidden" name="day" value={day.day} />
+          <input type="hidden" name="direction" value="down" />
+          <button
+            type="submit"
+            disabled={isLast}
+            className="border border-[color:var(--color-line)] p-2 text-[color:var(--color-mute)] hover:text-white disabled:opacity-20"
+            aria-label="Descendre ce jour"
+            title="Descendre"
+          >
+            <ArrowDown size={14} />
+          </button>
+        </form>
+      </div>
+    </article>
   );
 }
 

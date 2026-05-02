@@ -37,5 +37,51 @@ export async function resetDemo(): Promise<void> {
   jar.delete(COOKIE_KEYS.program);
   jar.delete(COOKIE_KEYS.fatigue);
   jar.delete(COOKIE_KEYS.startDate);
+  jar.delete(COOKIE_KEYS.weekOrder);
   redirect("/onboarding");
+}
+
+const DEFAULT_ORDER = [1, 2, 3, 4, 5, 6, 7];
+
+async function readOrder(): Promise<number[]> {
+  const jar = await cookies();
+  const raw = jar.get(COOKIE_KEYS.weekOrder)?.value;
+  if (!raw) return [...DEFAULT_ORDER];
+  const parsed = raw.split(",").map((n) => parseInt(n, 10));
+  if (parsed.length === 7 && parsed.every((n) => n >= 1 && n <= 7) && new Set(parsed).size === 7) {
+    return parsed;
+  }
+  return [...DEFAULT_ORDER];
+}
+
+async function writeOrder(order: number[]): Promise<void> {
+  const jar = await cookies();
+  jar.set(COOKIE_KEYS.weekOrder, order.join(","), {
+    path: "/",
+    maxAge: YEAR,
+    sameSite: "lax",
+  });
+}
+
+export async function moveDay(formData: FormData): Promise<void> {
+  const dayRaw = formData.get("day");
+  const dirRaw = formData.get("direction"); // "up" | "down"
+  if (!dayRaw || !dirRaw) return;
+  const day = Number(dayRaw);
+  const dir = String(dirRaw);
+
+  const order = await readOrder();
+  const idx = order.indexOf(day);
+  if (idx === -1) return;
+  const target = dir === "up" ? idx - 1 : idx + 1;
+  if (target < 0 || target >= order.length) return;
+  [order[idx], order[target]] = [order[target], order[idx]];
+  await writeOrder(order);
+  redirect("/dashboard");
+}
+
+export async function resetWeekOrder(): Promise<void> {
+  const jar = await cookies();
+  jar.delete(COOKIE_KEYS.weekOrder);
+  redirect("/dashboard");
 }
