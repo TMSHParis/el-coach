@@ -1,5 +1,5 @@
-// Base de mouvements — CrossFit (Open / Games / Project BEEF / Mayhem),
-// Hyrox (stations officielles + complémentaires), accessoires force & home.
+// Base de mouvements — CrossFit (Open / Games), Hyrox (stations officielles
+// + complémentaires), accessoires force & home.
 // Sert de source unique pour les programmations (voir programming.ts).
 
 export type MovementCategory =
@@ -81,7 +81,14 @@ export type Movement = {
   tags: string[]; // ex: "explosive", "metcon", "hyrox-station", "home-friendly"
   hyroxStation?: boolean; // station officielle Hyrox
   gamesOnly?: boolean; // réservé compétition avancée
+  videoUrl?: string; // démonstration officielle (YouTube)
 };
+
+// Helper pour construire des liens YouTube de recherche pour les mouvements
+// non-référencés. Le runner ouvre `videoUrl` si présent, sinon ce fallback.
+export function youtubeSearchUrl(name: string): string {
+  return `https://www.youtube.com/results?search_query=${encodeURIComponent(name + " demo crossfit")}`;
+}
 
 export const movements: Movement[] = [
   // ========================================================================

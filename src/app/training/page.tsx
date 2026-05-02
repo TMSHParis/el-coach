@@ -6,9 +6,10 @@ export const metadata = { title: "Programmations — EL COACH" };
 
 const DISCIPLINE_LABEL: Record<ProgramTemplate["discipline"], string> = {
   crossfit: "CrossFit pure",
-  hybrid: "Hybride · CF × Musculation",
+  hybrid: "Hybrid Engine",
   hyrox: "Hyrox pure",
   home: "À la maison",
+  hypertrophy: "Hypertrophy · Volume Block",
 };
 
 export default function TrainingIndexPage() {

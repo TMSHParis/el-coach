@@ -8,7 +8,7 @@ import { getMovement, type Movement } from "./movements";
 // Types
 // ============================================================================
 
-export type Discipline = "crossfit" | "hybrid" | "hyrox" | "home";
+export type Discipline = "crossfit" | "hybrid" | "hyrox" | "home" | "hypertrophy";
 
 export type BlockType =
   | "warmup"
@@ -211,7 +211,7 @@ const COOLDOWN_BASIC: Block = {
 };
 
 // ============================================================================
-// 1) CROSSFIT PURE — inspiration CompTrain / Mayhem / Project BEEF
+// 1) CROSSFIT PURE
 // ============================================================================
 
 const CROSSFIT_WEEK_1: Week = {
@@ -424,21 +424,54 @@ export const CROSSFIT_PURE: ProgramTemplate = {
   daysPerWeek: 6,
   equipment: ["barbell", "rack", "rower", "assault_bike", "pullup_bar", "rings", "wallball", "kettlebell", "dumbbell", "box"],
   summary:
-    "Programmation CrossFit conjugate : force (squat / tirage / press) + olympique + gymnastique + metcon varié. Inspiré CompTrain / Mayhem / Project BEEF.",
+    "Programmation CrossFit conjugate : force (squat / tirage / press) + olympique + gymnastique + metcon varié.",
   weeks: [CROSSFIT_WEEK_1],
 };
 
 // ============================================================================
-// 2) HYBRID — CrossFit + musculation + 1 jour cooldown adaptatif
+// 2) HYBRID ENGINE — CrossFit (Lun/Jeu/Dim opt) + Musculation (Mar/Ven)
+//    + Cooldown adaptatif (Mer) + Repos (Sam)
 // ============================================================================
 
 const HYBRID_WEEK_1: Week = {
   weekNumber: 1,
-  theme: "Bloc 1 · Base force-cardio, cooldown adaptatif jeudi",
+  theme: "Bloc 1 · Engine hybride · CF lourd lun/jeu, musculation mar/ven, cooldown adaptatif mer",
   days: [
     {
       day: 1,
-      focus: "Push hypertrophie + finisher metcon",
+      focus: "CrossFit · Squat lourd + couplet court",
+      estimatedMinutes: 75,
+      blocks: [
+        WARMUP_GENERIC,
+        {
+          name: "A — Back Squat",
+          type: "strength",
+          format: "StraightSets",
+          exercises: [
+            { movementId: "back-squat", sets: 5, reps: 5, load: "75-80% 1RM", rest: "2-3min" },
+          ],
+        },
+        {
+          name: "B — Metcon",
+          type: "wod",
+          format: "ForTime",
+          duration: "sub 8min",
+          exercises: [
+            { movementId: "thruster", reps: 21, load: "43/30kg" },
+            { movementId: "kipping-pullup", reps: 21 },
+            { movementId: "thruster", reps: 15, load: "43/30kg" },
+            { movementId: "kipping-pullup", reps: 15 },
+            { movementId: "thruster", reps: 9, load: "43/30kg" },
+            { movementId: "kipping-pullup", reps: 9 },
+          ],
+          notes: "Référence Fran.",
+        },
+        COOLDOWN_BASIC,
+      ],
+    },
+    {
+      day: 2,
+      focus: "Musculation · Push hypertrophie",
       estimatedMinutes: 70,
       blocks: [
         WARMUP_GENERIC,
@@ -449,89 +482,25 @@ const HYBRID_WEEK_1: Week = {
           exercises: [{ movementId: "bench-press", sets: 4, reps: 8, load: "70-75% 1RM", rest: "2min" }],
         },
         {
-          name: "B — Accessoires push",
+          name: "B — Strict Press",
+          type: "strength",
+          format: "StraightSets",
+          exercises: [{ movementId: "strict-press", sets: 4, reps: 8, load: "65% 1RM", rest: "2min" }],
+        },
+        {
+          name: "C — Accessoires push",
           type: "accessory",
           format: "Superset",
           exercises: [
-            { movementId: "strict-press", sets: 3, reps: 10, load: "60% 1RM" },
             { movementId: "ring-dip", sets: 3, reps: 8, notes: "Scale : box dip." },
-          ],
-        },
-        {
-          name: "C — Finisher",
-          type: "wod",
-          format: "AMRAP",
-          duration: "10min",
-          exercises: [
-            { movementId: "db-thruster", reps: 12, load: "2×22.5/15kg" },
-            { movementId: "bar-facing-burpee", reps: 10 },
+            { movementId: "db-bench", sets: 3, reps: 12, load: "modéré" },
           ],
         },
         COOLDOWN_BASIC,
-      ],
-    },
-    {
-      day: 2,
-      focus: "Zone 2 long + core",
-      estimatedMinutes: 75,
-      blocks: [
-        {
-          name: "A — Run Zone 2",
-          type: "endurance",
-          duration: "60min",
-          exercises: [
-            { movementId: "run", distance: "10km", notes: "Allure Z2 : conversation possible. Si FC > Z2 → marche." },
-          ],
-        },
-        {
-          name: "B — Core",
-          type: "accessory",
-          format: "Circuit",
-          rounds: 3,
-          exercises: [
-            { movementId: "hollow-hold", time: "45s" },
-            { movementId: "pallof-press", reps: 12, notes: "Par côté." },
-            { movementId: "dead-bug", reps: 10 },
-          ],
-        },
       ],
     },
     {
       day: 3,
-      focus: "Pull hypertrophie + finisher",
-      estimatedMinutes: 70,
-      blocks: [
-        WARMUP_GENERIC,
-        {
-          name: "A — Deadlift",
-          type: "strength",
-          format: "StraightSets",
-          exercises: [{ movementId: "deadlift", sets: 4, reps: 6, load: "75% 1RM", rest: "2-3min" }],
-        },
-        {
-          name: "B — Accessoires pull",
-          type: "accessory",
-          format: "Superset",
-          exercises: [
-            { movementId: "strict-pullup", sets: 4, reps: 6, notes: "Lesté si possible. Scale : ring row." },
-            { movementId: "db-row", sets: 3, reps: 12, load: "lourd", notes: "Par bras." },
-          ],
-        },
-        {
-          name: "C — Finisher",
-          type: "wod",
-          format: "EMOM",
-          duration: "10min",
-          exercises: [
-            { movementId: "kb-swing-american", reps: 15, load: "24/16kg", notes: "Min impair." },
-            { movementId: "t2b", reps: 12, notes: "Min pair." },
-          ],
-        },
-        COOLDOWN_BASIC,
-      ],
-    },
-    {
-      day: 4,
       focus: "Cooldown adaptatif (walk / run / boxing / swim / rest)",
       estimatedMinutes: 40,
       adaptive: true,
@@ -546,38 +515,67 @@ const HYBRID_WEEK_1: Week = {
       ],
     },
     {
-      day: 5,
-      focus: "Legs lourd + Hyrox-style circuit",
+      day: 4,
+      focus: "CrossFit · Deadlift + metcon long",
       estimatedMinutes: 80,
       blocks: [
         WARMUP_GENERIC,
         {
-          name: "A — Back Squat",
+          name: "A — Deadlift heavy",
           type: "strength",
           format: "StraightSets",
-          exercises: [{ movementId: "back-squat", sets: 5, reps: 5, load: "77.5% 1RM", rest: "2-3min" }],
-        },
-        {
-          name: "B — Unilatéral + posterior",
-          type: "accessory",
-          format: "Superset",
           exercises: [
-            { movementId: "db-bulgarian", sets: 3, reps: 10, notes: "Par jambe." },
-            { movementId: "rdl", sets: 3, reps: 10, load: "modéré" },
+            { movementId: "deadlift", sets: 5, reps: 3, load: "80% 1RM", rest: "2min" },
           ],
         },
         {
-          name: "C — Hyrox-style finisher",
-          type: "conditioning",
-          format: "ForTime",
-          duration: "sub 18min",
+          name: "B — Clean & Jerk",
+          type: "skill",
+          format: "E2MOM",
+          duration: "12min",
+          exercises: [{ movementId: "clean-and-jerk", reps: 2, load: "70-80%, monter si propre" }],
+        },
+        {
+          name: "C — AMRAP 20'",
+          type: "wod",
+          format: "AMRAP",
+          duration: "20min",
           exercises: [
-            { movementId: "run", distance: "800m" },
-            { movementId: "sled-push", distance: "30m", load: "80kg/60kg" },
-            { movementId: "run", distance: "800m" },
-            { movementId: "wall-ball", reps: 50, load: "9/6kg" },
-            { movementId: "run", distance: "800m" },
-            { movementId: "farmers-carry", distance: "100m", load: "2×24/16kg" },
+            { movementId: "run", distance: "400m" },
+            { movementId: "kb-swing-american", reps: 20, load: "24/16kg" },
+            { movementId: "box-jump-over", reps: 15, load: "24/20in" },
+          ],
+        },
+        COOLDOWN_BASIC,
+      ],
+    },
+    {
+      day: 5,
+      focus: "Musculation · Pull + posterior",
+      estimatedMinutes: 70,
+      blocks: [
+        WARMUP_GENERIC,
+        {
+          name: "A — Strict Pull-up lesté",
+          type: "strength",
+          format: "StraightSets",
+          exercises: [
+            { movementId: "strict-pullup", sets: 5, reps: 5, notes: "Lesté si 10+ à vide. Scale : ring row." },
+          ],
+        },
+        {
+          name: "B — RDL",
+          type: "strength",
+          format: "StraightSets",
+          exercises: [{ movementId: "rdl", sets: 4, reps: 8, load: "modéré-lourd", rest: "2min" }],
+        },
+        {
+          name: "C — Accessoires pull + biceps",
+          type: "accessory",
+          format: "Superset",
+          exercises: [
+            { movementId: "db-row", sets: 4, reps: 12, load: "lourd", notes: "Par bras." },
+            { movementId: "kb-row", sets: 3, reps: 12, notes: "Tempo contrôlé." },
           ],
         },
         COOLDOWN_BASIC,
@@ -585,44 +583,46 @@ const HYBRID_WEEK_1: Week = {
     },
     {
       day: 6,
-      focus: "Full-body metcon mixte",
+      focus: "Repos complet",
+      estimatedMinutes: 0,
+      blocks: [],
+      notes: "OFF total. Sommeil, nutrition, famille.",
+    },
+    {
+      day: 7,
+      focus: "CrossFit optionnel · Long metcon ou OFF",
       estimatedMinutes: 60,
       blocks: [
         WARMUP_GENERIC,
         {
-          name: "A — AMRAP 25'",
+          name: "A — Long AMRAP",
           type: "wod",
           format: "AMRAP",
-          duration: "25min",
+          duration: "30min",
           exercises: [
             { movementId: "row", distance: "500m" },
             { movementId: "devils-press", reps: 10, load: "2×22.5/15kg" },
             { movementId: "box-jump-over", reps: 15, load: "24/20in" },
             { movementId: "t2b", reps: 15 },
           ],
+          notes: "Allure stable, conversation possible.",
         },
         COOLDOWN_BASIC,
       ],
-    },
-    {
-      day: 7,
-      focus: "Repos complet",
-      estimatedMinutes: 0,
-      blocks: [],
-      notes: "OFF total. Sommeil, nutrition, famille.",
+      notes: "Optionnel. Sauter sans culpabilité si fatigue, vie de famille, ou semaine chargée.",
     },
   ],
 };
 
 export const HYBRID: ProgramTemplate = {
   slug: "hybrid-cf-strength",
-  name: "Hybrid · CrossFit × Musculation",
+  name: "Hybrid Engine (Hybrid · CrossFit × Musculation)",
   discipline: "hybrid",
   level: "intermediate",
-  daysPerWeek: 6,
+  daysPerWeek: 5,
   equipment: ["barbell", "rack", "bench", "dumbbell", "kettlebell", "wallball", "pullup_bar", "sled", "rower", "outdoor"],
   summary:
-    "Hybride 6j/semaine : 2× push/pull hypertrophie, 1× legs + Hyrox-style, 1× Z2 long, 1× metcon mixte, 1× cooldown adaptatif (walk/run/boxe/swim/rest selon fatigue), 1× OFF.",
+    "Hybride 5j fixes + 1 optionnel : Lun CrossFit · Mar Musculation push · Mer Cooldown adaptatif (walk/run/boxe/swim/rest selon fatigue) · Jeu CrossFit · Ven Musculation pull · Sam Rest · Dim CrossFit optionnel.",
   weeks: [HYBRID_WEEK_1],
 };
 
@@ -1037,10 +1037,275 @@ export const AT_HOME: ProgramTemplate = {
 };
 
 // ============================================================================
+// 5) VOLUME BLOCK · HYPERTROPHY — split Upper/Lower/Push/Pull/Legs
+//    Bloc volume haute fréquence. Progression série/rep autopilotée :
+//    semaine 1 base → +1 rep/série jusqu'au plafond → +1 série → +charge.
+// ============================================================================
+
+const HYPER_WEEK_1: Week = {
+  weekNumber: 1,
+  theme: "Bloc 1 · Accumulation hypertrophie · 5 séances · Upper / Lower / Push / Pull / Legs",
+  days: [
+    {
+      day: 1,
+      focus: "Upper full · push + pull équilibré",
+      estimatedMinutes: 65,
+      blocks: [
+        WARMUP_GENERIC,
+        {
+          name: "A — Bench Press",
+          type: "strength",
+          format: "StraightSets",
+          exercises: [
+            { movementId: "bench-press", sets: 4, reps: "8-10", load: "70-75% 1RM", rest: "2min", notes: "Progression : viser 10 reps × 4 sets avant +charge." },
+          ],
+        },
+        {
+          name: "B — Strict Pull-up",
+          type: "strength",
+          format: "StraightSets",
+          exercises: [
+            { movementId: "strict-pullup", sets: 4, reps: "6-10", notes: "Lesté si plafond atteint. Scale : ring row." },
+          ],
+        },
+        {
+          name: "C — Superset accessoires",
+          type: "accessory",
+          format: "Superset",
+          exercises: [
+            { movementId: "db-bench", sets: 3, reps: "10-12", load: "modéré", rest: "60s" },
+            { movementId: "db-row", sets: 3, reps: "10-12", notes: "Par bras." },
+          ],
+        },
+        {
+          name: "D — Finisher épaules",
+          type: "accessory",
+          format: "Circuit",
+          rounds: 3,
+          exercises: [
+            { movementId: "strict-press", sets: 1, reps: "12-15", load: "léger" },
+            { movementId: "ring-row", sets: 1, reps: "12-15" },
+          ],
+        },
+        COOLDOWN_BASIC,
+      ],
+    },
+    {
+      day: 2,
+      focus: "Lower full · squat + hinge",
+      estimatedMinutes: 65,
+      blocks: [
+        WARMUP_GENERIC,
+        {
+          name: "A — Back Squat",
+          type: "strength",
+          format: "StraightSets",
+          exercises: [
+            { movementId: "back-squat", sets: 4, reps: "8-10", load: "70-75% 1RM", rest: "2-3min", notes: "Progression : 10 reps × 4 sets avant +2.5kg." },
+          ],
+        },
+        {
+          name: "B — Romanian Deadlift",
+          type: "strength",
+          format: "StraightSets",
+          exercises: [
+            { movementId: "rdl", sets: 4, reps: "8-10", load: "modéré-lourd", rest: "2min", notes: "Tempo 3-0-1." },
+          ],
+        },
+        {
+          name: "C — Bulgarian Split Squat",
+          type: "accessory",
+          format: "StraightSets",
+          exercises: [
+            { movementId: "db-bulgarian", sets: 3, reps: "10-12", notes: "Par jambe." },
+          ],
+        },
+        {
+          name: "D — Calves + core",
+          type: "accessory",
+          format: "Superset",
+          exercises: [
+            { movementId: "step-up", sets: 3, reps: "12-15", notes: "Par jambe." },
+            { movementId: "plank", sets: 3, time: "60s" },
+          ],
+        },
+        COOLDOWN_BASIC,
+      ],
+    },
+    {
+      day: 3,
+      focus: "Push · épaules + pectoraux + triceps",
+      estimatedMinutes: 60,
+      blocks: [
+        WARMUP_GENERIC,
+        {
+          name: "A — Strict Press",
+          type: "strength",
+          format: "StraightSets",
+          exercises: [
+            { movementId: "strict-press", sets: 5, reps: "5-8", load: "75-80% 1RM", rest: "2min" },
+          ],
+        },
+        {
+          name: "B — DB Bench incline",
+          type: "strength",
+          format: "StraightSets",
+          exercises: [
+            { movementId: "db-bench", sets: 4, reps: "10-12", load: "modéré", rest: "90s" },
+          ],
+        },
+        {
+          name: "C — Push density",
+          type: "accessory",
+          format: "Circuit",
+          rounds: 4,
+          exercises: [
+            { movementId: "ring-dip", sets: 1, reps: "8-12" },
+            { movementId: "pushup", sets: 1, reps: "12-20" },
+            { movementId: "pike-pushup", sets: 1, reps: "8-12" },
+          ],
+        },
+        COOLDOWN_BASIC,
+      ],
+    },
+    {
+      day: 4,
+      focus: "Pull · dos + biceps + grip",
+      estimatedMinutes: 60,
+      blocks: [
+        WARMUP_GENERIC,
+        {
+          name: "A — Deadlift",
+          type: "strength",
+          format: "StraightSets",
+          exercises: [
+            { movementId: "deadlift", sets: 4, reps: "5-6", load: "75-80% 1RM", rest: "2-3min" },
+          ],
+        },
+        {
+          name: "B — Strict Pull-up volume",
+          type: "strength",
+          format: "StraightSets",
+          exercises: [
+            { movementId: "strict-pullup", sets: 5, reps: "AMRAP-1", notes: "Stop 1 rep avant l'échec à chaque set." },
+          ],
+        },
+        {
+          name: "C — Rows lourds",
+          type: "accessory",
+          format: "Superset",
+          exercises: [
+            { movementId: "db-row", sets: 4, reps: "10-12", load: "lourd", notes: "Par bras." },
+            { movementId: "kb-row", sets: 4, reps: "12", notes: "Tempo strict." },
+          ],
+        },
+        {
+          name: "D — Grip + carry",
+          type: "accessory",
+          exercises: [
+            { movementId: "farmers-carry", distance: "40m", sets: 4, load: "lourd", rest: "60s" },
+          ],
+        },
+        COOLDOWN_BASIC,
+      ],
+    },
+    {
+      day: 5,
+      focus: "Legs · quad + posterior chain volume",
+      estimatedMinutes: 65,
+      blocks: [
+        WARMUP_GENERIC,
+        {
+          name: "A — Front Squat",
+          type: "strength",
+          format: "StraightSets",
+          exercises: [
+            { movementId: "front-squat", sets: 4, reps: "6-8", load: "70% 1RM", rest: "2min" },
+          ],
+        },
+        {
+          name: "B — Walking Lunge lesté",
+          type: "strength",
+          format: "StraightSets",
+          exercises: [
+            { movementId: "bb-walking-lunge", sets: 3, reps: 20, load: "modéré", notes: "10 par jambe." },
+          ],
+        },
+        {
+          name: "C — Posterior accessoires",
+          type: "accessory",
+          format: "Superset",
+          exercises: [
+            { movementId: "kb-swing-russian", sets: 4, reps: "15-20", load: "modéré-lourd" },
+            { movementId: "back-ext", sets: 4, reps: "12-15" },
+          ],
+        },
+        {
+          name: "D — Core anti-extension",
+          type: "accessory",
+          format: "Circuit",
+          rounds: 3,
+          exercises: [
+            { movementId: "ab-wheel", sets: 1, reps: "8-12" },
+            { movementId: "hollow-hold", sets: 1, time: "45s" },
+          ],
+        },
+        COOLDOWN_BASIC,
+      ],
+    },
+    {
+      day: 6,
+      focus: "Repos actif",
+      estimatedMinutes: 30,
+      blocks: [
+        {
+          name: "Mobilité + marche",
+          type: "cooldown",
+          duration: "30min",
+          exercises: [
+            { movementId: "zone1-walk", time: "20min" },
+            { movementId: "hip-90-90", time: "3min" },
+            { movementId: "thoracic-rot", time: "3min" },
+            { movementId: "foam-roll", time: "5min" },
+          ],
+          notes: "Optionnel. Marche extérieure prioritaire.",
+        },
+      ],
+      notes: "Recharge parasympathique. Pas de charge ni de cardio dur.",
+    },
+    {
+      day: 7,
+      focus: "Repos complet",
+      estimatedMinutes: 0,
+      blocks: [],
+      notes: "OFF total. Sommeil, nutrition, récupération.",
+    },
+  ],
+};
+
+export const VOLUME_BLOCK_HYPERTROPHY: ProgramTemplate = {
+  slug: "volume-block-hypertrophy",
+  name: "Volume Block · Hypertrophy",
+  discipline: "hypertrophy",
+  level: "intermediate",
+  daysPerWeek: 5,
+  equipment: ["barbell", "rack", "bench", "dumbbell", "kettlebell", "pullup_bar", "rings", "box"],
+  summary:
+    "Bloc volume haute fréquence · split Upper / Lower / Push / Pull / Legs. Progression série/rep autopilotée : ajouter une rep par set jusqu'au plafond, puis +1 set, puis +charge.",
+  weeks: [HYPER_WEEK_1],
+};
+
+// ============================================================================
 // Index + helpers
 // ============================================================================
 
-export const programTemplates: ProgramTemplate[] = [CROSSFIT_PURE, HYBRID, HYROX_PURE, AT_HOME];
+export const programTemplates: ProgramTemplate[] = [
+  CROSSFIT_PURE,
+  HYBRID,
+  HYROX_PURE,
+  AT_HOME,
+  VOLUME_BLOCK_HYPERTROPHY,
+];
 
 export function getTemplate(slug: string): ProgramTemplate | undefined {
   return programTemplates.find((t) => t.slug === slug);
