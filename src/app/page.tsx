@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { ArrowRight, Dumbbell, Flame, Timer, Activity, Layers, Target } from "lucide-react";
-import { coaches, programs } from "@/lib/data";
-import { ProgramCard } from "@/components/program-card";
+import { coaches } from "@/lib/data";
+import { TemplateCard } from "@/components/template-card";
 import { CoachCard } from "@/components/coach-card";
+import { programTemplates } from "@/lib/programming";
 
 export default function Home() {
-  const featured = programs.slice(0, 4);
+  const featured = programTemplates;
   const topCoaches = coaches.slice(0, 3);
   return (
     <>
@@ -77,18 +78,27 @@ function Ticker() {
   );
 }
 
-function Featured({ featured }: { featured: typeof programs }) {
+function Featured({ featured }: { featured: typeof programTemplates }) {
   return (
     <section className="mx-auto max-w-7xl px-6 py-24">
       <div className="flex items-end justify-between">
         <div>
           <div className="label">[ 01 ] SÉLECTION</div>
-          <h2 className="mt-3 text-3xl font-semibold tracking-tight md:text-5xl">Programmes en vedette</h2>
+          <h2 className="mt-3 text-3xl font-semibold tracking-tight md:text-5xl">
+            Programmes en vedette
+          </h2>
+          <p className="mt-3 max-w-xl text-sm text-[color:var(--color-mute)]">
+            Les programmations EL COACH · accès complet à 9,90€/mois.
+          </p>
         </div>
-        <Link href="/marketplace" className="label hidden hover:text-white md:inline-flex">Tout voir →</Link>
+        <Link href="/marketplace" className="label hidden hover:text-white md:inline-flex">
+          Tout voir →
+        </Link>
       </div>
-      <div className="mt-10 grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        {featured.map((p) => <ProgramCard key={p.slug} program={p} />)}
+      <div className="mt-10 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        {featured.map((t) => (
+          <TemplateCard key={t.slug} template={t} />
+        ))}
       </div>
     </section>
   );

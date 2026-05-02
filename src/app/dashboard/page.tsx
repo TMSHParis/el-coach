@@ -77,7 +77,7 @@ export default async function DashboardPage() {
         {today.template.name} · Semaine {today.weekNumber} · {DAY_FULL_NAMES[today.dayNumber - 1]}
       </p>
 
-      <div className="mt-10 grid gap-px bg-[color:var(--color-line)] md:grid-cols-4">
+      <div className="mt-10 grid gap-px bg-[color:var(--color-line)] grid-cols-2 md:grid-cols-4">
         <KPI icon={<Flame size={16} />} label="STREAK" value="14j" />
         <KPI icon={<Activity size={16} />} label="SÉANCES" value="42" />
         <KPI icon={<Target size={16} />} label="PR CE MOIS" value="3" />
@@ -343,12 +343,12 @@ function ExerciseRow({ exercise }: { exercise: Exercise }) {
 
 function KPI({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
-    <div className="bg-[color:var(--color-ash)] p-6">
-      <div className="flex items-center justify-between">
-        <span className="label">{label}</span>
-        {icon}
+    <div className="bg-[color:var(--color-ash)] p-4 md:p-6">
+      <div className="flex items-center justify-between gap-2">
+        <span className="label truncate">{label}</span>
+        <span className="shrink-0">{icon}</span>
       </div>
-      <div className="mono mt-4 text-3xl font-semibold">{value}</div>
+      <div className="mono mt-3 text-2xl font-semibold md:mt-4 md:text-3xl">{value}</div>
     </div>
   );
 }
