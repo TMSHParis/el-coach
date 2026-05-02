@@ -21,7 +21,7 @@ import {
   type Exercise,
   type WodFormat,
 } from "@/lib/programming";
-import { youtubeSearchUrl } from "@/lib/movements";
+import { VideoModal } from "./video-modal";
 
 type Props = {
   initialBlocks: Block[];
@@ -355,29 +355,37 @@ function ExerciseLine({ exercise }: { exercise: Exercise }) {
   const movement = resolveExerciseMovement(exercise);
   const name = movement?.name ?? exercise.movementId;
   const prescription = formatPrescription(exercise);
-  const videoHref = movement?.videoUrl ?? youtubeSearchUrl(name);
+  const [videoOpen, setVideoOpen] = useState(false);
   return (
-    <li className="flex items-start gap-4 py-4">
-      <div className="flex-1">
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <span className="text-base font-medium">{name}</span>
-          <span className="mono text-xs text-[color:var(--color-mute)]">{prescription}</span>
+    <>
+      <li className="flex items-start gap-4 py-4">
+        <div className="flex-1">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <span className="text-base font-medium">{name}</span>
+            <span className="mono text-xs text-[color:var(--color-mute)]">{prescription}</span>
+          </div>
+          {exercise.notes && (
+            <div className="mt-1 text-xs text-[color:var(--color-mute)]">{exercise.notes}</div>
+          )}
         </div>
-        {exercise.notes && (
-          <div className="mt-1 text-xs text-[color:var(--color-mute)]">{exercise.notes}</div>
-        )}
-      </div>
-      <a
-        href={videoHref}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="mt-1 shrink-0 text-[color:var(--color-mute)] hover:text-white"
-        aria-label={`Vidéo démo · ${name}`}
-        title="Vidéo démo"
-      >
-        <Video size={16} />
-      </a>
-    </li>
+        <button
+          type="button"
+          onClick={() => setVideoOpen(true)}
+          className="mt-1 shrink-0 text-[color:var(--color-mute)] hover:text-white"
+          aria-label={`Vidéo démo · ${name}`}
+          title="Vidéo démo"
+        >
+          <Video size={16} />
+        </button>
+      </li>
+      <VideoModal
+        open={videoOpen}
+        onClose={() => setVideoOpen(false)}
+        title={name}
+        searchQuery={name}
+        videoUrl={movement?.videoUrl}
+      />
+    </>
   );
 }
 

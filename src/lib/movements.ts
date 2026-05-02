@@ -84,10 +84,29 @@ export type Movement = {
   videoUrl?: string; // démonstration officielle (YouTube)
 };
 
-// Helper pour construire des liens YouTube de recherche pour les mouvements
-// non-référencés. Le runner ouvre `videoUrl` si présent, sinon ce fallback.
-export function youtubeSearchUrl(name: string): string {
-  return `https://www.youtube.com/results?search_query=${encodeURIComponent(name + " demo crossfit")}`;
+// Extrait l'ID vidéo YouTube depuis une URL (watch, youtu.be, embed, shorts).
+export function extractYoutubeId(url: string | undefined): string | null {
+  if (!url) return null;
+  const m = url.match(
+    /(?:youtu\.be\/|youtube(?:-nocookie)?\.com\/(?:watch\?v=|embed\/|v\/|shorts\/))([\w-]{11})/,
+  );
+  return m?.[1] ?? null;
+}
+
+// URL d'embed officielle (joue dans l'iframe). Si videoId connu → vidéo précise.
+// Sinon, fallback recherche YouTube intégrée (listType=search — déprécié 2020,
+// mais souvent encore fonctionnel ; on laisse en best-effort).
+export function youtubeEmbedSrc(opts: {
+  videoUrl?: string;
+  searchQuery: string;
+  autoplay?: boolean;
+}): string {
+  const id = extractYoutubeId(opts.videoUrl);
+  const auto = opts.autoplay ? "&autoplay=1" : "";
+  if (id) {
+    return `https://www.youtube-nocookie.com/embed/${id}?rel=0&modestbranding=1${auto}`;
+  }
+  return `https://www.youtube-nocookie.com/embed?listType=search&list=${encodeURIComponent(opts.searchQuery + " demo")}${auto}`;
 }
 
 export const movements: Movement[] = [
