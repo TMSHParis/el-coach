@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import { X, Video as VideoIcon } from "lucide-react";
+import { startTransition, useEffect, useMemo, useRef, useState } from "react";
+import { Loader2, Video as VideoIcon, X } from "lucide-react";
 import { extractYoutubeId } from "@/lib/movements";
 
 type Props = {
@@ -12,9 +12,13 @@ type Props = {
   videoUrl?: string;
 };
 
-export function VideoModal({ open, onClose, title, videoUrl }: Props) {
+export function VideoModal({ open, onClose, title, searchQuery, videoUrl }: Props) {
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const directId = useMemo(() => extractYoutubeId(videoUrl), [videoUrl]);
+  const [searchedId, setSearchedId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
+  // Synchronise l'état du <dialog> avec la prop `open`.
   useEffect(() => {
     const dialog = dialogRef.current;
     if (!dialog) return;
@@ -22,13 +26,41 @@ export function VideoModal({ open, onClose, title, videoUrl }: Props) {
     if (!open && dialog.open) dialog.close();
   }, [open]);
 
+  // Recherche YouTube uniquement quand pas d'URL directe.
+  useEffect(() => {
+    if (!open || directId) return;
+
+    let cancelled = false;
+    startTransition(() => {
+      setLoading(true);
+      setSearchedId(null);
+    });
+
+    fetch(`/api/movement-video?q=${encodeURIComponent(searchQuery)}`)
+      .then((r) => r.json() as Promise<{ videoId: string | null }>)
+      .then((data) => {
+        if (cancelled) return;
+        setSearchedId(data.videoId);
+        setLoading(false);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setSearchedId(null);
+        setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open, directId, searchQuery]);
+
   function handleBackdropClick(e: React.MouseEvent<HTMLDialogElement>) {
     if (e.target === dialogRef.current) onClose();
   }
 
-  const videoId = extractYoutubeId(videoUrl);
-  const embedSrc = videoId
-    ? `https://www.youtube-nocookie.com/embed/${videoId}?rel=0&modestbranding=1&autoplay=1`
+  const resolvedId = directId ?? searchedId;
+  const embedSrc = resolvedId
+    ? `https://www.youtube-nocookie.com/embed/${resolvedId}?rel=0&modestbranding=1&autoplay=1`
     : null;
 
   return (
@@ -53,7 +85,13 @@ export function VideoModal({ open, onClose, title, videoUrl }: Props) {
           </button>
         </div>
         <div className="relative aspect-video w-full bg-black">
-          {open && embedSrc && (
+          {open && loading && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+              <Loader2 size={28} className="animate-spin text-[color:var(--color-mute)]" />
+              <div className="label">RECHERCHE EN COURS</div>
+            </div>
+          )}
+          {open && !loading && embedSrc && (
             <iframe
               src={embedSrc}
               title={`Démo · ${title}`}
@@ -63,13 +101,14 @@ export function VideoModal({ open, onClose, title, videoUrl }: Props) {
               referrerPolicy="strict-origin-when-cross-origin"
             />
           )}
-          {open && !embedSrc && (
+          {open && !loading && !embedSrc && (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-6 text-center">
               <VideoIcon size={36} className="text-[color:var(--color-mute)]" />
-              <div className="label">VIDÉO BIENTÔT DISPONIBLE</div>
+              <div className="label">VIDÉO INDISPONIBLE</div>
               <p className="max-w-sm text-sm text-[color:var(--color-mute)]">
-                La vidéo de démonstration pour <span className="text-white">{title}</span> n&apos;est pas encore intégrée.
-                Elle sera ajoutée dès qu&apos;une URL vérifiée sera référencée.
+                Aucun résultat pour <span className="text-white">{title}</span>.
+                Configure <span className="mono">YOUTUBE_API_KEY</span> pour activer
+                la recherche YouTube intégrée.
               </p>
             </div>
           )}

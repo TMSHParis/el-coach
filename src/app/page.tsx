@@ -28,9 +28,9 @@ function Hero() {
       <div className="grain relative mx-auto max-w-7xl px-6 pt-24 pb-28">
         <div className="label">[ V1 / PROD ] SYSTÈME D&apos;ENTRAÎNEMENT</div>
         <h1 className="mt-6 text-5xl font-semibold leading-[0.95] tracking-tight md:text-7xl lg:text-8xl">
-          ENTRAÎNE-TOI
+          Forge yourself.
           <br />
-          <span className="text-[#8a8a8a]">COMME LES 1%</span>
+          <span className="text-[#8a8a8a]">Anywhere. Always.</span>
         </h1>
         <p className="mt-8 max-w-xl text-base text-[#8a8a8a] md:text-lg">
           Marketplace de programmes écrits par des coachs d&apos;élite. Force, hybride, endurance,
