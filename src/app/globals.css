@@ -134,6 +134,44 @@
       transform: translateX(-50%);
     }
   }
+  .gold-shimmer {
+    background-image: linear-gradient(
+      110deg,
+      #8b6914 0%,
+      #d4af37 20%,
+      #fceabb 40%,
+      #ffffff 50%,
+      #fceabb 60%,
+      #d4af37 80%,
+      #8b6914 100%
+    );
+    background-size: 250% 100%;
+    background-position: 0% 50%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 0 18px rgba(212, 175, 55, 0.18))
+      drop-shadow(0 2px 4px rgba(0, 0, 0, 0.45));
+    animation: gold-shimmer-slide 7s ease-in-out infinite;
+  }
+  @keyframes gold-shimmer-slide {
+    0% {
+      background-position: 0% 50%;
+    }
+    50% {
+      background-position: 100% 50%;
+    }
+    100% {
+      background-position: 0% 50%;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .gold-shimmer {
+      animation: none;
+      background-position: 50% 50%;
+    }
+  }
   .pulse-dot::before {
     content: "";
     display: inline-block;

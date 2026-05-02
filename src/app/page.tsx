@@ -27,12 +27,10 @@ function Hero() {
       <div className="scan pointer-events-none absolute inset-0 opacity-60" />
       <div className="grain relative mx-auto max-w-7xl px-6 pt-24 pb-28">
         <div className="label">[ V1 / PROD ] SYSTÈME D&apos;ENTRAÎNEMENT</div>
-        <h1 className="mt-6 bg-gradient-to-br from-[#fceabb] via-[#d4af37] to-[#8b6914] bg-clip-text text-5xl font-semibold leading-[0.95] tracking-tight text-transparent md:text-7xl lg:text-8xl">
+        <h1 className="gold-shimmer mt-6 text-5xl font-semibold leading-[0.95] tracking-tight md:text-7xl lg:text-8xl">
           Forge yourself.
           <br />
-          <span className="bg-gradient-to-br from-[#e8c97a] via-[#b8902e] to-[#6e5210] bg-clip-text text-transparent">
-            Anywhere. Always.
-          </span>
+          Anywhere. Always.
         </h1>
         <p className="mt-8 max-w-xl text-base text-[#8a8a8a] md:text-lg">
           Marketplace de programmes écrits par des coachs d&apos;élite. Force, hybride, endurance,
@@ -40,10 +38,10 @@ function Hero() {
         </p>
         <div className="mt-10 flex flex-wrap gap-4">
           <Link href="/onboarding" className="btn-primary">
-            Essayer la démo <ArrowRight size={14} />
+            Une semaine d&apos;essai <ArrowRight size={14} />
           </Link>
           <Link href="/marketplace" className="btn-ghost">
-            Explorer les programmes
+            Choisis ton programme
           </Link>
         </div>
         <div className="mt-16 grid grid-cols-2 gap-6 border-t border-[#1f1f1f] pt-8 md:grid-cols-4">
@@ -187,8 +185,8 @@ function CTA() {
         <span className="text-[#8a8a8a]">L&apos;exécution t&apos;appartient.</span>
       </h2>
       <div className="mt-10 flex justify-center gap-4">
-        <Link href="/onboarding" className="btn-primary">Essayer la démo <ArrowRight size={14} /></Link>
-        <Link href="/marketplace" className="btn-ghost">Voir les programmes</Link>
+        <Link href="/onboarding" className="btn-primary">Une semaine d&apos;essai <ArrowRight size={14} /></Link>
+        <Link href="/marketplace" className="btn-ghost">Choisis ton programme</Link>
       </div>
     </section>
   );
