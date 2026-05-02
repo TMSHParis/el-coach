@@ -11,6 +11,12 @@ export type Coach = {
   yearsExp: number;
 };
 
+// Tarification unifiée :
+// - Premier programme : 9,90€/mois (PROGRAM_BASE_PRICE_CENTS).
+// - Chaque programme additionnel : +4,99€/mois (PROGRAM_ADDITIONAL_PRICE_CENTS).
+export const PROGRAM_BASE_PRICE_CENTS = 990;
+export const PROGRAM_ADDITIONAL_PRICE_CENTS = 499;
+
 export type Program = {
   slug: string;
   title: string;
@@ -110,7 +116,7 @@ export const programs: Program[] = [
     level: "INTERMEDIATE",
     weeks: 12,
     sessionsPerWeek: 4,
-    priceCents: 4900,
+    priceCents: 990,
     priceIntervalLabel: "/mois",
     description:
       "Cycle périodisé en 3 blocs (accumulation, intensification, réalisation). Objectif : +15kg sur total SBD en 12 semaines.",
@@ -125,7 +131,7 @@ export const programs: Program[] = [
     level: "ADVANCED",
     weeks: 16,
     sessionsPerWeek: 6,
-    priceCents: 5900,
+    priceCents: 990,
     priceIntervalLabel: "/mois",
     description:
       "Programme hybride force + endurance. Double séance 3x/semaine, cible Hyrox ou athlète polyvalent.",
@@ -140,7 +146,7 @@ export const programs: Program[] = [
     level: "INTERMEDIATE",
     weeks: 8,
     sessionsPerWeek: 5,
-    priceCents: 3900,
+    priceCents: 990,
     priceIntervalLabel: "/mois",
     description:
       "Bloc volume haute fréquence, split Upper/Lower/Push/Pull/Legs. Progression série/rep autopilotée.",
@@ -155,7 +161,7 @@ export const programs: Program[] = [
     level: "ADVANCED",
     weeks: 16,
     sessionsPerWeek: 5,
-    priceCents: 4900,
+    priceCents: 990,
     priceIntervalLabel: "/mois",
     description:
       "Plan marathon sub-3h. Seuils précis, sorties longues progressives, tapering 3 semaines.",
@@ -170,7 +176,7 @@ export const programs: Program[] = [
     level: "BEGINNER",
     weeks: 4,
     sessionsPerWeek: 7,
-    priceCents: 1900,
+    priceCents: 990,
     priceIntervalLabel: "/mois",
     description:
       "Routine 15min/jour pour débloquer hanches, épaules, thoracique. Pensé pour lifters.",
@@ -185,7 +191,7 @@ export const programs: Program[] = [
     level: "ADVANCED",
     weeks: 10,
     sessionsPerWeek: 5,
-    priceCents: 4900,
+    priceCents: 990,
     priceIntervalLabel: "/mois",
     description:
       "Programmation conjuguée pour CrossFit compétiteur. ME / DE / WOD thématisé.",
@@ -200,7 +206,7 @@ export const programs: Program[] = [
     level: "BEGINNER",
     weeks: 8,
     sessionsPerWeek: 3,
-    priceCents: 2900,
+    priceCents: 990,
     priceIntervalLabel: "/mois",
     description:
       "Linear progression pour débutants. 3 séances full-body, apprentissage technique solide.",
@@ -215,7 +221,7 @@ export const programs: Program[] = [
     level: "ADVANCED",
     weeks: 12,
     sessionsPerWeek: 5,
-    priceCents: 5900,
+    priceCents: 990,
     priceIntervalLabel: "/mois",
     description:
       "Sèche structurée avec maintien de la masse. Ajustements macro hebdo, cardio progressif.",

@@ -1,6 +1,10 @@
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
-import { type Program, getCoach } from "@/lib/data";
+import {
+  type Program,
+  getCoach,
+  PROGRAM_ADDITIONAL_PRICE_CENTS,
+} from "@/lib/data";
 import { formatPrice } from "@/lib/utils";
 
 export function ProgramCard({ program }: { program: Program }) {
@@ -35,6 +39,9 @@ export function ProgramCard({ program }: { program: Program }) {
         <div className="text-right">
           <div className="mono text-2xl font-semibold">{formatPrice(program.priceCents)}</div>
           <div className="label">{program.priceIntervalLabel}</div>
+          <div className="mono mt-1 text-[10px] text-[color:var(--color-mute)]">
+            +{formatPrice(PROGRAM_ADDITIONAL_PRICE_CENTS)} / programme additionnel
+          </div>
         </div>
       </div>
     </Link>

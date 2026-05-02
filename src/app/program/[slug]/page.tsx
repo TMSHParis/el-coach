@@ -1,7 +1,12 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Check } from "lucide-react";
-import { getProgram, getCoach, programs } from "@/lib/data";
+import {
+  getProgram,
+  getCoach,
+  programs,
+  PROGRAM_ADDITIONAL_PRICE_CENTS,
+} from "@/lib/data";
 import { formatPrice } from "@/lib/utils";
 import { CheckoutButton } from "./checkout-button";
 
@@ -58,6 +63,9 @@ export default async function ProgramPage({ params }: { params: Promise<{ slug: 
             <div className="mono text-5xl font-semibold">{formatPrice(program.priceCents)}</div>
             <div className="label">{program.priceIntervalLabel}</div>
           </div>
+          <div className="mono mt-2 text-xs text-[color:var(--color-mute)]">
+            +{formatPrice(PROGRAM_ADDITIONAL_PRICE_CENTS)}/mois par programme additionnel
+          </div>
           <div className="mt-6 grid grid-cols-3 gap-3 border-t border-[color:var(--color-line)] pt-4">
             <Meta label="DURÉE" value={`${program.weeks}sem`} />
             <Meta label="SÉANCES" value={`${program.sessionsPerWeek}/sem`} />
@@ -75,6 +83,9 @@ export default async function ProgramPage({ params }: { params: Promise<{ slug: 
             </li>
             <li className="flex items-center gap-2">
               <Check size={14} /> Suivi PR & progression
+            </li>
+            <li className="flex items-center gap-2">
+              <Check size={14} /> Cumul de programmes : {formatPrice(PROGRAM_ADDITIONAL_PRICE_CENTS)}/mois en plus chacun
             </li>
           </ul>
         </aside>
