@@ -12,10 +12,13 @@ import {
   type TodaySession,
 } from "@/lib/demo-session";
 import {
+  blockLetter,
+  formatExerciseLine,
   resolveExerciseMovement,
   type Block,
   type Exercise,
 } from "@/lib/programming";
+import { BlockHeader } from "@/components/block-header";
 import { setFatigue, resetDemo } from "./actions";
 
 export const metadata = { title: "Dashboard — EL COACH" };
@@ -185,7 +188,7 @@ function TodayCard({ today }: { today: TodaySession }) {
 
       <div className="mt-8 space-y-4">
         {today.day.blocks.map((block, i) => (
-          <BlockCard key={`${block.name}-${i}`} block={block} />
+          <BlockCard key={`${block.name}-${i}`} block={block} index={i} />
         ))}
       </div>
 
@@ -196,33 +199,19 @@ function TodayCard({ today }: { today: TodaySession }) {
   );
 }
 
-function BlockCard({ block }: { block: Block }) {
+function BlockCard({ block, index }: { block: Block; index: number }) {
   return (
     <div className="card p-6">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <div>
-          <div className="label">{block.type}</div>
-          <h3 className="mt-1 text-lg font-semibold">{block.name}</h3>
-        </div>
-        <div className="flex items-center gap-3">
-          {block.format && <span className="mono text-xs">{block.format}</span>}
-          {block.duration && (
-            <span className="mono text-xs text-[color:var(--color-mute)]">{block.duration}</span>
-          )}
-          {block.rounds && (
-            <span className="mono text-xs text-[color:var(--color-mute)]">×{block.rounds}</span>
-          )}
-        </div>
-      </div>
+      <BlockHeader block={block} letter={blockLetter(index)} />
 
-      <ul className="mt-4 space-y-2">
+      <ul className="mt-5 space-y-1.5 pl-12">
         {block.exercises.map((ex, i) => (
           <ExerciseRow key={`${ex.movementId}-${i}`} exercise={ex} />
         ))}
       </ul>
 
       {block.notes && (
-        <p className="mono mt-4 border-t border-[color:var(--color-line)] pt-3 text-xs text-[color:var(--color-mute)]">
+        <p className="mono mt-4 border-t border-[color:var(--color-line)] pt-3 pl-12 text-xs text-[color:var(--color-mute)]">
           {block.notes}
         </p>
       )}
@@ -233,38 +222,15 @@ function BlockCard({ block }: { block: Block }) {
 function ExerciseRow({ exercise }: { exercise: Exercise }) {
   const movement = resolveExerciseMovement(exercise);
   const name = movement?.name ?? exercise.movementId;
-  const prescription = formatPrescription(exercise);
+  const { primary, secondary } = formatExerciseLine(exercise, name);
   return (
-    <li className="grid gap-2 md:grid-cols-[1fr_auto]">
-      <div>
-        <div className="text-sm">{name}</div>
-        {exercise.notes && (
-          <div className="mt-1 text-xs text-[color:var(--color-mute)]">{exercise.notes}</div>
-        )}
-      </div>
-      <div className="mono text-xs text-[color:var(--color-mute)] md:text-right">
-        {prescription}
-      </div>
+    <li>
+      <div className="text-sm leading-snug">{primary}</div>
+      {secondary && (
+        <div className="mt-0.5 text-xs text-[color:var(--color-mute)]">{secondary}</div>
+      )}
     </li>
   );
-}
-
-function formatPrescription(ex: Exercise): string {
-  const parts: string[] = [];
-  if (ex.sets !== undefined) {
-    if (ex.reps !== undefined) parts.push(`${ex.sets}×${ex.reps}`);
-    else if (ex.time) parts.push(`${ex.sets}×${ex.time}`);
-    else if (ex.distance) parts.push(`${ex.sets}×${ex.distance}`);
-    else parts.push(`${ex.sets} sets`);
-  } else {
-    if (ex.reps !== undefined) parts.push(`${ex.reps} reps`);
-    if (ex.time && ex.sets === undefined) parts.push(ex.time);
-    if (ex.distance && ex.sets === undefined) parts.push(ex.distance);
-  }
-  if (ex.load) parts.push(`@ ${ex.load}`);
-  if (ex.tempo) parts.push(`T${ex.tempo}`);
-  if (ex.rest) parts.push(`repos ${ex.rest}`);
-  return parts.join(" · ");
 }
 
 function KPI({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {

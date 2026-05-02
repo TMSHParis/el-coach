@@ -1328,3 +1328,114 @@ export function resolveAdaptiveDay(day: Day, fatigueScore: number): Day {
     blocks: [block],
   };
 }
+
+// ============================================================================
+// Helpers d'affichage des blocs (style fiche programmation type SugarWOD)
+// ============================================================================
+
+const SECTION_LABELS: Record<BlockType, string> = {
+  warmup: "WARM UP",
+  strength: "STRENGTH/POWER",
+  skill: "SKILL",
+  wod: "METCON",
+  accessory: "ACCESSORY",
+  conditioning: "CONDITIONING",
+  endurance: "ENDURANCE",
+  cooldown: "COOL DOWN",
+};
+
+export function sectionLabel(block: Block): string {
+  return SECTION_LABELS[block.type] ?? block.type.toUpperCase();
+}
+
+/** Score type affiché en bleu avec trophée à droite du bloc. */
+export function scoreType(block: Block): string | null {
+  if (block.type === "warmup" || block.type === "cooldown") return "For Completion";
+  if (block.type === "strength") return "For Weight";
+  if (block.type === "skill") return "For Quality";
+  if (block.type === "endurance") {
+    return block.format === "Intervals" ? "For Time" : "For Distance";
+  }
+  const fmt = block.format;
+  if (fmt === "ForTime" || fmt === "RFT" || fmt === "Chipper" || fmt === "Simulation")
+    return "For Time";
+  if (fmt === "AMRAP") return "For Reps";
+  if (fmt === "EMOM" || fmt === "E2MOM" || fmt === "E3MOM" || fmt === "Tabata")
+    return "For Quality";
+  if (fmt === "Intervals") return "For Time";
+  if (fmt === "Circuit" || fmt === "Superset" || fmt === "StraightSets")
+    return "For Reps";
+  return null;
+}
+
+/** Sous-titre du bloc — résume le scheme : « 3 Rounds (Not for Time) », « 5 × 4 », « AMRAP 20' », etc. */
+export function blockSchemeLine(block: Block): string | null {
+  const fmt = block.format;
+  const dur = block.duration;
+  const rounds = block.rounds;
+
+  if (block.type === "warmup") {
+    if (rounds) return `${rounds} Rounds (Not for Time)`;
+    if (dur) return `${dur} (Not for Time)`;
+    return "Not for Time";
+  }
+  if (block.type === "cooldown") {
+    if (dur) return `${dur} · Cool Down`;
+    return "Cool Down";
+  }
+
+  if (fmt === "AMRAP" && dur) return `AMRAP ${dur}`;
+  if (fmt === "EMOM" && dur) return `EMOM ${dur}`;
+  if (fmt === "E2MOM" && dur) return `E2MOM ${dur}`;
+  if (fmt === "E3MOM" && dur) return `E3MOM ${dur}`;
+  if (fmt === "ForTime" && rounds) return `${rounds} Rounds For Time${dur ? ` (${dur})` : ""}`;
+  if (fmt === "ForTime" && dur) return `For Time (${dur})`;
+  if (fmt === "ForTime") return "For Time";
+  if (fmt === "RFT" && rounds) return `${rounds} Rounds For Time`;
+  if (fmt === "Tabata") return `Tabata · ${rounds ?? 8} rounds (20s/10s)`;
+  if (fmt === "Intervals") return "Intervals";
+  if (fmt === "Chipper") return `Chipper${dur ? ` (${dur})` : ""}`;
+  if (fmt === "Simulation") return `Simulation${dur ? ` (${dur})` : ""}`;
+  if (fmt === "Circuit" && rounds) return `${rounds} Rounds`;
+  if (fmt === "Superset") return `Superset${rounds ? ` × ${rounds}` : ""}`;
+  if (fmt === "StraightSets") {
+    const ex = block.exercises[0];
+    if (ex?.sets !== undefined && ex.reps !== undefined) return `${ex.sets} × ${ex.reps}`;
+    if (ex?.sets !== undefined) return `${ex.sets} sets`;
+    return "Straight Sets";
+  }
+
+  if (dur) return dur;
+  if (rounds) return `${rounds} Rounds`;
+  return null;
+}
+
+/** Lettre du badge (A, B, C, …) — passe « i » pour les notes/instructions. */
+export function blockLetter(index: number): string {
+  return String.fromCharCode(65 + index);
+}
+
+/** Une ligne d'exercice formatée en texte plat type "8 Power Snatch (RX - 95/65)". */
+export function formatExerciseLine(
+  ex: Exercise,
+  movementName: string,
+): { primary: string; secondary?: string } {
+  const parts: string[] = [];
+  if (ex.sets !== undefined && ex.reps !== undefined) parts.push(`${ex.sets} × ${ex.reps}`);
+  else if (ex.sets !== undefined && ex.time) parts.push(`${ex.sets} × ${ex.time}`);
+  else if (ex.sets !== undefined && ex.distance) parts.push(`${ex.sets} × ${ex.distance}`);
+  else if (ex.reps !== undefined) parts.push(String(ex.reps));
+  else if (ex.distance) parts.push(ex.distance);
+  else if (ex.time) parts.push(ex.time);
+
+  parts.push(movementName);
+
+  if (ex.load) parts.push(`(${ex.load})`);
+  if (ex.tempo) parts.push(`tempo ${ex.tempo}`);
+  if (ex.rest) parts.push(`· rest ${ex.rest}`);
+
+  return {
+    primary: parts.join(" "),
+    secondary: ex.notes,
+  };
+}

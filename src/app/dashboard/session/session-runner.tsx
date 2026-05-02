@@ -16,11 +16,14 @@ import {
   Video,
 } from "lucide-react";
 import {
+  blockLetter,
+  formatExerciseLine,
   resolveExerciseMovement,
   type Block,
   type Exercise,
   type WodFormat,
 } from "@/lib/programming";
+import { BlockHeader } from "@/components/block-header";
 import { VideoModal } from "./video-modal";
 
 type Props = {
@@ -146,6 +149,7 @@ export default function SessionRunner({
       />
 
       <BlockFocus
+        key={`block-${stepIndex}`}
         block={block}
         stepIndex={stepIndex}
         totalSteps={blocks.length}
@@ -286,38 +290,28 @@ function BlockFocus({
   onComplete: () => void;
 }) {
   const isWarmupOrCooldown = block.type === "warmup" || block.type === "cooldown";
+  const letter = blockLetter(stepIndex);
 
   return (
     <div className="mt-10 card p-6 md:p-8">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <div>
-          <div className="label">
-            BLOC {stepIndex + 1} / {totalSteps} · {block.type}
-          </div>
-          <h2 className="mt-2 text-2xl font-semibold md:text-3xl">{block.name}</h2>
-        </div>
-        <div className="flex items-center gap-3">
-          {block.format && <span className="mono text-sm">{block.format}</span>}
-          {block.duration && (
-            <span className="mono text-sm text-[color:var(--color-mute)]">{block.duration}</span>
-          )}
-          {block.rounds && (
-            <span className="mono text-sm text-[color:var(--color-mute)]">×{block.rounds}</span>
-          )}
-        </div>
+      <div className="mono text-xs text-[color:var(--color-mute)]">
+        BLOC {stepIndex + 1} / {totalSteps}
+      </div>
+      <div className="mt-3">
+        <BlockHeader block={block} letter={letter} />
       </div>
 
       {/* Timer dédié selon le format du bloc */}
       <BlockTimer block={block} />
 
-      <ul className="mt-6 divide-y divide-[color:var(--color-line)]">
+      <ul className="mt-6 space-y-2 pl-12">
         {block.exercises.map((ex, i) => (
           <ExerciseLine key={`${ex.movementId}-${i}`} exercise={ex} />
         ))}
       </ul>
 
       {block.notes && (
-        <p className="mono mt-6 border-t border-[color:var(--color-line)] pt-4 text-xs text-[color:var(--color-mute)]">
+        <p className="mono mt-6 border-t border-[color:var(--color-line)] pt-4 pl-12 text-xs text-[color:var(--color-mute)]">
           {block.notes}
         </p>
       )}
@@ -354,20 +348,24 @@ function BlockFocus({
 function ExerciseLine({ exercise }: { exercise: Exercise }) {
   const movement = resolveExerciseMovement(exercise);
   const name = movement?.name ?? exercise.movementId;
-  const prescription = formatPrescription(exercise);
+  const { primary, secondary } = formatExerciseLine(exercise, name);
   const [videoOpen, setVideoOpen] = useState(false);
   return (
     <>
-      <li className="flex items-start gap-4 py-4">
-        <div className="flex-1">
-          <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <span className="text-base font-medium">{name}</span>
-            <span className="mono text-xs text-[color:var(--color-mute)]">{prescription}</span>
-          </div>
-          {exercise.notes && (
-            <div className="mt-1 text-xs text-[color:var(--color-mute)]">{exercise.notes}</div>
+      <li className="flex items-start gap-3">
+        <button
+          type="button"
+          onClick={() => setVideoOpen(true)}
+          className="group flex-1 text-left"
+          aria-label={`Vidéo démo · ${name}`}
+        >
+          <span className="text-base leading-snug group-hover:underline">{primary}</span>
+          {secondary && (
+            <span className="mt-0.5 block text-xs text-[color:var(--color-mute)]">
+              {secondary}
+            </span>
           )}
-        </div>
+        </button>
         <button
           type="button"
           onClick={() => setVideoOpen(true)}
@@ -838,20 +836,3 @@ function SessionDoneScreen({
   );
 }
 
-function formatPrescription(ex: Exercise): string {
-  const parts: string[] = [];
-  if (ex.sets !== undefined) {
-    if (ex.reps !== undefined) parts.push(`${ex.sets}×${ex.reps}`);
-    else if (ex.time) parts.push(`${ex.sets}×${ex.time}`);
-    else if (ex.distance) parts.push(`${ex.sets}×${ex.distance}`);
-    else parts.push(`${ex.sets} sets`);
-  } else {
-    if (ex.reps !== undefined) parts.push(`${ex.reps} reps`);
-    if (ex.time && ex.sets === undefined) parts.push(ex.time);
-    if (ex.distance && ex.sets === undefined) parts.push(ex.distance);
-  }
-  if (ex.load) parts.push(`@ ${ex.load}`);
-  if (ex.tempo) parts.push(`T${ex.tempo}`);
-  if (ex.rest) parts.push(`repos ${ex.rest}`);
-  return parts.join(" · ");
-}
