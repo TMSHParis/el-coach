@@ -7,8 +7,11 @@ export function Footer() {
         <div className="col-span-2">
           <div className="mono text-lg font-semibold tracking-[0.3em]">EL COACH</div>
           <p className="mt-4 max-w-sm text-sm text-[color:var(--color-mute)]">
-            Marketplace de programmes conçus par des coachs d&apos;élite. Force, hybride, endurance,
-            hypertrophie, mobilité. Pas de promesses, des méthodes.
+            Programmes conçus par un coach d&apos;élite.
+            <br />
+            CrossFit Pure, Hybrid Engine, Hyrox, At Home, Volume Block Hypertrophy.
+            <br />
+            Pas de promesses, des méthodes.
           </p>
         </div>
         <div>

@@ -10,9 +10,9 @@ const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "EL COACH — Marketplace d'entraînement",
+  title: "EL COACH — Cinq programmes, une seule plateforme",
   description:
-    "Programmes de coachs d'élite. Force, hybride, endurance, hypertrophie. Coaching sérieux sans bruit.",
+    "Programmes écrits par un coach d'élite. CrossFit Pure, Hybrid Engine, Hyrox, At Home, Volume Block Hypertrophy. Suivi quotidien, progression mesurable.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

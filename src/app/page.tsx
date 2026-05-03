@@ -1,20 +1,16 @@
 import Link from "next/link";
-import { ArrowRight, Dumbbell, Flame, Timer, Activity, Layers, Target } from "lucide-react";
-import { coaches } from "@/lib/data";
+import { ArrowRight, Dumbbell, Flame, Timer, Activity, Layers } from "lucide-react";
 import { TemplateCard } from "@/components/template-card";
-import { CoachCard } from "@/components/coach-card";
 import { programTemplates } from "@/lib/programming";
 
 export default function Home() {
   const featured = programTemplates;
-  const topCoaches = coaches.slice(0, 3);
   return (
     <>
       <Hero />
       <Ticker />
       <Featured featured={featured} />
       <Pillars />
-      <Coaches coaches={topCoaches} />
       <How />
       <CTA />
     </>
@@ -26,15 +22,17 @@ function Hero() {
     <section className="hairline-b relative overflow-hidden">
       <div className="scan pointer-events-none absolute inset-0 opacity-60" />
       <div className="grain relative mx-auto max-w-7xl px-6 pt-24 pb-28">
-        <div className="label">[ V1 / PROD ] SYSTÈME D&apos;ENTRAÎNEMENT</div>
         <h1 className="gold-shimmer mt-6 text-5xl font-semibold leading-[0.95] tracking-tight md:text-7xl lg:text-8xl">
           Forge yourself.
           <br />
           Anywhere. Always.
         </h1>
         <p className="mt-8 max-w-xl text-base text-[#8a8a8a] md:text-lg">
-          Marketplace de programmes écrits par des coachs d&apos;élite. Force, hybride, endurance,
-          hypertrophie, mobilité. Suivi quotidien, progression mesurable, aucune fioriture.
+          Programmes écrits par un coach d&apos;élite.
+          <br />
+          CrossFit Pure, Hybrid Engine, Hyrox, At Home, Volume Block Hypertrophy.
+          <br />
+          Suivi quotidien, progression mesurable, aucune fioriture.
         </p>
         <div className="mt-10 flex flex-wrap gap-4">
           <Link href="/onboarding" className="btn-primary">
@@ -65,13 +63,21 @@ function HeroStat({ label, value }: { label: string; value: string }) {
 }
 
 function Ticker() {
-  const items = ["FORCE", "HYBRIDE", "ENDURANCE", "HYPERTROPHIE", "MOBILITÉ", "CROSSFIT", "POWERLIFTING", "HYROX", "MARATHON", "PREHAB"];
-  const doubled = [...items, ...items];
+  const items = [
+    "CROSSFIT PURE",
+    "HYBRID ENGINE",
+    "HYROX PURE",
+    "VOLUME BLOCK HYPERTROPHY",
+    "AT HOME",
+  ];
+  const doubled = [...items, ...items, ...items];
   return (
     <div className="hairline-b overflow-hidden">
       <div className="ticker flex gap-12 py-4 whitespace-nowrap">
         {doubled.map((t, i) => (
-          <span key={i} className="mono text-xs tracking-[0.4em] text-[#8a8a8a]">◇ {t}</span>
+          <span key={i} className="mono text-xs tracking-[0.4em] text-[#8a8a8a]">
+            ◇ {t}
+          </span>
         ))}
       </div>
     </div>
@@ -106,18 +112,38 @@ function Featured({ featured }: { featured: typeof programTemplates }) {
 
 function Pillars() {
   const items = [
-    { icon: Dumbbell, title: "FORCE", body: "Cycles périodisés, SBD testé. Des PR mesurés." },
-    { icon: Flame, title: "HYBRIDE", body: "Soulever lourd + courir vite. Sans compromis." },
-    { icon: Timer, title: "ENDURANCE", body: "Zone 2, seuils, tapering. Pour marathon à 100k." },
-    { icon: Activity, title: "HYPERTROPHIE", body: "Volume/fréquence. RIR maîtrisé." },
-    { icon: Layers, title: "MOBILITÉ", body: "Quotidien 15min. Prehab qui fonctionne." },
-    { icon: Target, title: "COMPÉTITION", body: "CrossFit, Hyrox, powerlifting. Peak day." },
+    {
+      icon: Flame,
+      title: "CROSSFIT PURE",
+      body: "WODs programmés, cycles force intégrés. Des performances qui se mesurent.",
+    },
+    {
+      icon: Activity,
+      title: "HYBRID ENGINE",
+      body: "Soulever lourd + courir vite. Force et cardio, sans compromis.",
+    },
+    {
+      icon: Timer,
+      title: "HYROX PURE",
+      body: "Stations maîtrisées, seuils optimisés. Prêt pour le jour J.",
+    },
+    {
+      icon: Dumbbell,
+      title: "VOLUME BLOCK HYPERTROPHY",
+      body: "Surcharge progressive, fréquence ciblée. RIR maîtrisé, muscle construit.",
+    },
+    {
+      icon: Layers,
+      title: "AT HOME",
+      body: "Poids du corps, zéro matériel. Résultats concrets, n'importe où.",
+    },
   ];
   return (
     <section className="hairline-t hairline-b bg-[#0a0a0a]">
       <div className="mx-auto max-w-7xl px-6 py-20">
-        <div className="label">[ 02 ] DISCIPLINES</div>
-        <h2 className="mt-3 max-w-3xl text-3xl font-semibold tracking-tight md:text-5xl">Six piliers. Une seule plateforme.</h2>
+        <h2 className="max-w-3xl text-3xl font-semibold tracking-tight md:text-5xl">
+          Cinq programmes. Une seule plateforme.
+        </h2>
         <div className="mt-12 grid gap-px bg-[#1f1f1f] md:grid-cols-3">
           {items.map(({ icon: Icon, title, body }) => (
             <div key={title} className="bg-[#0a0a0a] p-8">
@@ -127,23 +153,6 @@ function Pillars() {
             </div>
           ))}
         </div>
-      </div>
-    </section>
-  );
-}
-
-function Coaches({ coaches }: { coaches: typeof import("@/lib/data").coaches }) {
-  return (
-    <section className="mx-auto max-w-7xl px-6 py-24">
-      <div className="flex items-end justify-between">
-        <div>
-          <div className="label">[ 03 ] COACHS</div>
-          <h2 className="mt-3 text-3xl font-semibold tracking-tight md:text-5xl">Écrits par ceux qui pratiquent.</h2>
-        </div>
-        <Link href="/coaches" className="label hidden hover:text-white md:inline-flex">Tous les coachs →</Link>
-      </div>
-      <div className="mt-10 grid gap-6 md:grid-cols-3">
-        {coaches.map((c) => <CoachCard key={c.slug} coach={c} />)}
       </div>
     </section>
   );
@@ -159,8 +168,9 @@ function How() {
   return (
     <section className="hairline-t bg-[#0a0a0a]">
       <div className="mx-auto max-w-7xl px-6 py-20">
-        <div className="label">[ 04 ] PROTOCOLE</div>
-        <h2 className="mt-3 max-w-3xl text-3xl font-semibold tracking-tight md:text-5xl">Quatre étapes. Zéro excuse.</h2>
+        <h2 className="max-w-3xl text-3xl font-semibold tracking-tight md:text-5xl">
+          Quatre étapes. Zéro excuse.
+        </h2>
         <div className="mt-12 grid gap-px bg-[#1f1f1f] md:grid-cols-4">
           {steps.map((s) => (
             <div key={s.n} className="bg-[#0a0a0a] p-8">
@@ -178,15 +188,18 @@ function How() {
 function CTA() {
   return (
     <section className="mx-auto max-w-7xl px-6 py-28 text-center">
-      <div className="label">[ 05 ] DÉCISION</div>
-      <h2 className="mt-4 text-4xl font-semibold tracking-tight md:text-6xl">
+      <h2 className="text-4xl font-semibold tracking-tight md:text-6xl">
         Le plan arrive.
         <br />
         <span className="text-[#8a8a8a]">L&apos;exécution t&apos;appartient.</span>
       </h2>
       <div className="mt-10 flex justify-center gap-4">
-        <Link href="/onboarding" className="btn-primary">Une semaine d&apos;essai <ArrowRight size={14} /></Link>
-        <Link href="/marketplace" className="btn-ghost">Choisis ton programme</Link>
+        <Link href="/onboarding" className="btn-primary">
+          Une semaine d&apos;essai <ArrowRight size={14} />
+        </Link>
+        <Link href="/marketplace" className="btn-ghost">
+          Choisis ton programme
+        </Link>
       </div>
     </section>
   );

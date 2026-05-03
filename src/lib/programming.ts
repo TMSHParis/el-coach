@@ -424,7 +424,7 @@ export const CROSSFIT_PURE: ProgramTemplate = {
   daysPerWeek: 6,
   equipment: ["barbell", "rack", "rower", "assault_bike", "pullup_bar", "rings", "wallball", "kettlebell", "dumbbell", "box"],
   summary:
-    "Programmation CrossFit conjugate : force (squat / tirage / press) + olympique + gymnastique + metcon varié.",
+    "Force conjuguée, mouvements olympiques, gymnastique, metcons variés. Un seul objectif : progresser sur tous les fronts.",
   weeks: [CROSSFIT_WEEK_1],
 };
 
@@ -622,7 +622,7 @@ export const HYBRID: ProgramTemplate = {
   daysPerWeek: 5,
   equipment: ["barbell", "rack", "bench", "dumbbell", "kettlebell", "wallball", "pullup_bar", "sled", "rower", "outdoor"],
   summary:
-    "Hybride 5j fixes + 1 optionnel : Lun CrossFit · Mar Musculation push · Mer Cooldown adaptatif (walk/run/boxe/swim/rest selon fatigue) · Jeu CrossFit · Ven Musculation pull · Sam Rest · Dim CrossFit optionnel.",
+    "CrossFit, musculation, récupération active. Cinq jours fixes, un optionnel. Force le lundi, puissance le jeudi. Un jour adaptatif — marche, course, boxe, natation ou repos selon ce que le corps réclame. Un moteur qui ne s'arrête pas.",
   weeks: [HYBRID_WEEK_1],
 };
 
@@ -800,7 +800,7 @@ export const HYROX_PURE: ProgramTemplate = {
   daysPerWeek: 6,
   equipment: ["rower", "ski_erg", "sled", "kettlebell", "sandbag", "wallball", "outdoor"],
   summary:
-    "6j/semaine ciblé Hyrox : force jambes/haut, intervalles compromised running, simulations half & full, Zone 2 long, stations sur volume à pace compétition.",
+    "Six jours par semaine. Force jambes, force haut du corps, intervalles en compromised running. Simulations half et full. Zone 2 longue. Stations travaillées en volume au pace compétition. Chaque séance te rapproche de la ligne de départ.",
   weeks: [HYROX_WEEK_1],
 };
 
@@ -1032,7 +1032,7 @@ export const AT_HOME: ProgramTemplate = {
   daysPerWeek: 5,
   equipment: ["none", "jump_rope", "mat", "dumbbell", "kettlebell"],
   summary:
-    "Programme maison 5-6j/semaine. Bodyweight prioritaire, DB/KB/corde optionnels. Full-body accessible débutant → intermédiaire. Option run extérieur pour l'endurance.",
+    "Cinq à six jours par semaine. Poids du corps en priorité, haltères, kettlebell ou corde en option. Full body accessible, du débutant à l'intermédiaire. Une sortie run pour l'endurance quand les murs se resserrent. Aucune excuse, aucun équipement obligatoire.",
   weeks: [HOME_WEEK_1],
 };
 
@@ -1291,7 +1291,7 @@ export const VOLUME_BLOCK_HYPERTROPHY: ProgramTemplate = {
   daysPerWeek: 5,
   equipment: ["barbell", "rack", "bench", "dumbbell", "kettlebell", "pullup_bar", "rings", "box"],
   summary:
-    "Bloc volume haute fréquence · split Upper / Lower / Push / Pull / Legs. Progression série/rep autopilotée : ajouter une rep par set jusqu'au plafond, puis +1 set, puis +charge.",
+    "Upper, Lower, Push, Pull, Legs. Haute fréquence, volume maîtrisé. Une rep de plus, un set de plus, une charge de plus. La progression s'autopilote. Construire du muscle sans se poser de questions.",
   weeks: [HYPER_WEEK_1],
 };
 
