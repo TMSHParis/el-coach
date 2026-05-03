@@ -3,17 +3,18 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  ArrowLeft,
-  ArrowRight,
-  ArrowUp,
   ArrowDown,
+  ArrowLeft,
+  ArrowUp,
   Check,
   Dumbbell,
+  MoreHorizontal,
   Pause,
   Play,
   PlayCircle,
   RotateCcw,
   Video,
+  X,
 } from "lucide-react";
 import {
   blockLetter,
@@ -41,7 +42,6 @@ type PerfEntry = {
   notes?: string;
 };
 
-// Parse une durée type "10min", "30s", "sub 8min", "12min" → secondes (heuristique).
 function parseDurationSeconds(input?: string): number | null {
   if (!input) return null;
   const cleaned = input.replace(/sub\s*/i, "").trim();
@@ -59,6 +59,10 @@ function formatClock(seconds: number): string {
   return `${sign}${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
+// ============================================================================
+// SESSION RUNNER — liste scrollable Project Beef style
+// ============================================================================
+
 export default function SessionRunner({
   initialBlocks,
   templateName,
@@ -67,22 +71,18 @@ export default function SessionRunner({
   estimatedMinutes,
 }: Props) {
   const [blocks, setBlocks] = useState<Block[]>(initialBlocks);
-  const [stepIndex, setStepIndex] = useState(0);
-  const [done, setDone] = useState(false);
-  const [completedBlocks, setCompletedBlocks] = useState<Set<number>>(new Set());
+  const [activeIdx, setActiveIdx] = useState<number | null>(null);
+  const [completed, setCompleted] = useState<Set<number>>(new Set());
   const [perf, setPerf] = useState<Record<number, PerfEntry>>({});
-
-  // Chrono total séance (démarre au mount).
+  const [done, setDone] = useState(false);
   const [sessionElapsed, setSessionElapsed] = useState(0);
+
+  // Chrono total démarre au mount, s'arrête une fois la séance terminée.
   useEffect(() => {
     if (done) return;
     const id = setInterval(() => setSessionElapsed((s) => s + 1), 1000);
     return () => clearInterval(id);
   }, [done]);
-
-  const block = blocks[stepIndex];
-  const isFirst = stepIndex === 0;
-  const isLast = stepIndex === blocks.length - 1;
 
   function moveBlock(from: number, to: number) {
     if (to < 0 || to >= blocks.length) return;
@@ -92,12 +92,37 @@ export default function SessionRunner({
       next.splice(to, 0, moved);
       return next;
     });
-    if (stepIndex === from) setStepIndex(to);
-    else if (stepIndex === to) setStepIndex(from);
+    if (activeIdx === from) setActiveIdx(to);
+    else if (activeIdx === to) setActiveIdx(from);
+
+    // Décale aussi les sets `completed` et `perf` car les indices changent.
+    setCompleted((prev) => {
+      const next = new Set<number>();
+      prev.forEach((idx) => {
+        if (idx === from) next.add(to);
+        else if (from < to && idx > from && idx <= to) next.add(idx - 1);
+        else if (from > to && idx < from && idx >= to) next.add(idx + 1);
+        else next.add(idx);
+      });
+      return next;
+    });
+    setPerf((prev) => {
+      const next: Record<number, PerfEntry> = {};
+      Object.entries(prev).forEach(([k, v]) => {
+        const i = Number(k);
+        let newI = i;
+        if (i === from) newI = to;
+        else if (from < to && i > from && i <= to) newI = i - 1;
+        else if (from > to && i < from && i >= to) newI = i + 1;
+        next[newI] = v;
+      });
+      return next;
+    });
   }
 
   function completeBlock(idx: number) {
-    setCompletedBlocks((prev) => new Set(prev).add(idx));
+    setCompleted((prev) => new Set(prev).add(idx));
+    setActiveIdx((curr) => (curr === idx ? null : curr));
   }
 
   function updatePerf(idx: number, patch: Partial<PerfEntry>) {
@@ -111,10 +136,14 @@ export default function SessionRunner({
         sessionElapsed={sessionElapsed}
         blocks={blocks}
         perf={perf}
+        completed={completed}
         estimatedMinutes={estimatedMinutes}
       />
     );
   }
+
+  const completedCount = completed.size;
+  const totalCount = blocks.length;
 
   return (
     <section className="mx-auto max-w-3xl px-6 py-12">
@@ -125,84 +154,83 @@ export default function SessionRunner({
         <ArrowLeft size={14} /> Quitter la séance
       </Link>
 
-      <header className="mt-8 flex flex-wrap items-end justify-between gap-4">
+      <header className="mt-8 grid gap-4 md:grid-cols-[1fr_auto] md:items-end">
         <div>
           <div className="label">
             [ {templateName.toUpperCase()} · {dayLabel.toUpperCase()} ]
           </div>
-          <h1 className="mt-3 text-3xl font-semibold tracking-tight md:text-4xl">{focus}</h1>
+          <h1 className="mt-3 text-3xl font-semibold tracking-tight md:text-4xl">
+            {focus}
+          </h1>
+          <div className="mono mt-2 text-xs text-[color:var(--color-mute)]">
+            {totalCount} blocs · {completedCount}/{totalCount} fait
+            {estimatedMinutes > 0 && <> · estimé {estimatedMinutes}min</>}
+          </div>
         </div>
         <div className="card px-4 py-3 text-right">
           <div className="label">CHRONO SÉANCE</div>
-          <div className="mono mt-1 text-2xl font-semibold tabular-nums">{formatClock(sessionElapsed)}</div>
+          <div className="mono mt-1 text-2xl font-semibold tabular-nums">
+            {formatClock(sessionElapsed)}
+          </div>
         </div>
       </header>
 
-      <StepProgress total={blocks.length} current={stepIndex} completed={completedBlocks} />
+      <ProgressBar total={totalCount} completed={completed} activeIdx={activeIdx} />
 
-      <BlockReorder
-        blocks={blocks}
-        currentIndex={stepIndex}
-        completed={completedBlocks}
-        onJump={setStepIndex}
-        onMove={moveBlock}
-      />
+      <ol className="mt-8 space-y-4">
+        {blocks.map((block, i) => (
+          <BlockCard
+            key={`${block.name}-${i}`}
+            block={block}
+            index={i}
+            totalCount={totalCount}
+            isActive={activeIdx === i}
+            isCompleted={completed.has(i)}
+            perf={perf[i]}
+            onActivate={() => setActiveIdx(activeIdx === i ? null : i)}
+            onComplete={() => completeBlock(i)}
+            onUpdatePerf={(patch) => updatePerf(i, patch)}
+            onMoveUp={() => moveBlock(i, i - 1)}
+            onMoveDown={() => moveBlock(i, i + 1)}
+          />
+        ))}
+      </ol>
 
-      <BlockFocus
-        key={`block-${stepIndex}`}
-        block={block}
-        stepIndex={stepIndex}
-        totalSteps={blocks.length}
-        perf={perf[stepIndex]}
-        onUpdatePerf={(patch) => updatePerf(stepIndex, patch)}
-        completed={completedBlocks.has(stepIndex)}
-        onComplete={() => completeBlock(stepIndex)}
-      />
-
-      <nav className="mt-10 grid grid-cols-2 gap-3">
-        {isFirst ? (
-          <Link href="/dashboard" className="btn-ghost justify-center">
-            <ArrowLeft size={14} /> Dashboard
-          </Link>
-        ) : (
-          <button onClick={() => setStepIndex(stepIndex - 1)} className="btn-ghost justify-center">
-            <ArrowLeft size={14} /> Bloc précédent
-          </button>
-        )}
-        {isLast ? (
-          <button onClick={() => setDone(true)} className="btn-primary justify-center">
-            Terminer <Check size={14} />
-          </button>
-        ) : (
-          <button onClick={() => setStepIndex(stepIndex + 1)} className="btn-primary justify-center">
-            Bloc suivant <ArrowRight size={14} />
-          </button>
-        )}
-      </nav>
+      <div className="mt-10 grid gap-3 md:grid-cols-2">
+        <Link href="/dashboard" className="btn-ghost justify-center">
+          <ArrowLeft size={14} /> Retour dashboard
+        </Link>
+        <button onClick={() => setDone(true)} className="btn-primary justify-center">
+          Terminer la séance <Check size={14} />
+        </button>
+      </div>
     </section>
   );
 }
 
-function StepProgress({
+function ProgressBar({
   total,
-  current,
   completed,
+  activeIdx,
 }: {
   total: number;
-  current: number;
   completed: Set<number>;
+  activeIdx: number | null;
 }) {
   return (
-    <div className="mt-8 flex gap-2">
+    <div className="mt-8 flex gap-1.5">
       {Array.from({ length: total }).map((_, i) => {
         const isDone = completed.has(i);
-        const isCurrent = i === current;
-        const isPast = i < current;
+        const isActive = activeIdx === i;
         return (
           <div
             key={i}
-            className={`h-1 flex-1 ${
-              isDone ? "bg-emerald-400" : isCurrent || isPast ? "bg-white" : "bg-[color:var(--color-line)]"
+            className={`h-1.5 flex-1 transition-colors ${
+              isDone
+                ? "bg-emerald-400"
+                : isActive
+                  ? "bg-white"
+                  : "bg-[color:var(--color-line)]"
             }`}
           />
         );
@@ -211,133 +239,142 @@ function StepProgress({
   );
 }
 
-function BlockReorder({
-  blocks,
-  currentIndex,
-  completed,
-  onJump,
-  onMove,
-}: {
-  blocks: Block[];
-  currentIndex: number;
-  completed: Set<number>;
-  onJump: (idx: number) => void;
-  onMove: (from: number, to: number) => void;
-}) {
-  return (
-    <details className="mt-6 group">
-      <summary className="label cursor-pointer text-[color:var(--color-mute)] hover:text-white">
-        ▸ Plan de séance · {blocks.length} blocs (clic pour intervertir)
-      </summary>
-      <ul className="mt-3 space-y-1">
-        {blocks.map((b, i) => {
-          const active = i === currentIndex;
-          const isDone = completed.has(i);
-          return (
-            <li
-              key={`${b.name}-${i}`}
-              className={`flex items-center gap-2 border border-[color:var(--color-line)] px-3 py-2 text-sm ${
-                active ? "border-white bg-[color:var(--color-ash)]" : ""
-              }`}
-            >
-              <button
-                onClick={() => onJump(i)}
-                className={`flex-1 text-left ${active ? "font-semibold" : ""}`}
-              >
-                <span className="mono mr-2 text-xs text-[color:var(--color-mute)]">{i + 1}.</span>
-                {b.name}
-                {isDone && <span className="ml-2 text-xs text-emerald-400">✓</span>}
-              </button>
-              <button
-                onClick={() => onMove(i, i - 1)}
-                disabled={i === 0}
-                className="p-1 text-[color:var(--color-mute)] hover:text-white disabled:opacity-20"
-                aria-label="Monter"
-              >
-                <ArrowUp size={14} />
-              </button>
-              <button
-                onClick={() => onMove(i, i + 1)}
-                disabled={i === blocks.length - 1}
-                className="p-1 text-[color:var(--color-mute)] hover:text-white disabled:opacity-20"
-                aria-label="Descendre"
-              >
-                <ArrowDown size={14} />
-              </button>
-            </li>
-          );
-        })}
-      </ul>
-    </details>
-  );
-}
+// ============================================================================
+// Carte de bloc — toujours affiche header + exercices, expand = timer + perf
+// ============================================================================
 
-function BlockFocus({
+function BlockCard({
   block,
-  stepIndex,
-  totalSteps,
+  index,
+  totalCount,
+  isActive,
+  isCompleted,
   perf,
-  onUpdatePerf,
-  completed,
+  onActivate,
   onComplete,
+  onUpdatePerf,
+  onMoveUp,
+  onMoveDown,
 }: {
   block: Block;
-  stepIndex: number;
-  totalSteps: number;
+  index: number;
+  totalCount: number;
+  isActive: boolean;
+  isCompleted: boolean;
   perf?: PerfEntry;
-  onUpdatePerf: (patch: Partial<PerfEntry>) => void;
-  completed: boolean;
+  onActivate: () => void;
   onComplete: () => void;
+  onUpdatePerf: (patch: Partial<PerfEntry>) => void;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
 }) {
   const isWarmupOrCooldown = block.type === "warmup" || block.type === "cooldown";
-  const letter = blockLetter(stepIndex);
+  const isFirst = index === 0;
+  const isLast = index === totalCount - 1;
 
   return (
-    <div className="mt-10 card p-6 md:p-8">
-      <div className="mono text-xs text-[color:var(--color-mute)]">
-        BLOC {stepIndex + 1} / {totalSteps}
-      </div>
-      <div className="mt-3">
-        <BlockHeader block={block} letter={letter} />
+    <li
+      className={`relative card p-5 transition-colors md:p-6 ${
+        isActive ? "border-white" : ""
+      } ${isCompleted ? "opacity-60" : ""}`}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex-1">
+          <BlockHeader block={block} letter={blockLetter(index)} />
+        </div>
+        <BlockMenu
+          isFirst={isFirst}
+          isLast={isLast}
+          onMoveUp={onMoveUp}
+          onMoveDown={onMoveDown}
+        />
       </div>
 
-      {/* Timer dédié selon le format du bloc */}
-      <BlockTimer block={block} />
-
-      <ul className="mt-6 space-y-2 pl-12">
+      <ul className="mt-5 space-y-1.5 pl-12">
         {block.exercises.map((ex, i) => (
-          <ExerciseLine key={`${ex.movementId}-${i}`} exercise={ex} />
+          <ExerciseRow key={`${ex.movementId}-${i}`} exercise={ex} />
         ))}
       </ul>
 
       {block.notes && (
-        <p className="mono mt-6 border-t border-[color:var(--color-line)] pt-4 pl-12 text-xs text-[color:var(--color-mute)]">
+        <p className="mono mt-4 border-t border-[color:var(--color-line)] pt-3 pl-12 text-xs text-[color:var(--color-mute)]">
           {block.notes}
         </p>
       )}
 
-      {/* Saisie performances pour les blocs WOD/conditioning/strength */}
-      {!isWarmupOrCooldown && (
-        <PerfInput block={block} perf={perf} onChange={onUpdatePerf} />
-      )}
-
-      {/* Mark as completed pour warmup / cooldown */}
-      {isWarmupOrCooldown && (
-        <div className="mt-6 border-t border-[color:var(--color-line)] pt-4">
+      {/* CTA d'activation OU contenu expanded */}
+      <div className="mt-5 border-t border-[color:var(--color-line)] pt-4">
+        {isCompleted ? (
+          <div className="flex items-center justify-center gap-2 text-sm text-emerald-400">
+            <Check size={16} /> Bloc terminé
+          </div>
+        ) : !isActive ? (
           <button
-            onClick={onComplete}
-            disabled={completed}
-            className={`btn-primary w-full justify-center ${completed ? "opacity-60" : ""}`}
+            onClick={onActivate}
+            className="btn-primary w-full justify-center"
           >
-            {completed ? (
-              <>
-                <Check size={14} /> {block.type === "warmup" ? "Échauffement" : "Cooldown"} fait
-              </>
-            ) : (
-              <>
-                <Check size={14} /> Mark as completed
-              </>
+            <Play size={14} /> {isWarmupOrCooldown ? "Lancer" : "Démarrer ce bloc"}
+          </button>
+        ) : (
+          <div className="space-y-5">
+            <BlockTimer block={block} />
+            {!isWarmupOrCooldown && (
+              <PerfInput block={block} perf={perf} onChange={onUpdatePerf} />
             )}
+            <div className="grid grid-cols-2 gap-3">
+              <button onClick={onActivate} className="btn-ghost justify-center">
+                <X size={14} /> Replier
+              </button>
+              <button onClick={onComplete} className="btn-primary justify-center">
+                <Check size={14} /> Bloc fini
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </li>
+  );
+}
+
+function BlockMenu({
+  isFirst,
+  isLast,
+  onMoveUp,
+  onMoveDown,
+}: {
+  isFirst: boolean;
+  isLast: boolean;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="border border-[color:var(--color-line)] p-2 text-[color:var(--color-mute)] hover:text-white"
+        aria-label="Options du bloc"
+      >
+        <MoreHorizontal size={14} />
+      </button>
+      {open && (
+        <div
+          className="absolute right-0 top-full z-20 mt-1 w-48 border border-[color:var(--color-line)] bg-[color:var(--color-ash)] shadow-lg"
+          onClick={() => setOpen(false)}
+        >
+          <button
+            onClick={onMoveUp}
+            disabled={isFirst}
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-[color:var(--color-mute)] hover:bg-black hover:text-white disabled:opacity-30"
+          >
+            <ArrowUp size={12} /> Monter d&apos;un cran
+          </button>
+          <button
+            onClick={onMoveDown}
+            disabled={isLast}
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-[color:var(--color-mute)] hover:bg-black hover:text-white disabled:opacity-30"
+          >
+            <ArrowDown size={12} /> Descendre d&apos;un cran
           </button>
         </div>
       )}
@@ -345,7 +382,7 @@ function BlockFocus({
   );
 }
 
-function ExerciseLine({ exercise }: { exercise: Exercise }) {
+function ExerciseRow({ exercise }: { exercise: Exercise }) {
   const movement = resolveExerciseMovement(exercise);
   const name = movement?.name ?? exercise.movementId;
   const { primary, secondary } = formatExerciseLine(exercise, name);
@@ -392,7 +429,6 @@ function ExerciseLine({ exercise }: { exercise: Exercise }) {
 // ============================================================================
 
 function BlockTimer({ block }: { block: Block }) {
-  // Reset timer à chaque changement de bloc via key dans le parent.
   const fmt: WodFormat | undefined = block.format;
   const totalSeconds = parseDurationSeconds(block.duration);
 
@@ -415,7 +451,6 @@ function BlockTimer({ block }: { block: Block }) {
     return <CountTimer mode="up" seconds={totalSeconds} label={fmt} />;
   }
 
-  // StraightSets / Superset / Skill / Simulation : juste chrono libre
   return <CountTimer mode="up" seconds={null} label={fmt} />;
 }
 
@@ -459,7 +494,7 @@ function CountTimer({
   const isOver = mode === "down" && seconds !== null && elapsed >= seconds;
 
   return (
-    <div className="mt-6 grid gap-3 border border-[color:var(--color-line)] bg-black/30 p-4 md:grid-cols-[1fr_auto] md:items-center">
+    <div className="grid gap-3 border border-[color:var(--color-line)] bg-black/30 p-4 md:grid-cols-[1fr_auto] md:items-center">
       <div>
         <div className="label">TIMER · {label}</div>
         <div
@@ -521,12 +556,10 @@ function IntervalTimer({
   const intervalRemaining = intervalSec - intervalElapsed;
   const totalIntervals = totalSec ? Math.floor(totalSec / intervalSec) : null;
   const isOver = totalSec !== null && elapsed >= totalSec;
-
-  // Petit beep visuel quand on entame un nouvel intervalle
   const isNewInterval = intervalElapsed === 0 && elapsed > 0;
 
   return (
-    <div className="mt-6 grid gap-3 border border-[color:var(--color-line)] bg-black/30 p-4 md:grid-cols-[1fr_auto] md:items-center">
+    <div className="grid gap-3 border border-[color:var(--color-line)] bg-black/30 p-4 md:grid-cols-[1fr_auto] md:items-center">
       <div>
         <div className="label">
           TIMER · {label} · INTERVALLE {currentInterval}
@@ -600,7 +633,7 @@ function TabataTimer({
   const isOver = elapsed >= totalSec;
 
   return (
-    <div className="mt-6 grid gap-3 border border-[color:var(--color-line)] bg-black/30 p-4 md:grid-cols-[1fr_auto] md:items-center">
+    <div className="grid gap-3 border border-[color:var(--color-line)] bg-black/30 p-4 md:grid-cols-[1fr_auto] md:items-center">
       <div>
         <div className="label">
           TABATA · ROUND {currentRound} / {rounds} · {isWork ? "WORK" : "REST"}
@@ -652,14 +685,13 @@ function PerfInput({
   perf?: PerfEntry;
   onChange: (patch: Partial<PerfEntry>) => void;
 }) {
-  // Champs proposés selon format
   const fmt = block.format;
   const showRounds = fmt === "AMRAP";
   const showReps = fmt === "AMRAP" || fmt === "EMOM" || fmt === "E2MOM" || fmt === "E3MOM";
   const showTime = fmt === "ForTime" || fmt === "RFT" || fmt === "Chipper" || fmt === "Simulation";
 
   return (
-    <div className="mt-6 border-t border-[color:var(--color-line)] pt-4">
+    <div className="border-t border-[color:var(--color-line)] pt-4">
       <div className="label">PERFORMANCES</div>
       <div className="mt-3 grid gap-3 md:grid-cols-3">
         {showRounds && (
@@ -778,28 +810,32 @@ function SessionDoneScreen({
   sessionElapsed,
   blocks,
   perf,
+  completed,
   estimatedMinutes,
 }: {
   focus: string;
   sessionElapsed: number;
   blocks: Block[];
   perf: Record<number, PerfEntry>;
+  completed: Set<number>;
   estimatedMinutes: number;
 }) {
   const summary = useMemo(() => {
     return blocks
       .map((b, i) => {
         const p = perf[i];
-        if (!p) return null;
+        const isDone = completed.has(i);
+        if (!p && !isDone) return null;
         const parts: string[] = [];
-        if (p.rounds !== undefined) parts.push(`${p.rounds} rd`);
-        if (p.reps !== undefined) parts.push(`${p.reps} reps`);
-        if (p.timeSeconds !== undefined) parts.push(formatClock(p.timeSeconds));
-        if (p.notes) parts.push(p.notes);
+        if (p?.rounds !== undefined) parts.push(`${p.rounds} rd`);
+        if (p?.reps !== undefined) parts.push(`${p.reps} reps`);
+        if (p?.timeSeconds !== undefined) parts.push(formatClock(p.timeSeconds));
+        if (p?.notes) parts.push(p.notes);
+        if (parts.length === 0 && isDone) parts.push("✓ fait");
         return { name: b.name, line: parts.join(" · ") };
       })
       .filter((x): x is { name: string; line: string } => x !== null);
-  }, [blocks, perf]);
+  }, [blocks, perf, completed]);
 
   return (
     <section className="mx-auto max-w-2xl px-6 py-24 text-center">
@@ -807,7 +843,8 @@ function SessionDoneScreen({
       <div className="label mt-8">[ SÉANCE TERMINÉE ]</div>
       <h1 className="mt-4 text-4xl font-semibold tracking-tight md:text-5xl">Bien joué.</h1>
       <p className="mt-4 text-[color:var(--color-mute)]">
-        {focus} · {blocks.length} blocs · {formatClock(sessionElapsed)} (estimé {estimatedMinutes}min).
+        {focus} · {blocks.length} blocs · {formatClock(sessionElapsed)}
+        {estimatedMinutes > 0 && <> (estimé {estimatedMinutes}min)</>}.
       </p>
 
       {summary.length > 0 && (
@@ -815,7 +852,10 @@ function SessionDoneScreen({
           <div className="label">[ PERFORMANCES ]</div>
           <ul className="mt-3 space-y-2">
             {summary.map((s, i) => (
-              <li key={i} className="flex flex-wrap items-baseline justify-between gap-2 border-b border-[color:var(--color-line)] pb-2 last:border-b-0">
+              <li
+                key={i}
+                className="flex flex-wrap items-baseline justify-between gap-2 border-b border-[color:var(--color-line)] pb-2 last:border-b-0"
+              >
                 <span className="text-sm">{s.name}</span>
                 <span className="mono text-xs text-[color:var(--color-mute)]">{s.line}</span>
               </li>
@@ -835,4 +875,3 @@ function SessionDoneScreen({
     </section>
   );
 }
-

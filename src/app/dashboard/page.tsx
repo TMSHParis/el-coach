@@ -5,6 +5,7 @@ import {
   ArrowDown,
   ArrowUp,
   Flame,
+  MoreHorizontal,
   Target,
   TrendingUp,
   Play,
@@ -207,32 +208,43 @@ function DayCard({
             {day.notes ?? "OFF"}
           </span>
         )}
-        <form action={moveDay}>
-          <input type="hidden" name="day" value={day.day} />
-          <input type="hidden" name="direction" value="up" />
-          <button
-            type="submit"
-            disabled={isFirst}
-            className="border border-[color:var(--color-line)] p-2 text-[color:var(--color-mute)] hover:text-white disabled:opacity-20"
-            aria-label="Monter ce jour"
-            title="Monter"
-          >
-            <ArrowUp size={14} />
-          </button>
-        </form>
-        <form action={moveDay}>
-          <input type="hidden" name="day" value={day.day} />
-          <input type="hidden" name="direction" value="down" />
-          <button
-            type="submit"
-            disabled={isLast}
-            className="border border-[color:var(--color-line)] p-2 text-[color:var(--color-mute)] hover:text-white disabled:opacity-20"
-            aria-label="Descendre ce jour"
-            title="Descendre"
-          >
-            <ArrowDown size={14} />
-          </button>
-        </form>
+        <details className="relative">
+          <summary className="flex cursor-pointer list-none items-center justify-center border border-[color:var(--color-line)] p-2 text-[color:var(--color-mute)] hover:text-white [&::-webkit-details-marker]:hidden">
+            <MoreHorizontal size={14} />
+          </summary>
+          <div className="absolute right-0 top-full z-20 mt-1 w-44 border border-[color:var(--color-line)] bg-[color:var(--color-ash)] shadow-lg">
+            <form action={moveDay}>
+              <input type="hidden" name="day" value={day.day} />
+              <input type="hidden" name="direction" value="up" />
+              <button
+                type="submit"
+                disabled={isFirst}
+                className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-[color:var(--color-mute)] hover:bg-black hover:text-white disabled:opacity-30"
+              >
+                <ArrowUp size={12} /> Monter d&apos;un cran
+              </button>
+            </form>
+            <form action={moveDay}>
+              <input type="hidden" name="day" value={day.day} />
+              <input type="hidden" name="direction" value="down" />
+              <button
+                type="submit"
+                disabled={isLast}
+                className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-[color:var(--color-mute)] hover:bg-black hover:text-white disabled:opacity-30"
+              >
+                <ArrowDown size={12} /> Descendre d&apos;un cran
+              </button>
+            </form>
+            {!isRest && (
+              <Link
+                href={`/dashboard/session?day=${day.day}`}
+                className="flex w-full items-center gap-2 border-t border-[color:var(--color-line)] px-3 py-2 text-xs text-[color:var(--color-mute)] hover:bg-black hover:text-white"
+              >
+                <Play size={12} /> Démarrer cette séance
+              </Link>
+            )}
+          </div>
+        </details>
       </div>
     </article>
   );

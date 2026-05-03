@@ -19,11 +19,10 @@ export async function Nav() {
           <span className="mono text-sm font-semibold tracking-[0.3em]">EL COACH</span>
         </Link>
         <nav className="label hidden items-center gap-8 md:flex">
-          <Link href="/marketplace" className="hover:text-white">Marketplace</Link>
+          <Link href="/marketplace" className="hover:text-white">Programmes</Link>
           <Link href="/training" className="hover:text-white">Training</Link>
-          <Link href="/coaches" className="hover:text-white">Coachs</Link>
+          <Link href="/wods" className="hover:text-white">WODs</Link>
           <Link href="/dashboard" className="hover:text-white">Dashboard</Link>
-          <Link href="/coach/apply" className="hover:text-white">Devenir coach</Link>
         </nav>
         <div className="flex items-center gap-3">
           {!clerkEnabled && (

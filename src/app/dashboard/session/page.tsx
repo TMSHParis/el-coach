@@ -5,6 +5,7 @@ import {
   resolveTodaySession,
   DAY_FULL_NAMES,
 } from "@/lib/demo-session";
+import { getWod } from "@/lib/wods";
 import SessionRunner from "./session-runner";
 
 export const metadata = { title: "Séance en cours — EL COACH" };
@@ -12,9 +13,25 @@ export const metadata = { title: "Séance en cours — EL COACH" };
 export default async function SessionRunnerPage({
   searchParams,
 }: {
-  searchParams: Promise<{ day?: string }>;
+  searchParams: Promise<{ day?: string; wod?: string }>;
 }) {
-  const { day: dayParam } = await searchParams;
+  const { day: dayParam, wod: wodParam } = await searchParams;
+
+  // Cas 1 : un WOD nommé est demandé → séance one-shot.
+  if (wodParam) {
+    const wod = getWod(wodParam);
+    if (!wod) redirect("/wods");
+    return (
+      <SessionRunner
+        initialBlocks={[wod.block]}
+        templateName="WOD Library"
+        dayLabel={wod.name}
+        focus={wod.scheme}
+        estimatedMinutes={0}
+      />
+    );
+  }
+
   const demo = await getDemoState();
 
   if (!demo.programSlug) redirect("/onboarding");
