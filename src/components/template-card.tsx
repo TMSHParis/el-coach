@@ -43,7 +43,7 @@ export function TemplateCard({ template }: { template: ProgramTemplate }) {
       <div className="mt-6 flex items-end justify-between">
         <div>
           <div className="label">Programmation</div>
-          <div className="mono text-sm">EL COACH</div>
+          <div className="mono text-sm">EL COACH METHOD</div>
         </div>
         <div className="text-right">
           <div className="mono text-2xl font-semibold">

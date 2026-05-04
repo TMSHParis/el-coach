@@ -1,7 +1,7 @@
 import { coaches } from "@/lib/data";
 import { CoachCard } from "@/components/coach-card";
 
-export const metadata = { title: "Coachs — EL COACH" };
+export const metadata = { title: "Coachs — EL COACH METHOD" };
 
 export default function CoachesPage() {
   return (

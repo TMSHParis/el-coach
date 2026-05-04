@@ -8,7 +8,7 @@ import {
 import { getWod } from "@/lib/wods";
 import SessionRunner from "./session-runner";
 
-export const metadata = { title: "Séance en cours — EL COACH" };
+export const metadata = { title: "Séance en cours — EL COACH METHOD" };
 
 export default async function SessionRunnerPage({
   searchParams,

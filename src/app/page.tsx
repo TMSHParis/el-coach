@@ -1,7 +1,12 @@
 import Link from "next/link";
-import { ArrowRight, Dumbbell, Flame, Timer, Activity, Layers } from "lucide-react";
-import { TemplateCard } from "@/components/template-card";
-import { programTemplates } from "@/lib/programming";
+import { ArrowRight } from "lucide-react";
+import { ProgramIcon } from "@/components/program-icon";
+import {
+  PROGRAM_BASE_PRICE_CENTS,
+  PROGRAM_ADDITIONAL_PRICE_CENTS,
+} from "@/lib/data";
+import { programTemplates, type ProgramTemplate } from "@/lib/programming";
+import { formatPrice } from "@/lib/utils";
 
 export default function Home() {
   const featured = programTemplates;
@@ -42,23 +47,8 @@ function Hero() {
             Choisis ton programme
           </Link>
         </div>
-        <div className="mt-16 grid grid-cols-2 gap-6 border-t border-[#1f1f1f] pt-8 md:grid-cols-4">
-          <HeroStat label="COACHS VÉRIFIÉS" value="40+" />
-          <HeroStat label="PROGRAMMES ACTIFS" value="120" />
-          <HeroStat label="ATHLÈTES" value="12 400" />
-          <HeroStat label="SÉANCES / MOIS" value="84K" />
-        </div>
       </div>
     </section>
-  );
-}
-
-function HeroStat({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <div className="label">{label}</div>
-      <div className="mono mt-2 text-3xl font-semibold">{value}</div>
-    </div>
   );
 }
 
@@ -87,57 +77,109 @@ function Ticker() {
 function Featured({ featured }: { featured: typeof programTemplates }) {
   return (
     <section className="mx-auto max-w-7xl px-6 py-24">
-      <div className="flex items-end justify-between">
-        <div>
-          <div className="label">[ 01 ] SÉLECTION</div>
-          <h2 className="mt-3 text-3xl font-semibold tracking-tight md:text-5xl">
-            Programmes en vedette
-          </h2>
-          <p className="mt-3 max-w-xl text-sm text-[color:var(--color-mute)]">
-            Les programmations EL COACH · accès complet à 9,90€/mois.
-          </p>
-        </div>
-        <Link href="/marketplace" className="label hidden hover:text-white md:inline-flex">
-          Tout voir →
-        </Link>
+      <div>
+        <h2 className="text-3xl font-semibold tracking-tight md:text-5xl">
+          Programmes en vedette
+        </h2>
+        <p className="mt-3 max-w-xl text-sm text-[color:var(--color-mute)]">
+          Les programmations EL COACH METHOD · accès complet à {formatPrice(PROGRAM_BASE_PRICE_CENTS)}/mois.
+        </p>
       </div>
       <div className="mt-10 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {featured.map((t) => (
-          <TemplateCard key={t.slug} template={t} />
+          <FeaturedShowcase key={t.slug} template={t} />
         ))}
       </div>
     </section>
   );
 }
 
+/**
+ * Carte vitrine — affichage statique, sans lien, sans hover de carte cliquable.
+ */
+function FeaturedShowcase({ template }: { template: ProgramTemplate }) {
+  const sessionsPerWeek =
+    template.weeks[0]?.days.filter((d) => d.blocks.length > 0).length ?? 0;
+  return (
+    <div className="card grain flex h-full flex-col gap-5 p-6">
+      <div className="flex items-start justify-between gap-3">
+        <div className="text-white">
+          <ProgramIcon template={template} size={36} />
+        </div>
+        <span className="mono shrink-0 border border-[color:var(--color-gold)] px-2 py-0.5 text-[10px] uppercase tracking-[0.2em] text-[color:var(--color-gold)]">
+          Method
+        </span>
+      </div>
+      <div>
+        <h3 className="text-xl font-semibold leading-tight tracking-tight">
+          {template.name}
+        </h3>
+        <p className="mt-3 line-clamp-4 text-sm text-[color:var(--color-mute)]">
+          {template.summary}
+        </p>
+      </div>
+      <div className="mt-auto grid grid-cols-3 gap-3 border-t border-[color:var(--color-line)] pt-4">
+        <Stat label="JOURS" value={`${sessionsPerWeek}/sem`} />
+        <Stat label="NIVEAU" value={template.level.slice(0, 3).toUpperCase()} />
+        <Stat label="SEMAINES" value={`${template.weeks.length}`} />
+      </div>
+      <div className="flex items-end justify-between">
+        <div>
+          <div className="label">Programmation</div>
+          <div className="mono text-sm">EL COACH METHOD</div>
+        </div>
+        <div className="text-right">
+          <div className="mono text-2xl font-semibold">
+            {formatPrice(PROGRAM_BASE_PRICE_CENTS)}
+          </div>
+          <div className="label">/mois</div>
+          <div className="mono mt-1 text-[10px] text-[color:var(--color-mute)]">
+            +{formatPrice(PROGRAM_ADDITIONAL_PRICE_CENTS)} / programme additionnel
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <div className="label">{label}</div>
+      <div className="mono text-sm">{value}</div>
+    </div>
+  );
+}
+
+const PILLARS: Array<{ slug: string; title: string; body: string }> = [
+  {
+    slug: "crossfit-pure",
+    title: "CROSSFIT PURE",
+    body: "WODs programmés, cycles force intégrés. Des performances qui se mesurent.",
+  },
+  {
+    slug: "hybrid-cf-strength",
+    title: "HYBRID ENGINE",
+    body: "Soulever lourd + courir vite. Force et cardio, sans compromis.",
+  },
+  {
+    slug: "hyrox-pure",
+    title: "HYROX PURE",
+    body: "Stations maîtrisées, seuils optimisés. Prêt pour le jour J.",
+  },
+  {
+    slug: "volume-block-hypertrophy",
+    title: "VOLUME BLOCK HYPERTROPHY",
+    body: "Surcharge progressive, fréquence ciblée. RIR maîtrisé, muscle construit.",
+  },
+  {
+    slug: "at-home",
+    title: "AT HOME",
+    body: "Poids du corps, zéro matériel. Résultats concrets, n'importe où.",
+  },
+];
+
 function Pillars() {
-  const items = [
-    {
-      icon: Flame,
-      title: "CROSSFIT PURE",
-      body: "WODs programmés, cycles force intégrés. Des performances qui se mesurent.",
-    },
-    {
-      icon: Activity,
-      title: "HYBRID ENGINE",
-      body: "Soulever lourd + courir vite. Force et cardio, sans compromis.",
-    },
-    {
-      icon: Timer,
-      title: "HYROX PURE",
-      body: "Stations maîtrisées, seuils optimisés. Prêt pour le jour J.",
-    },
-    {
-      icon: Dumbbell,
-      title: "VOLUME BLOCK HYPERTROPHY",
-      body: "Surcharge progressive, fréquence ciblée. RIR maîtrisé, muscle construit.",
-    },
-    {
-      icon: Layers,
-      title: "AT HOME",
-      body: "Poids du corps, zéro matériel. Résultats concrets, n'importe où.",
-    },
-  ];
   return (
     <section className="hairline-t hairline-b bg-[#0a0a0a]">
       <div className="mx-auto max-w-7xl px-6 py-20">
@@ -145,13 +187,18 @@ function Pillars() {
           Cinq programmes. Une seule plateforme.
         </h2>
         <div className="mt-12 grid gap-px bg-[#1f1f1f] md:grid-cols-3">
-          {items.map(({ icon: Icon, title, body }) => (
-            <div key={title} className="bg-[#0a0a0a] p-8">
-              <Icon size={20} className="opacity-80" />
-              <div className="mono mt-6 text-sm tracking-[0.3em]">{title}</div>
-              <p className="mt-3 text-sm text-[#8a8a8a]">{body}</p>
-            </div>
-          ))}
+          {PILLARS.map(({ slug, title, body }) => {
+            const template = programTemplates.find((t) => t.slug === slug);
+            return (
+              <div key={slug} className="bg-[#0a0a0a] p-8">
+                <div className="text-white">
+                  {template && <ProgramIcon template={template} size={28} />}
+                </div>
+                <div className="mono mt-6 text-sm tracking-[0.3em]">{title}</div>
+                <p className="mt-3 text-sm text-[#8a8a8a]">{body}</p>
+              </div>
+            );
+          })}
         </div>
       </div>
     </section>

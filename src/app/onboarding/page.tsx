@@ -1,31 +1,20 @@
-import Link from "next/link";
 import { ArrowRight } from "lucide-react";
-import { programTemplates, type ProgramTemplate } from "@/lib/programming";
+import { ProgramIcon } from "@/components/program-icon";
+import { programTemplates } from "@/lib/programming";
 import { selectProgram } from "../dashboard/actions";
 
-export const metadata = { title: "Choisis ton programme — EL COACH" };
-
-const DISCIPLINE_LABEL: Record<ProgramTemplate["discipline"], string> = {
-  crossfit: "CrossFit pure",
-  hybrid: "Hybrid Engine",
-  hyrox: "Hyrox pure",
-  home: "À la maison",
-  hypertrophy: "Hypertrophy · Volume Block",
-};
+export const metadata = { title: "Free Trial — EL COACH METHOD" };
 
 export default function OnboardingPage() {
   return (
     <section className="mx-auto max-w-5xl px-6 py-20">
-      <div className="label">[ ONBOARDING · DÉMO ]</div>
-      <h1 className="mt-3 text-4xl font-semibold tracking-tight md:text-6xl">
-        Choisis ta programmation.
+      <h1 className="gold-shimmer text-4xl font-semibold tracking-tight md:text-6xl">
+        Free Trial — 7 jours offerts.
       </h1>
-      <p className="mt-4 max-w-xl text-[color:var(--color-mute)]">
-        Mode démo sans compte. Sélectionne une programmation pour accéder à ton dashboard,
-        ta semaine et ta séance du jour.{" "}
-        <Link href="/training" className="underline hover:text-white">
-          Voir les 4 en détail →
-        </Link>
+      <p className="mt-6 max-w-xl text-base text-[color:var(--color-mute)] md:text-lg">
+        Ta programmation, ton dashboard, ta séance du jour — tout de suite.
+        <br />
+        Aucun débit avant la fin de ton essai.
       </p>
 
       <div className="mt-12 grid gap-px bg-[color:var(--color-line)] md:grid-cols-2">
@@ -37,9 +26,11 @@ export default function OnboardingPage() {
               className="group flex w-full flex-col gap-5 bg-[color:var(--color-ash)] p-8 text-left transition-colors hover:bg-black md:p-10"
             >
               <div className="flex items-start justify-between gap-4">
-                <div>
-                  <div className="label">[ {DISCIPLINE_LABEL[t.discipline]} ]</div>
-                  <h2 className="mt-3 text-2xl font-semibold md:text-3xl">{t.name}</h2>
+                <div className="flex items-center gap-4">
+                  <div className="text-white">
+                    <ProgramIcon template={t} size={32} />
+                  </div>
+                  <h2 className="text-2xl font-semibold md:text-3xl">{t.name}</h2>
                 </div>
                 <ArrowRight
                   size={20}

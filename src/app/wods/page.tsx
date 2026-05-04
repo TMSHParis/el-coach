@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { WODS, WOD_CATEGORY_LABEL, type WodCategory } from "@/lib/wods";
 
-export const metadata = { title: "WOD Library — EL COACH" };
+export const metadata = { title: "WOD Library — EL COACH METHOD" };
 
 const CATEGORIES: WodCategory[] = ["girls", "heroes", "benchmark"];
 

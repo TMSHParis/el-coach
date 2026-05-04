@@ -22,7 +22,7 @@ export async function generateMetadata({
   const { slug } = await params;
   const wod = getWod(slug);
   return {
-    title: wod ? `${wod.name} — WOD · EL COACH` : "WOD introuvable — EL COACH",
+    title: wod ? `${wod.name} — WOD · EL COACH METHOD` : "WOD introuvable — EL COACH METHOD",
   };
 }
 

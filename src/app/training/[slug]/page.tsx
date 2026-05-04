@@ -35,8 +35,8 @@ export async function generateMetadata({
 }) {
   const { slug } = await params;
   const template = getTemplate(slug);
-  if (!template) return { title: "Programmation introuvable — EL COACH" };
-  return { title: `${template.name} — EL COACH` };
+  if (!template) return { title: "Programmation introuvable — EL COACH METHOD" };
+  return { title: `${template.name} — EL COACH METHOD` };
 }
 
 export default async function TrainingTemplatePage({

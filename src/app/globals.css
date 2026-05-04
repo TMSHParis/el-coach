@@ -9,6 +9,10 @@
   --color-smoke: #161616;
   --color-line: #1f1f1f;
   --color-mute: #8a8a8a;
+  /* EL COACH METHOD — accent doré (champagne → or → or antique) */
+  --color-gold-light: #fceabb;
+  --color-gold: #d4af37;
+  --color-gold-deep: #8b6914;
 }
 
 @layer base {

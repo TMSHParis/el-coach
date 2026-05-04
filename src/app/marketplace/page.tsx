@@ -8,7 +8,7 @@ import { TemplateCard } from "@/components/template-card";
 import { programTemplates } from "@/lib/programming";
 import { formatPrice } from "@/lib/utils";
 
-export const metadata = { title: "Choisis ton programme — EL COACH" };
+export const metadata = { title: "Choisis ton programme — EL COACH METHOD" };
 
 const categories = ["STRENGTH", "HYPERTROPHY", "CONDITIONING", "ENDURANCE", "MOBILITY"] as const;
 
@@ -52,7 +52,7 @@ export default async function MarketplacePage({
         <>
           <SectionTitle
             title="Programmations de base"
-            subtitle={`${programTemplates.length} programmations signées EL COACH · accès direct`}
+            subtitle={`${programTemplates.length} programmations signées EL COACH METHOD · accès direct`}
           />
           <div className="mt-6 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {programTemplates.map((t) => (

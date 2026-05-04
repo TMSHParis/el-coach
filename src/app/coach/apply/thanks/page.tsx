@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { CheckCircle2 } from "lucide-react";
 
-export const metadata = { title: "Candidature envoyée — EL COACH" };
+export const metadata = { title: "Candidature envoyée — EL COACH METHOD" };
 
 export default async function ThanksPage({
   searchParams,

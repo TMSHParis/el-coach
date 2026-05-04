@@ -32,7 +32,7 @@ import {
 import { BlockHeader } from "@/components/block-header";
 import { setFatigue, resetDemo, moveDay, resetWeekOrder } from "./actions";
 
-export const metadata = { title: "Dashboard — EL COACH" };
+export const metadata = { title: "Dashboard — EL COACH METHOD" };
 
 const FATIGUE_PRESETS: { score: number; label: string; hint: string }[] = [
   { score: 1, label: "Frais", hint: "Sommeil bon, zéro courbature" },

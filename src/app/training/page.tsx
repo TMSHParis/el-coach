@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { programTemplates, type ProgramTemplate } from "@/lib/programming";
 
-export const metadata = { title: "Programmations — EL COACH" };
+export const metadata = { title: "Programmations — EL COACH METHOD" };
 
 const DISCIPLINE_LABEL: Record<ProgramTemplate["discipline"], string> = {
   crossfit: "CrossFit pure",
