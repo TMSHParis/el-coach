@@ -3,35 +3,40 @@
 @theme {
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, monospace;
-  --color-ink: #000000;
-  --color-paper: #ffffff;
-  --color-ash: #0a0a0a;
+  /* EL COACH METHOD — palette officielle (cahier des charges v1.0) */
+  --color-ink: #080808; /* noir profond */
+  --color-paper: #f0ede8; /* blanc cassé */
+  --color-ash: #0d0d0d;
   --color-smoke: #161616;
   --color-line: #1f1f1f;
   --color-mute: #8a8a8a;
-  /* EL COACH METHOD — accent doré (champagne → or → or antique) */
-  --color-gold-light: #fceabb;
-  --color-gold: #d4af37;
-  --color-gold-deep: #8b6914;
+  /* Accent jaune électrique — couleur signature */
+  --color-accent: #e8ff00;
+  --color-accent-soft: #f4ff7a;
+  --color-accent-deep: #b8cc00;
+  /* Alias gold (compat existante, mêmes valeurs que l'accent) */
+  --color-gold-light: #f4ff7a;
+  --color-gold: #e8ff00;
+  --color-gold-deep: #b8cc00;
 }
 
 @layer base {
   html,
   body {
-    background: #000000;
-    color: #ffffff;
+    background: #080808;
+    color: #f0ede8;
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
   }
   ::selection {
-    background: #ffffff;
-    color: #000000;
+    background: #e8ff00;
+    color: #080808;
   }
   body {
     background-image:
-      linear-gradient(to right, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
-      linear-gradient(to bottom, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+      linear-gradient(to right, rgba(232, 255, 0, 0.025) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(232, 255, 0, 0.025) 1px, transparent 1px);
     background-size: 48px 48px;
     background-position: -1px -1px;
   }
@@ -141,13 +146,13 @@
   .gold-shimmer {
     background-image: linear-gradient(
       110deg,
-      #8b6914 0%,
-      #d4af37 20%,
-      #fceabb 40%,
+      #b8cc00 0%,
+      #e8ff00 25%,
+      #f4ff7a 45%,
       #ffffff 50%,
-      #fceabb 60%,
-      #d4af37 80%,
-      #8b6914 100%
+      #f4ff7a 55%,
+      #e8ff00 75%,
+      #b8cc00 100%
     );
     background-size: 250% 100%;
     background-position: 0% 50%;
@@ -155,8 +160,8 @@
     background-clip: text;
     color: transparent;
     -webkit-text-fill-color: transparent;
-    filter: drop-shadow(0 0 18px rgba(212, 175, 55, 0.18))
-      drop-shadow(0 2px 4px rgba(0, 0, 0, 0.45));
+    filter: drop-shadow(0 0 22px rgba(232, 255, 0, 0.25))
+      drop-shadow(0 2px 4px rgba(0, 0, 0, 0.55));
     animation: gold-shimmer-slide 7s ease-in-out infinite;
   }
   @keyframes gold-shimmer-slide {

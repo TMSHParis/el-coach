@@ -424,7 +424,7 @@ export const CROSSFIT_PURE: ProgramTemplate = {
   daysPerWeek: 6,
   equipment: ["barbell", "rack", "rower", "assault_bike", "pullup_bar", "rings", "wallball", "kettlebell", "dumbbell", "box"],
   summary:
-    "Force conjuguée, mouvements olympiques, gymnastique, metcons variés. Un seul objectif : progresser sur tous les fronts.",
+    "Squat, tirage, press. Arraché, épaulé. Muscle-up, handstand. Metcons qui brûlent. Une programmation conjuguée. Rien n'est laissé au hasard.",
   weeks: [CROSSFIT_WEEK_1],
 };
 
@@ -622,7 +622,7 @@ export const HYBRID: ProgramTemplate = {
   daysPerWeek: 5,
   equipment: ["barbell", "rack", "bench", "dumbbell", "kettlebell", "wallball", "pullup_bar", "sled", "rower", "outdoor"],
   summary:
-    "CrossFit, musculation, récupération active. Cinq jours fixes, un optionnel. Force le lundi, puissance le jeudi. Un jour adaptatif — marche, course, boxe, natation ou repos selon ce que le corps réclame. Un moteur qui ne s'arrête pas.",
+    "CrossFit × Musculation × Récupération adaptative. Force conjuguée, hypertrophie ciblée, récupération choisie. Boxe, natation, marche ou repos — selon ce que le corps demande.",
   weeks: [HYBRID_WEEK_1],
 };
 
@@ -1032,7 +1032,7 @@ export const AT_HOME: ProgramTemplate = {
   daysPerWeek: 5,
   equipment: ["none", "jump_rope", "mat", "dumbbell", "kettlebell"],
   summary:
-    "Cinq à six jours par semaine. Poids du corps en priorité, haltères, kettlebell ou corde en option. Full body accessible, du débutant à l'intermédiaire. Une sortie run pour l'endurance quand les murs se resserrent. Aucune excuse, aucun équipement obligatoire.",
+    "Cinq à six jours par semaine. Poids du corps uniquement, aucun matériel requis. Full body accessible, du débutant à l'intermédiaire. Une sortie run pour l'endurance quand les murs se resserrent. Aucune excuse, aucun équipement obligatoire.",
   weeks: [HOME_WEEK_1],
 };
 

@@ -14,7 +14,7 @@ export default function OnboardingPage() {
       <p className="mt-6 max-w-xl text-base text-[color:var(--color-mute)] md:text-lg">
         Ta programmation, ton dashboard, ta séance du jour — tout de suite.
         <br />
-        Aucun débit avant la fin de ton essai.
+        Aucun débit avant la fin de ton essai. Annulation en un clic.
       </p>
 
       <div className="mt-12 grid gap-px bg-[color:var(--color-line)] md:grid-cols-2">
