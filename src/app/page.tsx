@@ -114,6 +114,9 @@ function FeaturedShowcase({ template }: { template: ProgramTemplate }) {
         <h3 className="text-xl font-semibold leading-tight tracking-tight">
           {template.name}
         </h3>
+        <div className="mono mt-1 text-[10px] uppercase tracking-[0.2em] text-[color:var(--color-mute)]">
+          · by El Coach Method
+        </div>
         <p className="mt-3 line-clamp-4 text-sm text-[color:var(--color-mute)]">
           {template.summary}
         </p>

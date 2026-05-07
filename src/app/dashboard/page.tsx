@@ -4,6 +4,8 @@ import {
   Activity,
   ArrowDown,
   ArrowUp,
+  ChevronLeft,
+  ChevronRight,
   Flame,
   MoreHorizontal,
   Target,
@@ -75,8 +77,10 @@ export default async function DashboardPage() {
         </form>
       </div>
       <p className="mt-3 text-[color:var(--color-mute)]">
-        {today.template.name} · Semaine {today.weekNumber} · {DAY_FULL_NAMES[today.dayNumber - 1]}
+        {today.template.name} · by El Coach Method · Semaine {today.weekNumber} · {DAY_FULL_NAMES[today.dayNumber - 1]}
       </p>
+
+      <WeeklyCalendarBar today={today} weekOrder={demo.weekOrder} />
 
       <div className="mt-10 grid gap-px bg-[color:var(--color-line)] grid-cols-2 md:grid-cols-4">
         <KPI icon={<Flame size={16} />} label="STREAK" value="14j" />
@@ -104,6 +108,103 @@ function EmptyState() {
         Choisir mon programme
       </Link>
     </section>
+  );
+}
+
+// ============================================================================
+// Barre calendrier hebdo Lun-Dim (cahier des charges § 07)
+// ============================================================================
+
+function WeeklyCalendarBar({
+  today,
+  weekOrder,
+}: {
+  today: TodaySession;
+  weekOrder: number[] | null;
+}) {
+  // On affiche la semaine grégorienne du Lundi au Dimanche autour d'aujourd'hui.
+  const now = new Date();
+  const todayIso = now.toISOString().slice(0, 10);
+  const todayWeekday = now.getDay() === 0 ? 7 : now.getDay(); // 1 = Lun, 7 = Dim
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - (todayWeekday - 1));
+
+  const orderedDays = orderedWeek(today.template, weekOrder);
+
+  // Pour chaque position 1..7 (Lun..Dim), récupère la programmation prévue.
+  const cells = Array.from({ length: 7 }, (_, i) => {
+    const date = new Date(monday);
+    date.setDate(monday.getDate() + i);
+    const programDay = orderedDays[i] ?? null;
+    const isToday = date.toISOString().slice(0, 10) === todayIso;
+    const isRest = !programDay || programDay.blocks.length === 0;
+    return { date, programDay, isToday, isRest };
+  });
+
+  const monthLabel = monday.toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
+
+  return (
+    <div className="mt-8 border border-[color:var(--color-line)] bg-[color:var(--color-ash)]">
+      <div className="flex items-center justify-between border-b border-[color:var(--color-line)] px-4 py-3">
+        <button
+          type="button"
+          className="text-[color:var(--color-mute)] hover:text-white disabled:opacity-30"
+          aria-label="Semaine précédente"
+          disabled
+          title="Bientôt"
+        >
+          <ChevronLeft size={16} />
+        </button>
+        <div className="mono text-xs uppercase tracking-[0.2em]">{monthLabel}</div>
+        <button
+          type="button"
+          className="text-[color:var(--color-mute)] hover:text-white disabled:opacity-30"
+          aria-label="Semaine suivante"
+          disabled
+          title="Bientôt"
+        >
+          <ChevronRight size={16} />
+        </button>
+      </div>
+      <div className="grid grid-cols-7">
+        {cells.map((cell, i) => {
+          const dayNum = cell.date.getDate();
+          const dayShort = DAY_SHORT_NAMES[i];
+          // Point coloré : vert (séance prévue passée — ici on triche : on considère comme "fait" si avant aujourd'hui),
+          // jaune (séance prévue future), vide (rest).
+          let dotClass = "";
+          if (cell.isRest) dotClass = "";
+          else {
+            const isPast = cell.date < new Date(todayIso);
+            dotClass = isPast
+              ? "bg-emerald-400"
+              : cell.isToday
+                ? "bg-[color:var(--color-accent)]"
+                : "bg-white";
+          }
+          return (
+            <div
+              key={i}
+              className={`flex flex-col items-center gap-2 px-1 py-3 text-center ${
+                cell.isToday ? "border-b-2 border-[color:var(--color-accent)]" : ""
+              }`}
+            >
+              <div className="mono text-[10px] tracking-[0.2em] text-[color:var(--color-mute)]">
+                {dayShort}
+              </div>
+              <div
+                className={`mono text-lg font-semibold tabular-nums ${
+                  cell.isToday ? "text-[color:var(--color-accent)]" : ""
+                }`}
+              >
+                {dayNum}
+              </div>
+              <div className={`h-1.5 w-1.5 rounded-full ${dotClass}`} />
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
@@ -212,7 +313,10 @@ function DayCard({
           <summary className="flex cursor-pointer list-none items-center justify-center border border-[color:var(--color-line)] p-2 text-[color:var(--color-mute)] hover:text-white [&::-webkit-details-marker]:hidden">
             <MoreHorizontal size={14} />
           </summary>
-          <div className="absolute right-0 top-full z-20 mt-1 w-44 border border-[color:var(--color-line)] bg-[color:var(--color-ash)] shadow-lg">
+          <div className="absolute right-0 top-full z-20 mt-1 w-56 border border-[color:var(--color-line)] bg-[color:var(--color-ash)] shadow-lg">
+            <div className="mono border-b border-[color:var(--color-line)] px-3 py-2 text-[10px] uppercase tracking-[0.2em] text-[color:var(--color-mute)]">
+              Move your session
+            </div>
             <form action={moveDay}>
               <input type="hidden" name="day" value={day.day} />
               <input type="hidden" name="direction" value="up" />
@@ -221,7 +325,7 @@ function DayCard({
                 disabled={isFirst}
                 className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-[color:var(--color-mute)] hover:bg-black hover:text-white disabled:opacity-30"
               >
-                <ArrowUp size={12} /> Monter d&apos;un cran
+                <ArrowUp size={12} /> Déplacer vers le haut
               </button>
             </form>
             <form action={moveDay}>
@@ -232,9 +336,17 @@ function DayCard({
                 disabled={isLast}
                 className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-[color:var(--color-mute)] hover:bg-black hover:text-white disabled:opacity-30"
               >
-                <ArrowDown size={12} /> Descendre d&apos;un cran
+                <ArrowDown size={12} /> Déplacer vers le bas
               </button>
             </form>
+            {!isRest && (
+              <Link
+                href={`/training/${day.adaptive ? "" : ""}#change-session`}
+                className="flex w-full items-center gap-2 border-t border-[color:var(--color-line)] px-3 py-2 text-xs text-[color:var(--color-mute)] hover:bg-black hover:text-white"
+              >
+                ↻ Changer la séance du jour
+              </Link>
+            )}
             {!isRest && (
               <Link
                 href={`/dashboard/session?day=${day.day}`}

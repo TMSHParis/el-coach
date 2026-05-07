@@ -1,7 +1,7 @@
+import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { ProgramIcon } from "@/components/program-icon";
 import { programTemplates } from "@/lib/programming";
-import { selectProgram } from "../dashboard/actions";
 
 export const metadata = { title: "Free Trial — EL COACH METHOD" };
 
@@ -19,30 +19,28 @@ export default function OnboardingPage() {
 
       <div className="mt-12 grid gap-px bg-[color:var(--color-line)] md:grid-cols-2">
         {programTemplates.map((t) => (
-          <form key={t.slug} action={selectProgram}>
-            <input type="hidden" name="slug" value={t.slug} />
-            <button
-              type="submit"
-              className="group flex w-full flex-col gap-5 bg-[color:var(--color-ash)] p-8 text-left transition-colors hover:bg-black md:p-10"
-            >
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex items-center gap-4">
-                  <div className="text-white">
-                    <ProgramIcon template={t} size={32} />
-                  </div>
-                  <h2 className="text-2xl font-semibold md:text-3xl">{t.name}</h2>
+          <Link
+            key={t.slug}
+            href={`/signup?program=${t.slug}`}
+            className="group flex w-full flex-col gap-5 bg-[color:var(--color-ash)] p-8 text-left transition-colors hover:bg-black md:p-10"
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="text-white">
+                  <ProgramIcon template={t} size={32} />
                 </div>
-                <ArrowRight
-                  size={20}
-                  className="mt-1 shrink-0 transition-transform group-hover:translate-x-1"
-                />
+                <h2 className="text-2xl font-semibold md:text-3xl">{t.name}</h2>
               </div>
-              <p className="text-sm text-[color:var(--color-mute)]">{t.summary}</p>
-              <div className="mono mt-auto text-xs uppercase text-[color:var(--color-mute)]">
-                {t.daysPerWeek}j/sem · niveau {t.level}
-              </div>
-            </button>
-          </form>
+              <ArrowRight
+                size={20}
+                className="mt-1 shrink-0 transition-transform group-hover:translate-x-1"
+              />
+            </div>
+            <p className="text-sm text-[color:var(--color-mute)]">{t.summary}</p>
+            <div className="mono mt-auto text-xs uppercase text-[color:var(--color-mute)]">
+              {t.daysPerWeek}j/sem · niveau {t.level} · by El Coach Method
+            </div>
+          </Link>
         ))}
       </div>
     </section>

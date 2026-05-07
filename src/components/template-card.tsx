@@ -1,19 +1,12 @@
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
+import { ProgramIcon } from "@/components/program-icon";
 import { type ProgramTemplate } from "@/lib/programming";
 import {
   PROGRAM_BASE_PRICE_CENTS,
   PROGRAM_ADDITIONAL_PRICE_CENTS,
 } from "@/lib/data";
 import { formatPrice } from "@/lib/utils";
-
-const DISCIPLINE_LABEL: Record<ProgramTemplate["discipline"], string> = {
-  crossfit: "CrossFit pure",
-  hybrid: "Hybrid Engine",
-  hyrox: "Hyrox pure",
-  home: "À la maison",
-  hypertrophy: "Hypertrophy · Volume Block",
-};
 
 export function TemplateCard({ template }: { template: ProgramTemplate }) {
   const sessionsPerWeek =
@@ -25,13 +18,18 @@ export function TemplateCard({ template }: { template: ProgramTemplate }) {
     >
       <div>
         <div className="flex items-center justify-between">
-          <span className="label">{DISCIPLINE_LABEL[template.discipline]}</span>
+          <div className="text-white">
+            <ProgramIcon template={template} size={32} />
+          </div>
           <ArrowUpRight size={16} className="opacity-60" />
         </div>
         <h3 className="mt-6 text-xl font-semibold leading-tight tracking-tight">
           {template.name}
         </h3>
-        <p className="mt-3 line-clamp-3 text-sm text-[color:var(--color-mute)]">
+        <div className="mono mt-1 text-[10px] uppercase tracking-[0.2em] text-[color:var(--color-mute)]">
+          · by El Coach Method
+        </div>
+        <p className="mt-4 line-clamp-3 text-sm text-[color:var(--color-mute)]">
           {template.summary}
         </p>
       </div>
