@@ -55,6 +55,7 @@ export type Block = {
   rounds?: number;
   exercises: Exercise[];
   notes?: string;
+  optional?: boolean; // FACULTATIF — typiquement les cool-down
 };
 
 export type Day = {
@@ -186,7 +187,7 @@ export function pickCooldown(fatigueScore: number): { modality: CooldownModality
 // ============================================================================
 
 const WARMUP_GENERIC: Block = {
-  name: "Échauffement général",
+  name: "Warm Up",
   type: "warmup",
   duration: "10min",
   exercises: [
@@ -200,14 +201,16 @@ const WARMUP_GENERIC: Block = {
 };
 
 const COOLDOWN_BASIC: Block = {
-  name: "Retour au calme",
+  name: "Cool Down",
   type: "cooldown",
   duration: "8min",
+  optional: true,
   exercises: [
     { movementId: "zone1-walk", time: "3min" },
     { movementId: "pigeon", time: "2min" },
     { movementId: "foam-roll", time: "3min", notes: "Quadriceps, mollets, dorsaux." },
   ],
+  notes: "5 min mobilité · étirements ciblés selon la séance du jour.",
 };
 
 // ============================================================================
@@ -1003,9 +1006,10 @@ const HOME_WEEK_1: Week = {
           ],
         },
         {
-          name: "B — Cooldown",
+          name: "Cool Down",
           type: "cooldown",
           duration: "10min",
+          optional: true,
           exercises: [
             { movementId: "zone1-walk", time: "5min" },
             { movementId: "pigeon", time: "2min" },
@@ -1299,12 +1303,13 @@ export const VOLUME_BLOCK_HYPERTROPHY: ProgramTemplate = {
 // Index + helpers
 // ============================================================================
 
+// Ordre officiel EL COACH METHOD : At Home toujours en dernier.
 export const programTemplates: ProgramTemplate[] = [
   CROSSFIT_PURE,
   HYBRID,
   HYROX_PURE,
-  AT_HOME,
   VOLUME_BLOCK_HYPERTROPHY,
+  AT_HOME,
 ];
 
 export function getTemplate(slug: string): ProgramTemplate | undefined {
@@ -1348,72 +1353,70 @@ export function sectionLabel(block: Block): string {
   return SECTION_LABELS[block.type] ?? block.type.toUpperCase();
 }
 
-/** Score type affiché en bleu avec trophée à droite du bloc. */
-export function scoreType(block: Block): string | null {
-  if (block.type === "warmup" || block.type === "cooldown") return "For Completion";
-  if (block.type === "strength") return "For Weight";
-  if (block.type === "skill") return "For Quality";
-  if (block.type === "endurance") {
-    return block.format === "Intervals" ? "For Time" : "For Distance";
-  }
-  const fmt = block.format;
-  if (fmt === "ForTime" || fmt === "RFT" || fmt === "Chipper" || fmt === "Simulation")
-    return "For Time";
-  if (fmt === "AMRAP") return "For Reps";
-  if (fmt === "EMOM" || fmt === "E2MOM" || fmt === "E3MOM" || fmt === "Tabata")
-    return "For Quality";
-  if (fmt === "Intervals") return "For Time";
-  if (fmt === "Circuit" || fmt === "Superset" || fmt === "StraightSets")
-    return "For Reps";
-  return null;
-}
-
-/** Sous-titre du bloc — résume le scheme : « 3 Rounds (Not for Time) », « 5 × 4 », « AMRAP 20' », etc. */
-export function blockSchemeLine(block: Block): string | null {
+/**
+ * Tag officiel EL COACH METHOD affiché entre crochets sous le nom du bloc.
+ * Convention :
+ *   warmup / cooldown / accessory       → [Not For Time]
+ *   strength                            → [Build to Heavy]
+ *   wod AMRAP / EMOM / ForTime          → [AMRAP · 15 min], [EMOM · 8 min], [For Time]
+ *   endurance / skill (sans format wod) → [Not For Time]
+ *
+ * Remplacements vs ancienne terminologie :
+ *   "For Completion" → "Not For Time"
+ *   "For Weight"     → "Build to Heavy"
+ *   AMRAP, EMOM, For Time → conservés en originaux.
+ */
+export function blockTag(block: Block): string {
   const fmt = block.format;
   const dur = block.duration;
-  const rounds = block.rounds;
 
-  if (block.type === "warmup") {
-    if (rounds) return `${rounds} Rounds (Not for Time)`;
-    if (dur) return `${dur} (Not for Time)`;
-    return "Not for Time";
-  }
-  if (block.type === "cooldown") {
-    if (dur) return `${dur} · Cool Down`;
-    return "Cool Down";
-  }
+  // Endurance Z2 / récup / mobilité → Not For Time.
+  if (block.type === "warmup" || block.type === "cooldown") return "Not For Time";
+  if (block.type === "strength" && (!fmt || fmt === "StraightSets" || fmt === "Superset"))
+    return "Build to Heavy";
+  if (block.type === "accessory" && (!fmt || fmt === "StraightSets" || fmt === "Superset"))
+    return "Not For Time";
+  if (block.type === "skill" && !fmt) return "Not For Time";
+  if (block.type === "endurance" && !fmt) return "Not For Time";
 
-  if (fmt === "AMRAP" && dur) return `AMRAP ${dur}`;
-  if (fmt === "EMOM" && dur) return `EMOM ${dur}`;
-  if (fmt === "E2MOM" && dur) return `E2MOM ${dur}`;
-  if (fmt === "E3MOM" && dur) return `E3MOM ${dur}`;
-  if (fmt === "ForTime" && rounds) return `${rounds} Rounds For Time${dur ? ` (${dur})` : ""}`;
-  if (fmt === "ForTime" && dur) return `For Time (${dur})`;
-  if (fmt === "ForTime") return "For Time";
-  if (fmt === "RFT" && rounds) return `${rounds} Rounds For Time`;
-  if (fmt === "Tabata") return `Tabata · ${rounds ?? 8} rounds (20s/10s)`;
+  if (fmt === "AMRAP") return dur ? `AMRAP · ${dur}` : "AMRAP";
+  if (fmt === "EMOM") return dur ? `EMOM · ${dur}` : "EMOM";
+  if (fmt === "E2MOM") return dur ? `E2MOM · ${dur}` : "E2MOM";
+  if (fmt === "E3MOM") return dur ? `E3MOM · ${dur}` : "E3MOM";
+  if (fmt === "ForTime") return dur ? `For Time · ${dur}` : "For Time";
+  if (fmt === "RFT") return block.rounds ? `${block.rounds} RFT` : "RFT";
+  if (fmt === "Tabata") return `Tabata · ${block.rounds ?? 8} rounds`;
   if (fmt === "Intervals") return "Intervals";
-  if (fmt === "Chipper") return `Chipper${dur ? ` (${dur})` : ""}`;
-  if (fmt === "Simulation") return `Simulation${dur ? ` (${dur})` : ""}`;
-  if (fmt === "Circuit" && rounds) return `${rounds} Rounds`;
-  if (fmt === "Superset") return `Superset${rounds ? ` × ${rounds}` : ""}`;
+  if (fmt === "Chipper") return dur ? `Chipper · ${dur}` : "Chipper";
+  if (fmt === "Simulation") return dur ? `Simulation · ${dur}` : "Simulation";
+  if (fmt === "Circuit") return block.rounds ? `${block.rounds} Rounds` : "Not For Time";
+  if (fmt === "Superset") return "Not For Time";
   if (fmt === "StraightSets") {
     const ex = block.exercises[0];
     if (ex?.sets !== undefined && ex.reps !== undefined) return `${ex.sets} × ${ex.reps}`;
-    if (ex?.sets !== undefined) return `${ex.sets} sets`;
-    return "Straight Sets";
+    return "Build to Heavy";
   }
 
-  if (dur) return dur;
-  if (rounds) return `${rounds} Rounds`;
-  return null;
+  return "Not For Time";
 }
 
-/** Lettre du badge (A, B, C, …) — passe « i » pour les notes/instructions. */
-export function blockLetter(index: number): string {
-  return String.fromCharCode(65 + index);
+/**
+ * Numéro de bloc affiché en tête (style EL COACH METHOD).
+ * Bloc 1, Bloc 2, … — remplace l'ancien badge lettre A/B/C.
+ */
+export function blockNumber(index: number): string {
+  return `Bloc ${index + 1}`;
 }
+
+/**
+ * Nom affiché du bloc, sans le préfixe legacy "A — ", "B — ", etc.
+ * Le numéro de bloc est désormais géré par `blockNumber(index)`.
+ */
+export function displayBlockName(block: Block): string {
+  return block.name.replace(/^[A-Z]\s+[—–-]\s+/, "").trim();
+}
+
+
 
 /** Une ligne d'exercice formatée en texte plat type "8 Power Snatch (RX - 95/65)". */
 export function formatExerciseLine(

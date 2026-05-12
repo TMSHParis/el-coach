@@ -151,25 +151,6 @@ function AccountStep({
 
       <input type="hidden" name="programSlug" value={preselectedProgram} />
 
-      <div className="grid gap-3 border-t border-[color:var(--color-line)] pt-5 md:grid-cols-2">
-        <button
-          type="button"
-          disabled
-          className="btn-ghost cursor-not-allowed justify-center opacity-60"
-          title="Bientôt disponible"
-        >
-          Continuer avec Google
-        </button>
-        <button
-          type="button"
-          disabled
-          className="btn-ghost cursor-not-allowed justify-center opacity-60"
-          title="Bientôt disponible"
-        >
-          Continuer avec Apple
-        </button>
-      </div>
-
       <button type="submit" className="btn-primary mt-2 justify-center">
         Continuer →
       </button>

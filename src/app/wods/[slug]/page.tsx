@@ -3,7 +3,6 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, Play } from "lucide-react";
 import { getWod, WODS, WOD_CATEGORY_LABEL } from "@/lib/wods";
 import {
-  blockLetter,
   formatExerciseLine,
   resolveExerciseMovement,
   type Exercise,
@@ -59,16 +58,16 @@ export default async function WodDetailPage({
       </header>
 
       <div className="mt-10 card p-6 md:p-8">
-        <BlockHeader block={wod.block} letter={blockLetter(0)} />
+        <BlockHeader block={wod.block} index={0} />
 
-        <ul className="mt-5 space-y-1.5 pl-12">
+        <ul className="mt-5 space-y-1.5">
           {wod.block.exercises.map((ex, i) => (
             <ExerciseLineDisplay key={`${ex.movementId}-${i}`} exercise={ex} />
           ))}
         </ul>
 
         {wod.block.notes && (
-          <p className="mono mt-5 border-t border-[color:var(--color-line)] pt-4 pl-12 text-xs text-[color:var(--color-mute)]">
+          <p className="mono mt-5 border-t border-[color:var(--color-line)] pt-4 text-xs text-[color:var(--color-mute)]">
             {wod.block.notes}
           </p>
         )}
@@ -94,11 +93,14 @@ function ExerciseLineDisplay({ exercise }: { exercise: Exercise }) {
   const name = movement?.name ?? exercise.movementId;
   const { primary, secondary } = formatExerciseLine(exercise, name);
   return (
-    <li>
-      <div className="text-sm leading-snug">{primary}</div>
-      {secondary && (
-        <div className="mt-0.5 text-xs text-[color:var(--color-mute)]">{secondary}</div>
-      )}
+    <li className="flex items-start gap-2">
+      <span aria-hidden className="mt-1 select-none text-[color:var(--color-mute)]">▸</span>
+      <div className="flex-1">
+        <div className="text-sm leading-snug">{primary}</div>
+        {secondary && (
+          <div className="mt-0.5 text-xs text-[color:var(--color-mute)]">{secondary}</div>
+        )}
+      </div>
     </li>
   );
 }

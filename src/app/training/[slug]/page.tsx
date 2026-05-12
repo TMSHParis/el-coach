@@ -2,7 +2,6 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import {
-  blockLetter,
   formatExerciseLine,
   getTemplate,
   programTemplates,
@@ -244,16 +243,16 @@ function AdaptiveDayCard({
 function BlockCard({ block, index }: { block: Block; index: number }) {
   return (
     <div className="border border-[color:var(--color-line)] p-5 md:p-6">
-      <BlockHeader block={block} letter={blockLetter(index)} />
+      <BlockHeader block={block} index={index} />
 
-      <ul className="mt-5 space-y-1.5 pl-12">
+      <ul className="mt-5 space-y-1.5">
         {block.exercises.map((ex, i) => (
           <ExerciseRow key={`${ex.movementId}-${i}`} exercise={ex} />
         ))}
       </ul>
 
       {block.notes && (
-        <p className="mono mt-4 border-t border-[color:var(--color-line)] pt-3 pl-12 text-xs text-[color:var(--color-mute)]">
+        <p className="mono mt-4 border-t border-[color:var(--color-line)] pt-3 text-xs text-[color:var(--color-mute)]">
           {block.notes}
         </p>
       )}
@@ -267,11 +266,14 @@ function ExerciseRow({ exercise }: { exercise: Exercise }) {
   const { primary, secondary } = formatExerciseLine(exercise, name);
 
   return (
-    <li>
-      <div className="text-sm leading-snug">{primary}</div>
-      {secondary && (
-        <div className="mt-0.5 text-xs text-[color:var(--color-mute)]">{secondary}</div>
-      )}
+    <li className="flex items-start gap-2">
+      <span aria-hidden className="mt-1 select-none text-[color:var(--color-mute)]">▸</span>
+      <div className="flex-1">
+        <div className="text-sm leading-snug">{primary}</div>
+        {secondary && (
+          <div className="mt-0.5 text-xs text-[color:var(--color-mute)]">{secondary}</div>
+        )}
+      </div>
     </li>
   );
 }

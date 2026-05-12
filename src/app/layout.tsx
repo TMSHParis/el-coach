@@ -12,7 +12,7 @@ const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"]
 export const metadata: Metadata = {
   title: "EL COACH METHOD — Cinq programmes, une seule plateforme",
   description:
-    "Programmes écrits par un coach d'élite. CrossFit Pure, Hybrid Engine, Hyrox, At Home, Volume Block Hypertrophy. Suivi quotidien, progression mesurable.",
+    "Programmes écrits par un coach d'élite. CrossFit Pure, Hybrid Engine, Hyrox Pure, Volume Block Hypertrophy, At Home. Suivi quotidien, progression mesurable.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -1,43 +1,42 @@
-import { Trophy } from "lucide-react";
 import {
-  blockSchemeLine,
-  scoreType,
-  sectionLabel,
+  blockNumber,
+  blockTag,
+  displayBlockName,
   type Block,
 } from "@/lib/programming";
 
 type Props = {
   block: Block;
-  letter: string;
-  showSection?: boolean;
+  /** Index 0-based du bloc dans la séance. */
+  index: number;
+  /** Compact = sans le numéro "Bloc N" en exergue (utile en plein écran). */
+  compact?: boolean;
 };
 
-export function BlockHeader({ block, letter, showSection = true }: Props) {
-  const section = showSection ? sectionLabel(block) : null;
-  const scheme = blockSchemeLine(block);
-  const score = scoreType(block);
+export function BlockHeader({ block, index, compact = false }: Props) {
+  const name = displayBlockName(block);
+  const tag = blockTag(block);
 
   return (
     <div>
-      {section && <div className="label text-xs">{section}</div>}
-      <div className="mt-2 flex items-start gap-3">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[color:var(--color-line)] text-base font-semibold">
-          {letter}
+      {!compact && (
+        <div className="mono text-[10px] tracking-[0.3em] text-[color:var(--color-mute)]">
+          {blockNumber(index).toUpperCase()}
         </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-baseline justify-between gap-3">
-            <h3 className="text-xl font-semibold leading-tight md:text-2xl">{block.name}</h3>
-            {score && (
-              <span className="inline-flex shrink-0 items-center gap-1.5 text-sm font-semibold text-blue-400">
-                <Trophy size={14} /> {score}
-              </span>
-            )}
-          </div>
-          {scheme && (
-            <div className="mono mt-1 text-sm text-[color:var(--color-mute)]">{scheme}</div>
-          )}
-        </div>
+      )}
+      <div className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <h3 className="text-xl font-semibold leading-tight md:text-2xl">{name}</h3>
+        {block.optional && (
+          <span className="mono inline-flex items-center border border-[color:var(--color-line)] px-2 py-0.5 text-[10px] tracking-[0.25em] text-[color:var(--color-mute)]">
+            FACULTATIF
+          </span>
+        )}
       </div>
+      {tag && (
+        <div className="mono mt-1 text-sm text-[color:var(--color-accent)]">
+          [{tag}]
+        </div>
+      )}
     </div>
   );
 }

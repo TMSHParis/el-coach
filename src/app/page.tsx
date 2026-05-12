@@ -35,7 +35,7 @@ function Hero() {
         <p className="mt-8 max-w-xl text-base text-[#8a8a8a] md:text-lg">
           Programmes écrits par un coach d&apos;élite.
           <br />
-          CrossFit Pure, Hybrid Engine, Hyrox, At Home, Volume Block Hypertrophy.
+          CrossFit Pure, Hybrid Engine, Hyrox Pure, Volume Block Hypertrophy, At Home.
           <br />
           Suivi quotidien, progression mesurable, aucune fioriture.
         </p>
@@ -59,7 +59,7 @@ function Ticker() {
     "HYROX PURE",
     "VOLUME BLOCK HYPERTROPHY",
     "AT HOME",
-  ];
+  ]; // At Home toujours en dernier — règle d'affichage EL COACH METHOD.
   const doubled = [...items, ...items, ...items];
   return (
     <div className="hairline-b overflow-hidden">
