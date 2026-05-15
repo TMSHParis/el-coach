@@ -13,11 +13,12 @@ export function Footer() {
             </div>
           </div>
           <p className="mt-4 max-w-sm text-sm text-[color:var(--color-mute)]">
-            Programmes conçus par un coach d&apos;élite.
+            Coach IA personnel. Check-in matinal, plan du jour sur mesure.
             <br />
-            CrossFit Pure, Hybrid Engine, Hyrox Pure, Volume Block Hypertrophy, At Home.
+            5 programmes en base : CrossFit Pure, Hybrid Engine, Hyrox Pure,
+            Volume Block Hypertrophy, At Home.
             <br />
-            Pas de promesses, des méthodes.
+            Pas de promesses, des décisions.
           </p>
         </div>
         <div>

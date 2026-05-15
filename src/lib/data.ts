@@ -11,11 +11,17 @@ export type Coach = {
   yearsExp: number;
 };
 
-// Tarification unifiée (cahier des charges v1.0) :
-// - Programme principal : 9,99€/mois (PROGRAM_BASE_PRICE_CENTS).
-// - Chaque programme additionnel : +4,99€/mois (PROGRAM_ADDITIONAL_PRICE_CENTS).
+// Tarification — cahier des charges v1.0 + vision IA (mai 2026).
+// - Programme seul · sans IA            → 9,99 €/mois
+// - Programme + Coach IA                → 14,99 €/mois
+// - Multi-programmes + Coach IA + histo → 19,99 €/mois
+// - Programme additionnel (legacy)      → 4,99 €/mois (utilisé dans la marketplace coach)
+// Les tarifs IA sont SUGGESTED — à valider selon coût API Anthropic
+// (~0,02 € / check-in · ~0,60 € / utilisateur actif / mois).
 export const PROGRAM_BASE_PRICE_CENTS = 999;
 export const PROGRAM_ADDITIONAL_PRICE_CENTS = 499;
+export const PROGRAM_AI_PRICE_CENTS = 1499;
+export const MULTI_AI_PRICE_CENTS = 1999;
 
 export type Program = {
   slug: string;
