@@ -13,12 +13,11 @@ export function Footer() {
             </div>
           </div>
           <p className="mt-4 max-w-sm text-sm text-[color:var(--color-mute)]">
-            Coach IA personnel. Check-in matinal, plan du jour sur mesure.
+            Pas une app de programmes. Ton Coaching Adaptatif quotidien.
             <br />
-            5 programmes en base : CrossFit Pure, Hybrid Engine, Hyrox Pure,
-            Volume Block Hypertrophy, At Home.
-            <br />
-            Pas de promesses, des décisions.
+            <span className="mono text-xs tracking-[0.2em] text-white">
+              EL COACH METHOD · by El Coach
+            </span>
           </p>
         </div>
         <div>

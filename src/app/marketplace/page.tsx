@@ -1,6 +1,5 @@
 import {
-  MULTI_AI_PRICE_CENTS,
-  PROGRAM_AI_PRICE_CENTS,
+  MULTI_PROGRAM_PRICE_CENTS,
   PROGRAM_BASE_PRICE_CENTS,
 } from "@/lib/data";
 import { TemplateCard } from "@/components/template-card";
@@ -12,15 +11,12 @@ export const metadata = { title: "Choisis ton programme — EL COACH METHOD" };
 export default function MarketplacePage() {
   return (
     <section className="mx-auto max-w-7xl px-6 py-16">
-      <div className="label text-[color:var(--color-accent)]">[ COACH IA · NOUVELLE GÉNÉRATION ]</div>
+      <div className="label text-[color:var(--color-accent)]">[ COACHING ADAPTATIF · PAR EL COACH METHOD ]</div>
       <h1 className="mt-3 text-4xl font-semibold tracking-tight md:text-6xl">
-        Choisis ton programme.
-        <br />
-        L&apos;IA s&apos;occupe du reste.
+        5 programmes. Un Coaching Adaptatif. Zéro générique.
       </h1>
       <p className="mt-4 max-w-2xl text-[color:var(--color-mute)]">
-        Les 5 programmes sont la base. Le coach IA adapte ta séance, ton stack et ton en-cas
-        chaque matin selon ton état réel.
+        Chaque plan généré en temps réel selon ton état du jour.
       </p>
 
       <PricingBanner />
@@ -32,7 +28,7 @@ export default function MarketplacePage() {
       </div>
 
       <p className="mt-10 text-center text-xs text-[color:var(--color-mute)]">
-        Sans engagement. Annulation en un clic. 7 jours offerts.
+        Sans engagement. Annulation en un clic. Free Trial 7 jours.
       </p>
     </section>
   );
@@ -41,43 +37,30 @@ export default function MarketplacePage() {
 type Tier = {
   label: string;
   priceCents: number;
-  tagline: string;
   features: string[];
   highlight?: boolean;
 };
 
 const TIERS: Tier[] = [
   {
-    label: "Programme seul",
+    label: "Programme + Coaching Adaptatif",
     priceCents: PROGRAM_BASE_PRICE_CENTS,
-    tagline: "Un programme · sans coach IA",
-    features: [
-      "Accès complet à 1 programme",
-      "Séances figées, intensité standard",
-      "Suivi manuel",
-    ],
-  },
-  {
-    label: "Programme + Coach IA",
-    priceCents: PROGRAM_AI_PRICE_CENTS,
-    tagline: "Le plan du jour, sur mesure",
     highlight: true,
     features: [
-      "1 programme + check-in matinal",
-      "Séance, stack, en-cas adaptés chaque jour",
-      "Analyse sommeil Apple Watch",
-      "Adaptation blessures + jeûne",
+      "Check-in quotidien",
+      "Plan adaptatif personnalisé",
+      "Stack compléments",
+      "Récupération ciblée",
     ],
   },
   {
-    label: "Multi + Coach IA",
-    priceCents: MULTI_AI_PRICE_CENTS,
-    tagline: "Tous les programmes, l'IA arbitre",
+    label: "Multi-programme + Coaching Adaptatif",
+    priceCents: MULTI_PROGRAM_PRICE_CENTS,
     features: [
       "Accès aux 5 programmes",
-      "IA croise les disciplines selon ton état",
-      "Historique complet et tendances 7 jours",
-      "Alertes hormonales & récupération",
+      "Coaching Adaptatif complet",
+      "Historique",
+      "Alertes avancées",
     ],
   },
 ];
@@ -85,7 +68,7 @@ const TIERS: Tier[] = [
 function PricingBanner() {
   return (
     <div className="mt-10">
-      <div className="grid gap-px bg-[color:var(--color-line)] md:grid-cols-3">
+      <div className="grid gap-px bg-[color:var(--color-line)] md:grid-cols-2">
         {TIERS.map((tier) => (
           <div
             key={tier.label}
@@ -101,12 +84,9 @@ function PricingBanner() {
                 </span>
               )}
             </div>
-            <div>
-              <div className="flex items-baseline gap-2">
-                <div className="mono text-3xl font-semibold">{formatPrice(tier.priceCents)}</div>
-                <div className="label">/mois</div>
-              </div>
-              <p className="mt-2 text-sm text-[color:var(--color-mute)]">{tier.tagline}</p>
+            <div className="flex items-baseline gap-2">
+              <div className="mono text-3xl font-semibold">{formatPrice(tier.priceCents)}</div>
+              <div className="label">/mois</div>
             </div>
             <ul className="mt-1 space-y-1.5 text-xs text-[color:var(--color-mute)]">
               {tier.features.map((f) => (
@@ -119,9 +99,6 @@ function PricingBanner() {
           </div>
         ))}
       </div>
-      <p className="mono mt-4 text-center text-[10px] tracking-[0.25em] text-[color:var(--color-mute)]">
-        Tarifs Coach IA à valider · estimation coût API ~0,60 € / utilisateur / mois
-      </p>
     </div>
   );
 }

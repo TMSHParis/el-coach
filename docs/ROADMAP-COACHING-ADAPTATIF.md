@@ -1,15 +1,16 @@
-# EL COACH METHOD — Moteur IA
+# EL COACH METHOD — Coaching Adaptatif
 
-> Source : `el-coach-IA.docx` · Mai 2026 · Version 1.0
+> Source : `el-coach-IA.docx` (renommage interne : « Coaching Adaptatif par EL COACH METHOD ») · Mai 2026 · Version 1.0
 > Section à intégrer au cahier des charges principal — entre § 10 et la Roadmap.
+> Branding : on n'utilise plus jamais « IA » côté produit/marketing. Le moteur s'appelle **Coaching Adaptatif**.
 
-## Vision produit — de l'app de programmes à l'app de coaching IA
+## Vision produit — de l'app de programmes à l'app de Coaching Adaptatif
 
-Les 5 programmes sont la base de données des séances. L'IA les adapte chaque jour selon l'état réel de l'athlète. Chaque matin, un check-in. Chaque jour, un plan sur mesure.
+Les 5 programmes sont la base de données des séances. Le Coaching Adaptatif les adapte chaque jour selon l'état réel de l'athlète. Chaque matin, un check-in. Chaque jour, un plan sur mesure.
 
-EL COACH METHOD n'est pas une app de programmes génériques. C'est un coach IA qui connaît l'athlète, lit son état du jour et prend les bonnes décisions à sa place.
+EL COACH METHOD n'est pas une app de programmes génériques. C'est un Coaching Adaptatif qui connaît l'athlète, lit son état du jour et prend les bonnes décisions à sa place.
 
-> Les 5 programmes ne disparaissent pas — ils deviennent le moteur de l'IA. CrossFit Pure, Hybrid Engine, Hyrox Pure, Volume Block Hypertrophy, At Home sont les bases de données dans lesquelles l'IA pioche chaque jour.
+> Les 5 programmes ne disparaissent pas — ils deviennent le moteur du Coaching Adaptatif. CrossFit Pure, Hybrid Engine, Hyrox Pure, Volume Block Hypertrophy, At Home sont les bases de données dans lesquelles le Coaching Adaptatif pioche chaque jour.
 
 ## Architecture — les 3 couches
 
@@ -17,7 +18,7 @@ EL COACH METHOD n'est pas une app de programmes génériques. C'est un coach IA 
 
 Mémoire permanente de l'athlète.
 
-| Donnée | Utilisation par l'IA |
+| Donnée | Utilisation par le Coaching Adaptatif |
 | --- | --- |
 | Données personnelles | Âge, poids, taille, sexe → calculs caloriques et récupération |
 | Programme choisi | Détermine la base de données des séances à utiliser |
@@ -31,7 +32,7 @@ Mémoire permanente de l'athlète.
 
 ### Couche 2 — Check-in quotidien (chaque matin, < 2 min)
 
-| Signal | Action IA |
+| Signal | Action du Coaching Adaptatif |
 | --- | --- |
 | Niveau d'énergie /10 | Ajuste l'intensité de la séance du jour |
 | Photo sommeil Apple Watch | Analyse phases profond / REM / éveil → adapte récupération |
@@ -44,9 +45,9 @@ Mémoire permanente de l'athlète.
 | Soir performance (Oui / Non) | Prépare l'en-cas et le stack pré-performance |
 | Notes libres (optionnel) | Observations, événements, stress, ressenti |
 
-### Couche 3 — Génération IA (output du matin)
+### Couche 3 — Génération du plan du jour (output du matin)
 
-Croise profil + check-in et génère en temps réel :
+Le Coaching Adaptatif croise profil + check-in et génère en temps réel :
 
 - **État du jour** — Score ECM (A / B+ / C…) · Code couleur 🟢🟡🔴 · Résumé en une phrase
 - **Séance adaptée** — Puisée dans les 5 programmes · Intensité ajustée · Mouvements remplacés si blessure
@@ -59,7 +60,7 @@ Croise profil + check-in et génère en temps réel :
 ## Flow utilisateur — le matin
 
 ```
-Réveil  →  Check-in (2 min)  →  IA analyse (< 5 s)  →  Plan du jour
+Réveil  →  Check-in (2 min)  →  Coaching Adaptatif analyse (< 5 s)  →  Plan du jour
 ```
 
 Le plan du jour contient dans l'ordre :
@@ -73,11 +74,11 @@ Le plan du jour contient dans l'ordre :
 7. Protocole récupération — si alerte détectée
 8. Aperçu demain — anticipation et préparation
 
-## Logique de décision IA
+## Logique de décision
 
 ### Matrice d'état
 
-| État | Énergie | Mental | Jambes | Action IA |
+| État | Énergie | Mental | Jambes | Action du Coaching Adaptatif |
 | --- | --- | --- | --- | --- |
 | 🟢 VERT | 8-10/10 | Clair | Légères | Séance complète · Intensité 100% · Charges prescrites |
 | 🟡 JAUNE | 5-7/10 | Moyen | Légèrement lourdes | Séance allégée · Intensité 80% · Volume réduit |
@@ -95,7 +96,7 @@ Le plan du jour contient dans l'ordre :
 
 ### Adaptation au jeûne intermittent
 
-| Moment | Logique IA |
+| Moment | Logique du Coaching Adaptatif |
 | --- | --- |
 | Séance avant la fenêtre alimentaire | Stack à jeun · En-cas repoussé à l'ouverture |
 | Séance pendant la fenêtre | En-cas pré-séance 45 min avant · Stack post-séance immédiat |
@@ -103,7 +104,7 @@ Le plan du jour contient dans l'ordre :
 
 ## Analyse photo sommeil Apple Watch
 
-L'IA lit la photo Apple Watch et extrait :
+Le Coaching Adaptatif lit la photo Apple Watch et extrait :
 
 - Durée totale de sommeil
 - Durée sommeil profond — **alerte si < 40 min**
@@ -111,11 +112,11 @@ L'IA lit la photo Apple Watch et extrait :
 - Durée d'éveil — **alerte si > 2h**
 - Tendance sur 7 jours — détection de dégradation progressive
 
-> Vision IA via `claude-sonnet-4-20250514` directement depuis la capture d'écran.
+> Vision via `claude-sonnet-4-20250514` directement depuis la capture d'écran (détail technique, ne fuite pas en UI publique).
 
-## Stack compléments — règles IA
+## Stack compléments — règles du Coaching Adaptatif
 
-L'IA ne prescrit **que** les compléments déjà renseignés dans le profil. Elle réorganise et priorise — jamais d'ajout.
+Le Coaching Adaptatif ne prescrit **que** les compléments déjà renseignés dans le profil. Il réorganise et priorise — jamais d'ajout.
 
 | Situation | Action |
 | --- | --- |
@@ -128,27 +129,26 @@ L'IA ne prescrit **que** les compléments déjà renseignés dans le profil. Ell
 | État mental brouillard | Rhodiola si dispo · Magnésium · Réduction caféine |
 | Séance à jeun | Maca + Ginseng avant séance · Pas de créatine à jeun |
 
-## Modèle économique — impact IA
+## Modèle économique — offres officielles
 
-| Offre | Contenu | Tarif suggéré |
+| Offre | Contenu | Tarif |
 | --- | --- | --- |
-| Programme seul | 1 programme fixe sans IA | **9,99 € / mois** |
-| Programme + IA | Programme + check-in + outputs IA | **14,99 € / mois** |
-| Multi-programme + IA | Tous les programmes + IA + historique | **19,99 € / mois** |
+| Programme + Coaching Adaptatif | Check-in + plan adaptatif + stack + récup ciblée | **14,99 € / mois** |
+| Multi-programme + Coaching Adaptatif | Accès aux 5 programmes + Coaching Adaptatif complet + historique + alertes avancées | **19,99 € / mois** |
 
-> À valider selon coûts API IA. Estimation : ~0,02 € par check-in · 30/mois = ~0,60 € de coût par utilisateur actif.
+> Estimation interne du coût d'inférence : ~0,02 € par check-in · 30/mois = ~0,60 € / utilisateur actif. À ne pas exposer en UI publique.
 
 ## Intégration dans la roadmap
 
-Le moteur IA s'insère **après l'Étape 2 (Supabase)** — il a besoin de la BDD pour stocker check-ins et historiques d'outputs.
+Le moteur Coaching Adaptatif s'insère **après l'Étape 2 (Supabase)** — il a besoin de la BDD pour stocker check-ins et historiques d'outputs. **Aucune logique back-end avant l'Étape 2.** Côté front, les textes marketing (« Coaching Adaptatif ») sont déjà déployés depuis mai 2026.
 
-| Étape | Titre | IA concernée |
+| Étape | Titre | Lien Coaching Adaptatif |
 | --- | --- | --- |
-| 1 | Restructuration des séances | Base de données des séances — input de l'IA |
+| 1 | Restructuration des séances | Base de données des séances — input du Coaching Adaptatif |
 | 2 | Supabase | Stockage des check-ins et historique des outputs |
-| **2.5** | **Moteur IA — CHECK-IN + OUTPUTS** | **Nouveau · À développer après Supabase** |
-| 3 | Stripe | Facturation par niveau d'offre (avec / sans IA) |
-| 4 | Calendrier & navigation | Affichage de la séance générée par l'IA |
-| 5 | Panneau Admin | Supervision des outputs IA + alertes admin |
+| **2.5** | **Moteur Coaching Adaptatif — CHECK-IN + OUTPUTS** | **Nouveau · À développer après Supabase** |
+| 3 | Stripe | Facturation 14,99 / 19,99 |
+| 4 | Calendrier & navigation | Affichage de la séance générée par le Coaching Adaptatif |
+| 5 | Panneau Admin | Supervision des outputs + alertes admin |
 
 > Stack technique recommandé : API Anthropic Claude `claude-sonnet-4-20250514` + Next.js API routes + Supabase.

@@ -2,10 +2,7 @@ import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { ProgramIcon } from "@/components/program-icon";
 import { type ProgramTemplate } from "@/lib/programming";
-import {
-  PROGRAM_BASE_PRICE_CENTS,
-  PROGRAM_ADDITIONAL_PRICE_CENTS,
-} from "@/lib/data";
+import { PROGRAM_BASE_PRICE_CENTS } from "@/lib/data";
 import { formatPrice } from "@/lib/utils";
 
 export function TemplateCard({ template }: { template: ProgramTemplate }) {
@@ -40,7 +37,7 @@ export function TemplateCard({ template }: { template: ProgramTemplate }) {
       </div>
       <div className="mt-6 flex items-end justify-between">
         <div>
-          <div className="label">Programmation</div>
+          <div className="label">Programme + Coaching Adaptatif</div>
           <div className="mono text-sm">EL COACH METHOD</div>
         </div>
         <div className="text-right">
@@ -48,9 +45,6 @@ export function TemplateCard({ template }: { template: ProgramTemplate }) {
             {formatPrice(PROGRAM_BASE_PRICE_CENTS)}
           </div>
           <div className="label">/mois</div>
-          <div className="mono mt-1 text-[10px] text-[color:var(--color-mute)]">
-            +{formatPrice(PROGRAM_ADDITIONAL_PRICE_CENTS)} / programme additionnel
-          </div>
         </div>
       </div>
     </Link>

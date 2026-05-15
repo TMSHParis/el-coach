@@ -11,17 +11,13 @@ export type Coach = {
   yearsExp: number;
 };
 
-// Tarification — cahier des charges v1.0 + vision IA (mai 2026).
-// - Programme seul · sans IA            → 9,99 €/mois
-// - Programme + Coach IA                → 14,99 €/mois
-// - Multi-programmes + Coach IA + histo → 19,99 €/mois
-// - Programme additionnel (legacy)      → 4,99 €/mois (utilisé dans la marketplace coach)
-// Les tarifs IA sont SUGGESTED — à valider selon coût API Anthropic
-// (~0,02 € / check-in · ~0,60 € / utilisateur actif / mois).
-export const PROGRAM_BASE_PRICE_CENTS = 999;
+// Tarification officielle EL COACH METHOD (mai 2026 — Coaching Adaptatif).
+// - Programme + Coaching Adaptatif        → 14,99 €/mois (entrée standard)
+// - Multi-programmes + Coaching Adaptatif → 19,99 €/mois (accès aux 5 programmes)
+// PROGRAM_ADDITIONAL_PRICE_CENTS conservé pour la legacy marketplace coachs (data.ts `programs`).
+export const PROGRAM_BASE_PRICE_CENTS = 1499;
+export const MULTI_PROGRAM_PRICE_CENTS = 1999;
 export const PROGRAM_ADDITIONAL_PRICE_CENTS = 499;
-export const PROGRAM_AI_PRICE_CENTS = 1499;
-export const MULTI_AI_PRICE_CENTS = 1999;
 
 export type Program = {
   slug: string;

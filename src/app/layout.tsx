@@ -10,9 +10,9 @@ const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "EL COACH METHOD — Coach IA personnel, plan du jour sur mesure",
+  title: "EL COACH METHOD — Ton Coaching Adaptatif personnel",
   description:
-    "Check-in matinal de 2 min. L'IA adapte ta séance, ton stack compléments et ton en-cas chaque jour selon ton énergie, ton sommeil et tes courbatures. 5 programmes en base : CrossFit Pure, Hybrid Engine, Hyrox Pure, Volume Block Hypertrophy, At Home.",
+    "Un check-in chaque matin. Un plan sur mesure chaque jour. Séance adaptée, stack compléments, récupération ciblée — tout généré en moins de 5 secondes. 5 programmes en base : CrossFit Pure, Hybrid Engine, Hyrox Pure, Volume Block Hypertrophy, At Home.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
