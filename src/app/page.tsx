@@ -1,20 +1,15 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { ProgramIcon } from "@/components/program-icon";
-import { PROGRAM_BASE_PRICE_CENTS } from "@/lib/data";
-import { programTemplates, type ProgramTemplate } from "@/lib/programming";
-import { formatPrice } from "@/lib/utils";
+import { programTemplates } from "@/lib/programming";
 
 export default function Home() {
-  const featured = programTemplates;
   return (
     <>
       <Hero />
+      <Pillars />
       <ThreePillars />
       <Ticker />
-      <Featured featured={featured} />
-      <Pillars />
-      <How />
       <CTA />
     </>
   );
@@ -41,153 +36,21 @@ function Hero() {
           Séance adaptée, stack compléments, récupération ciblée — tout généré en moins de
           5 secondes.
         </p>
-        <div className="mt-10 flex flex-wrap gap-4">
-          <Link href="/onboarding" className="btn-primary">
-            Commencer mon check-in <ArrowRight size={14} />
-          </Link>
-          <Link href="#comment-ca-marche" className="btn-ghost">
-            Voir comment ça marche
-          </Link>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function ThreePillars() {
-  const pillars = [
-    {
-      icon: "⚡",
-      title: "Check-in 2 min",
-      body: "Énergie, sommeil, corps, mental. Le Coaching Adaptatif lit ton état réel.",
-    },
-    {
-      icon: "🧠",
-      title: "Plan généré",
-      body: "Séance, stack, en-cas, récupération. Tout adapté à toi, aujourd'hui.",
-    },
-    {
-      icon: "📈",
-      title: "Progression mesurée",
-      body: "Ton historique, tes alertes, tes tendances. Semaine après semaine.",
-    },
-  ];
-  return (
-    <section className="hairline-b bg-[#0a0a0a]">
-      <div className="mx-auto grid max-w-7xl gap-px bg-[color:var(--color-line)] px-0 md:grid-cols-3">
-        {pillars.map((p) => (
-          <div key={p.title} className="bg-[#0a0a0a] p-8 md:p-10">
-            <div className="text-3xl leading-none">{p.icon}</div>
-            <div className="mt-5 text-lg font-semibold tracking-tight">{p.title}</div>
-            <p className="mt-2 text-sm text-[color:var(--color-mute)]">{p.body}</p>
+        <div className="mt-10 flex flex-col gap-3">
+          <div className="flex flex-wrap items-center gap-4">
+            <Link href="/signup" className="btn-primary">
+              Commencer mon check-in <ArrowRight size={14} />
+            </Link>
+            <Link href="/signup" className="btn-ghost">
+              Voir comment ça marche
+            </Link>
           </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function Ticker() {
-  const items = [
-    "CHECK-IN MATINAL",
-    "SÉANCE ADAPTÉE",
-    "STACK COMPLÉMENTS",
-    "EN-CAS DU JOUR",
-    "RÉCUP CIBLÉE",
-    "APERÇU DEMAIN",
-  ];
-  const doubled = [...items, ...items, ...items];
-  return (
-    <div className="hairline-b overflow-hidden">
-      <div className="ticker flex gap-12 py-4 whitespace-nowrap">
-        {doubled.map((t, i) => (
-          <span key={i} className="mono text-xs tracking-[0.4em] text-[#8a8a8a]">
-            ◇ {t}
-          </span>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function Featured({ featured }: { featured: typeof programTemplates }) {
-  return (
-    <section className="mx-auto max-w-7xl px-6 py-24">
-      <div>
-        <div className="label text-[color:var(--color-accent)]">[ LES 5 PROGRAMMES ]</div>
-        <h2 className="mt-3 text-3xl font-semibold tracking-tight md:text-5xl">
-          5 programmes. Un Coaching Adaptatif.
-        </h2>
-        <p className="mt-4 max-w-2xl text-sm text-[color:var(--color-mute)] md:text-base">
-          Les 5 programmations EL COACH METHOD sont la base dans laquelle ton Coaching
-          Adaptatif pioche chaque jour. Il choisit ta séance, ajuste l&apos;intensité,
-          remplace les mouvements si tu as une blessure. Tu ne suis plus un programme
-          générique — tu reçois un plan.
-        </p>
-      </div>
-      <div className="mt-10 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {featured.map((t) => (
-          <FeaturedShowcase key={t.slug} template={t} />
-        ))}
-      </div>
-    </section>
-  );
-}
-
-/**
- * Carte vitrine — affichage statique, sans lien, sans hover de carte cliquable.
- */
-function FeaturedShowcase({ template }: { template: ProgramTemplate }) {
-  const sessionsPerWeek =
-    template.weeks[0]?.days.filter((d) => d.blocks.length > 0).length ?? 0;
-  return (
-    <div className="card grain flex h-full flex-col gap-5 p-6">
-      <div className="flex items-start justify-between gap-3">
-        <div className="text-white">
-          <ProgramIcon template={template} size={36} />
-        </div>
-        <span className="mono shrink-0 border border-[color:var(--color-gold)] px-2 py-0.5 text-[10px] uppercase tracking-[0.2em] text-[color:var(--color-gold)]">
-          Method
-        </span>
-      </div>
-      <div>
-        <h3 className="text-xl font-semibold leading-tight tracking-tight">
-          {template.name}
-        </h3>
-        <div className="mono mt-1 text-[10px] uppercase tracking-[0.2em] text-[color:var(--color-mute)]">
-          · by El Coach Method
-        </div>
-        <p className="mt-3 line-clamp-4 text-sm text-[color:var(--color-mute)]">
-          {template.summary}
-        </p>
-      </div>
-      <div className="mt-auto grid grid-cols-3 gap-3 border-t border-[color:var(--color-line)] pt-4">
-        <Stat label="JOURS" value={`${sessionsPerWeek}/sem`} />
-        <Stat label="NIVEAU" value={template.level.slice(0, 3).toUpperCase()} />
-        <Stat label="SEMAINES" value={`${template.weeks.length}`} />
-      </div>
-      <div className="flex items-end justify-between">
-        <div>
-          <div className="label">Programme + Coaching Adaptatif</div>
-          <div className="mono text-sm">EL COACH METHOD</div>
-        </div>
-        <div className="text-right">
-          <div className="mono text-2xl font-semibold">
-            {formatPrice(PROGRAM_BASE_PRICE_CENTS)}
+          <div className="mono inline-flex w-fit items-center gap-2 border border-[color:var(--color-accent)] bg-[color:var(--color-accent)]/10 px-3 py-1.5 text-[10px] tracking-[0.3em] text-[color:var(--color-accent)]">
+            ✦ FREE TRIAL — 7 JOURS OFFERTS
           </div>
-          <div className="label">/mois</div>
         </div>
       </div>
-    </div>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <div className="label">{label}</div>
-      <div className="mono text-sm">{value}</div>
-    </div>
+    </section>
   );
 }
 
@@ -251,50 +114,59 @@ function Pillars() {
   );
 }
 
-function How() {
-  const steps = [
+function ThreePillars() {
+  const pillars = [
     {
-      n: "01",
-      t: "Profil & programme",
-      b: "Âge, poids, RM, blessures, jeûne, compléments. Le Coaching Adaptatif apprend qui tu es et choisit le programme adapté.",
+      icon: "⚡",
+      title: "Check-in 2 min",
+      body: "Énergie, sommeil, corps, mental. Le Coaching Adaptatif lit ton état réel.",
     },
     {
-      n: "02",
-      t: "Check-in matinal · 2 min",
-      b: "Énergie, sommeil Apple Watch, jambes, douleurs, mental, libido. Le Coaching Adaptatif lit ton état réel.",
+      icon: "🧠",
+      title: "Plan généré",
+      body: "Séance, stack, en-cas, récupération. Tout adapté à toi, aujourd'hui.",
     },
     {
-      n: "03",
-      t: "Plan du jour · < 5 sec",
-      b: "Score 🟢🟡🔴, séance adaptée, stack compléments, en-cas, protocole récup, alertes, aperçu demain.",
-    },
-    {
-      n: "04",
-      t: "Exécute · ajuste demain",
-      b: "Tu suis le plan. Le Coaching Adaptatif apprend de chaque journée et calibre les semaines suivantes.",
+      icon: "📈",
+      title: "Progression mesurée",
+      body: "Ton historique, tes alertes, tes tendances. Semaine après semaine.",
     },
   ];
   return (
-    <section id="comment-ca-marche" className="hairline-t bg-[#0a0a0a]">
-      <div className="mx-auto max-w-7xl px-6 py-20">
-        <div className="label text-[color:var(--color-accent)]">[ LA BOUCLE QUOTIDIENNE ]</div>
-        <h2 className="mt-3 max-w-3xl text-3xl font-semibold tracking-tight md:text-5xl">
-          Réveil. Check-in. Plan.
-        </h2>
-        <p className="mt-4 max-w-2xl text-sm text-[#8a8a8a] md:text-base">
-          Chaque matin, en moins de 5 minutes, ton plan de journée complet.
-        </p>
-        <div className="mt-12 grid gap-px bg-[#1f1f1f] md:grid-cols-4">
-          {steps.map((s) => (
-            <div key={s.n} className="bg-[#0a0a0a] p-8">
-              <div className="mono text-4xl font-semibold">{s.n}</div>
-              <div className="mt-6 text-lg font-semibold">{s.t}</div>
-              <p className="mt-2 text-sm text-[#8a8a8a]">{s.b}</p>
-            </div>
-          ))}
-        </div>
+    <section className="hairline-b bg-[#0a0a0a]">
+      <div className="mx-auto grid max-w-7xl gap-px bg-[color:var(--color-line)] px-0 md:grid-cols-3">
+        {pillars.map((p) => (
+          <div key={p.title} className="bg-[#0a0a0a] p-8 md:p-10">
+            <div className="text-3xl leading-none">{p.icon}</div>
+            <div className="mt-5 text-lg font-semibold tracking-tight">{p.title}</div>
+            <p className="mt-2 text-sm text-[color:var(--color-mute)]">{p.body}</p>
+          </div>
+        ))}
       </div>
     </section>
+  );
+}
+
+function Ticker() {
+  const items = [
+    "CHECK-IN MATINAL",
+    "SÉANCE ADAPTÉE",
+    "STACK COMPLÉMENTS",
+    "EN-CAS DU JOUR",
+    "RÉCUP CIBLÉE",
+    "APERÇU DEMAIN",
+  ];
+  const doubled = [...items, ...items, ...items];
+  return (
+    <div className="hairline-b overflow-hidden">
+      <div className="ticker flex gap-12 py-4 whitespace-nowrap">
+        {doubled.map((t, i) => (
+          <span key={i} className="mono text-xs tracking-[0.4em] text-[#8a8a8a]">
+            ◇ {t}
+          </span>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -306,13 +178,18 @@ function CTA() {
         <br />
         <span className="text-[#8a8a8a]">Tu exécutes.</span>
       </h2>
-      <div className="mt-10 flex justify-center gap-4">
-        <Link href="/onboarding" className="btn-primary">
-          Commencer mon check-in <ArrowRight size={14} />
-        </Link>
-        <Link href="/marketplace" className="btn-ghost">
-          Découvrir les programmes
-        </Link>
+      <div className="mt-10 flex flex-col items-center gap-3">
+        <div className="flex flex-wrap justify-center gap-4">
+          <Link href="/signup" className="btn-primary">
+            Commencer mon check-in <ArrowRight size={14} />
+          </Link>
+          <Link href="/marketplace" className="btn-ghost">
+            Découvrir les programmes
+          </Link>
+        </div>
+        <div className="mono inline-flex items-center gap-2 border border-[color:var(--color-accent)] bg-[color:var(--color-accent)]/10 px-3 py-1.5 text-[10px] tracking-[0.3em] text-[color:var(--color-accent)]">
+          ✦ FREE TRIAL — 7 JOURS OFFERTS
+        </div>
       </div>
     </section>
   );

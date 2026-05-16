@@ -11,12 +11,10 @@ export type Coach = {
   yearsExp: number;
 };
 
-// Tarification officielle EL COACH METHOD (mai 2026 — Coaching Adaptatif).
-// - Programme + Coaching Adaptatif        → 14,99 €/mois (entrée standard)
-// - Multi-programmes + Coaching Adaptatif → 19,99 €/mois (accès aux 5 programmes)
-// PROGRAM_ADDITIONAL_PRICE_CENTS conservé pour la legacy marketplace coachs (data.ts `programs`).
-export const PROGRAM_BASE_PRICE_CENTS = 1499;
-export const MULTI_PROGRAM_PRICE_CENTS = 1999;
+// Tarification officielle EL COACH METHOD — modèle unique (Coaching Adaptatif, mai 2026 v2).
+// Une seule offre, pas de tier. 9,99 €/mois · Free Trial 7 jours · sans engagement.
+// PROGRAM_ADDITIONAL_PRICE_CENTS : conservé pour la legacy marketplace coachs (data.ts `programs`).
+export const PROGRAM_BASE_PRICE_CENTS = 999;
 export const PROGRAM_ADDITIONAL_PRICE_CENTS = 499;
 
 export type Program = {

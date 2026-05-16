@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Check, Lock } from "lucide-react";
+import { ArrowRight, Check, Lock } from "lucide-react";
 import { ProgramIcon } from "@/components/program-icon";
 import { programTemplates } from "@/lib/programming";
 import { PROGRAM_BASE_PRICE_CENTS } from "@/lib/data";
@@ -13,9 +13,32 @@ import {
 import { PasswordField } from "./password-field";
 import { CardField } from "./card-field";
 
-export const metadata = { title: "Inscription — EL COACH METHOD" };
+export const metadata = { title: "Inscription Free Trial — 7 jours offerts · EL COACH METHOD" };
 
 const STEP_LABELS = ["Compte", "Programme", "Carte"];
+
+const DAILY_LOOP_STEPS = [
+  {
+    n: "01",
+    t: "Profil & programme",
+    b: "Âge, poids, RM, blessures, jeûne, compléments. Le Coaching Adaptatif apprend qui tu es et choisit le programme adapté.",
+  },
+  {
+    n: "02",
+    t: "Check-in matinal · 2 min",
+    b: "Énergie, sommeil Apple Watch, jambes, douleurs, mental, libido. Le Coaching Adaptatif lit ton état réel.",
+  },
+  {
+    n: "03",
+    t: "Plan du jour · < 5 sec",
+    b: "Score 🟢🟡🔴, séance adaptée, stack compléments, en-cas, protocole récup, alertes, aperçu demain.",
+  },
+  {
+    n: "04",
+    t: "Exécute · ajuste demain",
+    b: "Tu suis le plan. Le Coaching Adaptatif apprend de chaque journée et calibre les semaines suivantes.",
+  },
+];
 
 export default async function SignupPage({
   searchParams,
@@ -24,24 +47,32 @@ export default async function SignupPage({
 }) {
   const { step: stepParam, program: programParam, error } = await searchParams;
   const state = await getSignupState();
-  const step = clampStep(stepParam, state);
   const preselectedProgram = programParam ?? state?.programSlug ?? "";
+
+  // Mode intro : pas de param `step` ET pas encore de compte → on affiche
+  // l'écran d'accueil avec collapsible + bouton LET'S GO.
+  if (!stepParam && !state) {
+    return <IntroScreen />;
+  }
+
+  const step = clampStep(stepParam, state);
 
   return (
     <section className="mx-auto max-w-2xl px-6 py-16">
       <Link
-        href="/onboarding"
+        href="/signup"
         className="label inline-flex items-center gap-2 text-[color:var(--color-mute)] hover:text-white"
       >
-        ← Retour à l&apos;essai gratuit
+        ← Retour à l&apos;intro
       </Link>
 
       <header className="mt-8">
         <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">
-          Crée ton compte EL COACH METHOD
+          Inscription Free Trial — 7 jours offerts
         </h1>
         <p className="mt-3 text-sm text-[color:var(--color-mute)]">
-          Free Trial — 7 jours offerts. Aucun débit avant J+7. Annulation en un clic.
+          Ton Coaching Adaptatif à {formatPrice(PROGRAM_BASE_PRICE_CENTS)} / mois. Aucun
+          débit avant J+7. Annulation en un clic.
         </p>
       </header>
 
@@ -62,6 +93,82 @@ export default async function SignupPage({
         )}
         {step === 2 && <ProgramStep currentSlug={state?.programSlug} />}
         {step === 3 && <PaymentStep />}
+      </div>
+    </section>
+  );
+}
+
+// ============================================================================
+// Écran d'accueil intro — titre, sous-titre, collapsible, LET'S GO doré
+// ============================================================================
+
+function IntroScreen() {
+  return (
+    <section className="mx-auto max-w-2xl px-6 py-16">
+      <Link
+        href="/"
+        className="label inline-flex items-center gap-2 text-[color:var(--color-mute)] hover:text-white"
+      >
+        ← Accueil
+      </Link>
+
+      <header className="mt-10 text-center">
+        <div className="mono inline-flex items-center gap-2 border border-[color:var(--color-accent)] bg-[color:var(--color-accent)]/10 px-3 py-1.5 text-[10px] tracking-[0.3em] text-[color:var(--color-accent)]">
+          ✦ FREE TRIAL — 7 JOURS OFFERTS
+        </div>
+        <h1 className="mt-6 text-3xl font-semibold tracking-tight md:text-5xl">
+          Inscription Free Trial
+          <br />
+          <span className="text-[color:var(--color-mute)]">— 7 jours offerts</span>
+        </h1>
+        <p className="mt-5 text-base text-[color:var(--color-mute)] md:text-lg">
+          Ton Coaching Adaptatif à{" "}
+          <strong className="text-white">{formatPrice(PROGRAM_BASE_PRICE_CENTS)} / mois</strong>.
+          <br />
+          Aucun débit avant J+7. Annulation en un clic.
+        </p>
+      </header>
+
+      <details className="card group mt-10 overflow-hidden">
+        <summary className="flex cursor-pointer items-center justify-between gap-4 p-5 text-left md:p-6 [&::-webkit-details-marker]:hidden">
+          <span className="text-base font-semibold">Cliquer pour en savoir plus</span>
+          <span
+            aria-hidden
+            className="mono text-xs tracking-[0.2em] text-[color:var(--color-mute)] transition-transform group-open:rotate-180"
+          >
+            ▾
+          </span>
+        </summary>
+        <div className="border-t border-[color:var(--color-line)] p-5 md:p-6">
+          <div className="label text-[color:var(--color-accent)]">[ LA BOUCLE QUOTIDIENNE ]</div>
+          <p className="mt-3 text-sm text-[color:var(--color-mute)]">
+            Chaque matin, en moins de 5 minutes, ton plan de journée complet.
+          </p>
+          <ol className="mt-6 grid gap-4">
+            {DAILY_LOOP_STEPS.map((s) => (
+              <li
+                key={s.n}
+                className="grid gap-2 border-l-2 border-[color:var(--color-line)] pl-5"
+              >
+                <div className="mono text-3xl font-semibold leading-none">{s.n}</div>
+                <div className="text-base font-semibold">{s.t}</div>
+                <p className="text-sm text-[color:var(--color-mute)]">{s.b}</p>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </details>
+
+      <div className="mt-10 flex flex-col items-center gap-3">
+        <Link
+          href="/signup?step=1"
+          className="gold-shimmer mono inline-flex items-center justify-center gap-3 border-2 border-[color:var(--color-gold)] bg-[color:var(--color-gold)]/10 px-10 py-5 text-base font-semibold tracking-[0.3em] text-[color:var(--color-gold)] transition-all hover:bg-[color:var(--color-gold)]/20"
+        >
+          LET&apos;S GO <ArrowRight size={18} />
+        </Link>
+        <div className="mono text-[10px] tracking-[0.25em] text-[color:var(--color-mute)]">
+          Sans engagement · Annulation en un clic
+        </div>
       </div>
     </section>
   );
@@ -159,7 +266,7 @@ function AccountStep({
 }
 
 // ============================================================================
-// Étape 2 — choix de la programmation
+// Étape 2 — choix de la programmation (simplifié — sans summary)
 // ============================================================================
 
 function ProgramStep({ currentSlug }: { currentSlug?: string }) {
@@ -168,15 +275,13 @@ function ProgramStep({ currentSlug }: { currentSlug?: string }) {
       <p className="text-sm text-[color:var(--color-mute)]">
         Tu peux changer de programme à tout moment depuis ton profil.
       </p>
-      <div className="grid gap-3">
+      <div className="grid gap-2">
         {programTemplates.map((t) => {
           const checked = t.slug === currentSlug;
-          const sessionsPerWeek =
-            t.weeks[0]?.days.filter((d) => d.blocks.length > 0).length ?? 0;
           return (
             <label
               key={t.slug}
-              className={`flex cursor-pointer items-start gap-4 border p-5 transition-colors ${
+              className={`flex cursor-pointer items-center gap-4 border p-4 transition-colors ${
                 checked
                   ? "border-[color:var(--color-accent)] bg-[color:var(--color-accent)]/5"
                   : "border-[color:var(--color-line)] bg-[color:var(--color-ash)] hover:bg-black"
@@ -191,23 +296,16 @@ function ProgramStep({ currentSlug }: { currentSlug?: string }) {
                 className="sr-only"
               />
               <div className="text-white">
-                <ProgramIcon template={t} size={36} />
+                <ProgramIcon template={t} size={28} />
               </div>
               <div className="flex-1 min-w-0">
-                <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <h3 className="text-lg font-semibold">
-                    {t.name} <span className="text-[color:var(--color-mute)] font-normal">· by El Coach Method</span>
-                  </h3>
-                  <span className="mono text-xs text-[color:var(--color-mute)]">
-                    {sessionsPerWeek} j/sem · {t.level}
-                  </span>
+                <div className="text-base font-semibold">{t.name}</div>
+                <div className="mono text-[10px] uppercase tracking-[0.2em] text-[color:var(--color-mute)]">
+                  {t.level}
                 </div>
-                <p className="mt-2 line-clamp-2 text-sm text-[color:var(--color-mute)]">
-                  {t.summary}
-                </p>
               </div>
               <div
-                className={`mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${
+                className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${
                   checked
                     ? "border-[color:var(--color-accent)] bg-[color:var(--color-accent)]"
                     : "border-[color:var(--color-line)]"

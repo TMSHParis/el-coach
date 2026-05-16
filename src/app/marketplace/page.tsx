@@ -1,12 +1,20 @@
-import {
-  MULTI_PROGRAM_PRICE_CENTS,
-  PROGRAM_BASE_PRICE_CENTS,
-} from "@/lib/data";
+import Link from "next/link";
+import { PROGRAM_BASE_PRICE_CENTS } from "@/lib/data";
 import { TemplateCard } from "@/components/template-card";
 import { programTemplates } from "@/lib/programming";
 import { formatPrice } from "@/lib/utils";
 
 export const metadata = { title: "Choisis ton programme — EL COACH METHOD" };
+
+const FEATURES = [
+  "Check-in quotidien",
+  "Plan adaptatif personnalisé",
+  "Stack compléments",
+  "Séance adaptée",
+  "Récupération ciblée",
+  "Alertes",
+  "Aperçu demain",
+];
 
 export default function MarketplacePage() {
   return (
@@ -21,7 +29,14 @@ export default function MarketplacePage() {
 
       <PricingBanner />
 
-      <div className="mt-10 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      <div className="mt-12">
+        <div className="label text-[color:var(--color-accent)]">[ LES 5 PROGRAMMES ]</div>
+        <h2 className="mt-3 text-2xl font-semibold tracking-tight md:text-3xl">
+          La base que ton Coaching Adaptatif utilise.
+        </h2>
+      </div>
+
+      <div className="mt-8 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {programTemplates.map((t) => (
           <TemplateCard key={t.slug} template={t} />
         ))}
@@ -34,70 +49,36 @@ export default function MarketplacePage() {
   );
 }
 
-type Tier = {
-  label: string;
-  priceCents: number;
-  features: string[];
-  highlight?: boolean;
-};
-
-const TIERS: Tier[] = [
-  {
-    label: "Programme + Coaching Adaptatif",
-    priceCents: PROGRAM_BASE_PRICE_CENTS,
-    highlight: true,
-    features: [
-      "Check-in quotidien",
-      "Plan adaptatif personnalisé",
-      "Stack compléments",
-      "Récupération ciblée",
-    ],
-  },
-  {
-    label: "Multi-programme + Coaching Adaptatif",
-    priceCents: MULTI_PROGRAM_PRICE_CENTS,
-    features: [
-      "Accès aux 5 programmes",
-      "Coaching Adaptatif complet",
-      "Historique",
-      "Alertes avancées",
-    ],
-  },
-];
-
 function PricingBanner() {
   return (
-    <div className="mt-10">
-      <div className="grid gap-px bg-[color:var(--color-line)] md:grid-cols-2">
-        {TIERS.map((tier) => (
-          <div
-            key={tier.label}
-            className={`flex flex-col gap-4 p-6 ${
-              tier.highlight ? "bg-[color:var(--color-accent)]/5" : "bg-[color:var(--color-ash)]"
-            }`}
-          >
-            <div className="flex items-baseline justify-between gap-2">
-              <div className="label">{tier.label.toUpperCase()}</div>
-              {tier.highlight && (
-                <span className="mono inline-flex items-center border border-[color:var(--color-accent)] px-2 py-0.5 text-[10px] tracking-[0.25em] text-[color:var(--color-accent)]">
-                  RECOMMANDÉ
-                </span>
-              )}
-            </div>
-            <div className="flex items-baseline gap-2">
-              <div className="mono text-3xl font-semibold">{formatPrice(tier.priceCents)}</div>
-              <div className="label">/mois</div>
-            </div>
-            <ul className="mt-1 space-y-1.5 text-xs text-[color:var(--color-mute)]">
-              {tier.features.map((f) => (
-                <li key={f} className="flex items-start gap-2">
-                  <span aria-hidden className="mt-0.5 select-none">▸</span>
-                  <span>{f}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
+    <div className="mt-10 grid gap-6 border border-[color:var(--color-line)] bg-[color:var(--color-accent)]/5 p-8 md:grid-cols-[1fr_auto] md:items-center md:p-10">
+      <div>
+        <div className="mono text-[10px] tracking-[0.3em] text-[color:var(--color-accent)]">
+          ◆ COACHING ADAPTATIF — EL COACH METHOD
+        </div>
+        <div className="mt-3 flex items-baseline gap-3">
+          <div className="mono text-5xl font-semibold">{formatPrice(PROGRAM_BASE_PRICE_CENTS)}</div>
+          <div className="label">/mois</div>
+        </div>
+        <ul className="mt-5 grid gap-1.5 text-sm text-[color:var(--color-mute)] sm:grid-cols-2">
+          {FEATURES.map((f) => (
+            <li key={f} className="flex items-start gap-2">
+              <span aria-hidden className="mt-0.5 select-none text-[color:var(--color-accent)]">▸</span>
+              <span>{f}</span>
+            </li>
+          ))}
+        </ul>
+        <div className="mono mt-5 inline-flex items-center gap-2 border border-[color:var(--color-accent)] bg-[color:var(--color-accent)]/10 px-3 py-1.5 text-[10px] tracking-[0.3em] text-[color:var(--color-accent)]">
+          ✦ FREE TRIAL — 7 JOURS OFFERTS
+        </div>
+        <div className="mono mt-3 text-[10px] text-[color:var(--color-mute)]">
+          Sans engagement · Annulation en un clic
+        </div>
+      </div>
+      <div className="flex md:flex-col md:items-end md:gap-3">
+        <Link href="/signup" className="btn-primary justify-center">
+          Commencer mon check-in →
+        </Link>
       </div>
     </div>
   );
