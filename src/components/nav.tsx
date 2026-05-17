@@ -28,14 +28,8 @@ export async function Nav() {
           <Link href="/dashboard" className="hover:text-white">Dashboard</Link>
         </nav>
         <div className="flex items-center gap-3">
-          {!clerkEnabled && (
-            <Link href="/onboarding" className="btn-primary">Essayer</Link>
-          )}
           {clerkEnabled && !signedIn && (
-            <>
-              <Link href="/sign-in" className="btn-ghost">Connexion</Link>
-              <Link href="/sign-up" className="btn-primary">Commencer</Link>
-            </>
+            <Link href="/sign-in" className="btn-ghost">Connexion</Link>
           )}
           {clerkEnabled && signedIn && (
             <>

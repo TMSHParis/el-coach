@@ -10,7 +10,7 @@
   --color-smoke: #161616;
   --color-line: #1f1f1f;
   --color-mute: #8a8a8a;
-  /* Accent jaune électrique — couleur signature */
+  /* Accent jaune électrique — identité ECM (boutons · accents) */
   --color-accent: #e8ff00;
   --color-accent-soft: #f4ff7a;
   --color-accent-deep: #b8cc00;
@@ -18,6 +18,10 @@
   --color-gold-light: #f4ff7a;
   --color-gold: #e8ff00;
   --color-gold-deep: #b8cc00;
+  /* Bleu fonctionnel — données · sommeil · séances (Dashboard Étape 2.5) */
+  --color-data: #3b82f6;
+  --color-data-soft: #93c5fd;
+  --color-data-deep: #1d4ed8;
 }
 
 @layer base {
