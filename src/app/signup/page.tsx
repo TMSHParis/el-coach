@@ -15,8 +15,6 @@ import { CardField } from "./card-field";
 
 export const metadata = { title: "Inscription Free Trial — 7 jours offerts · EL COACH METHOD" };
 
-const STEP_LABELS = ["Compte", "Programme", "Carte"];
-
 const DAILY_LOOP_STEPS = [
   {
     n: "01",
@@ -76,15 +74,13 @@ export default async function SignupPage({
         </p>
       </header>
 
-      <Stepper step={step} />
-
       {error === "invalid" && (
         <div className="mt-6 border-l-2 border-red-400 bg-red-500/5 px-4 py-3 text-sm text-red-400">
           Vérifie tes informations et réessaie.
         </div>
       )}
 
-      <div className="mt-8">
+      <div className="mt-10">
         {step === 1 && (
           <AccountStep
             preselectedProgram={preselectedProgram}
@@ -162,9 +158,9 @@ function IntroScreen() {
       <div className="mt-10 flex flex-col items-center gap-3">
         <Link
           href="/signup?step=1"
-          className="gold-shimmer mono inline-flex items-center justify-center gap-3 border-2 border-[color:var(--color-gold)] bg-[color:var(--color-gold)]/10 px-10 py-5 text-base font-semibold tracking-[0.3em] text-[color:var(--color-gold)] transition-all hover:bg-[color:var(--color-gold)]/20"
+          className="mono inline-flex items-center justify-center gap-3 bg-[color:var(--color-accent)] px-12 py-5 text-base font-semibold tracking-[0.3em] text-black shadow-[0_0_40px_rgba(232,255,0,0.35)] transition-all hover:bg-[color:var(--color-accent-soft)] hover:shadow-[0_0_60px_rgba(232,255,0,0.55)]"
         >
-          LET&apos;S GO <ArrowRight size={18} />
+          LET&apos;S GO <ArrowRight size={18} strokeWidth={2.5} />
         </Link>
         <div className="mono text-[10px] tracking-[0.25em] text-[color:var(--color-mute)]">
           Sans engagement · Annulation en un clic
@@ -181,40 +177,6 @@ function clampStep(stepParam: string | undefined, state: Awaited<ReturnType<type
   if (raw < 1) return 1;
   if (raw > 3) return 3;
   return raw as 1 | 2 | 3;
-}
-
-function Stepper({ step }: { step: 1 | 2 | 3 }) {
-  return (
-    <div className="mt-10 grid grid-cols-3 gap-2">
-      {STEP_LABELS.map((label, i) => {
-        const n = i + 1;
-        const isDone = step > n;
-        const isActive = step === n;
-        return (
-          <div key={n} className="flex flex-col items-start gap-2">
-            <div
-              className={`mono text-[10px] tracking-[0.2em] ${
-                isActive
-                  ? "text-[color:var(--color-accent)]"
-                  : isDone
-                    ? "text-white"
-                    : "text-[color:var(--color-mute)]"
-              }`}
-            >
-              ÉTAPE {n} · {label.toUpperCase()}
-            </div>
-            <div
-              className={`h-1 w-full ${
-                isDone || isActive
-                  ? "bg-[color:var(--color-accent)]"
-                  : "bg-[color:var(--color-line)]"
-              }`}
-            />
-          </div>
-        );
-      })}
-    </div>
-  );
 }
 
 // ============================================================================
