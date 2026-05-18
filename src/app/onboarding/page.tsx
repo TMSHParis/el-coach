@@ -3,18 +3,22 @@ import { ArrowRight } from "lucide-react";
 import { ProgramIcon } from "@/components/program-icon";
 import { programTemplates } from "@/lib/programming";
 
-export const metadata = { title: "Free Trial — EL COACH METHOD" };
+export const metadata = { title: "Choisis ton programme — EL COACH METHOD" };
 
 export default function OnboardingPage() {
   return (
     <section className="mx-auto max-w-5xl px-6 py-20">
-      <h1 className="gold-shimmer text-4xl font-semibold tracking-tight md:text-6xl">
-        Free Trial — 7 jours offerts.
+      <div className="mono inline-flex items-center gap-2 border border-[color:var(--color-accent)] bg-[color:var(--color-accent)]/10 px-3 py-1.5 text-[10px] tracking-[0.3em] text-[color:var(--color-accent)]">
+        ✦ COACHING ADAPTATIF · PAR EL COACH METHOD
+      </div>
+      <h1 className="gold-shimmer mt-6 text-4xl font-semibold tracking-tight md:text-6xl">
+        Choisis ton programme.
       </h1>
       <p className="mt-6 max-w-xl text-base text-[color:var(--color-mute)] md:text-lg">
-        Ta programmation, ton dashboard, ta séance du jour — tout de suite.
+        Le Coaching Adaptatif piochera dedans chaque matin pour générer ta séance,
+        adaptée à ton état du jour.
         <br />
-        Aucun débit avant la fin de ton essai. Annulation en un clic.
+        Tu peux en changer à tout moment depuis ton profil.
       </p>
 
       <div className="mt-12 grid gap-px bg-[color:var(--color-line)] md:grid-cols-2">
