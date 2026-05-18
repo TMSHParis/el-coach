@@ -47,9 +47,10 @@ export default async function SignupPage({
   const state = await getSignupState();
   const preselectedProgram = programParam ?? state?.programSlug ?? "";
 
-  // Mode intro : pas de param `step` ET pas encore de compte → on affiche
-  // l'écran d'accueil avec collapsible + bouton LET'S GO.
-  if (!stepParam && !state) {
+  // Mode intro : pas de param `step` dans l'URL → toujours l'écran d'accueil
+  // (collapsible + bouton LET'S GO). L'entrée dans le formulaire passe
+  // EXCLUSIVEMENT par LET'S GO → /signup?step=1.
+  if (!stepParam) {
     return <IntroScreen />;
   }
 
