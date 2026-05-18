@@ -1,15 +1,11 @@
 import Link from "next/link";
 import { auth, currentUser } from "@clerk/nextjs/server";
 import {
-  Activity,
   ArrowDown,
   ArrowUp,
   ChevronLeft,
   ChevronRight,
-  Flame,
   MoreHorizontal,
-  Target,
-  TrendingUp,
   Play,
   RotateCcw,
 } from "lucide-react";
@@ -30,8 +26,25 @@ import {
   type Day,
   type Exercise,
 } from "@/lib/programming";
+import {
+  buildAlerts,
+  buildSleepInsight,
+  buildStack4Moments,
+  buildWeightInsight,
+  computeEcmScore,
+  hasBoxeTransfer,
+  recommendVariant,
+  type SessionVariant,
+} from "@/lib/coaching-adaptatif-mock";
 import { BlockHeader } from "@/components/block-header";
 import { setFatigue, resetDemo, moveDay, resetWeekOrder } from "./actions";
+import {
+  AlertsCard,
+  EcmScoreCard,
+  SleepCard,
+  StackCard,
+  WeightCard,
+} from "./coaching-adaptatif-blocks";
 
 export const metadata = { title: "Dashboard — EL COACH METHOD" };
 
@@ -62,9 +75,19 @@ export default async function DashboardPage() {
   const today = resolveTodaySession(demo.programSlug, demo.fatigueScore);
   if (!today) return <EmptyState />;
 
+  // Coaching Adaptatif — données dérivées du fatigueScore (mocks tant que
+  // Supabase + moteur ne sont pas en place — Étape 2.5).
+  const fatigueScore = demo.fatigueScore ?? 3;
+  const ecm = computeEcmScore(fatigueScore);
+  const sleep = buildSleepInsight(fatigueScore);
+  const weight = buildWeightInsight(fatigueScore);
+  const stack = buildStack4Moments(fatigueScore);
+  const alerts = buildAlerts(fatigueScore, sleep);
+  const variant = recommendVariant(ecm);
+
   return (
     <section className="mx-auto max-w-7xl px-6 py-16">
-      <div className="label">[ DASHBOARD ]</div>
+      <div className="label">[ DASHBOARD · COACHING ADAPTATIF ]</div>
       <div className="mt-3 flex flex-wrap items-end justify-between gap-4">
         <h1 className="text-4xl font-semibold tracking-tight md:text-5xl">
           Salut {userFirstName ?? "Athlète"}.
@@ -81,16 +104,20 @@ export default async function DashboardPage() {
 
       <WeeklyCalendarBar today={today} weekOrder={demo.weekOrder} />
 
-      <div className="mt-10 grid gap-px bg-[color:var(--color-line)] grid-cols-2 md:grid-cols-4">
-        <KPI icon={<Flame size={16} />} label="STREAK" value="14j" />
-        <KPI icon={<Activity size={16} />} label="SÉANCES" value="42" />
-        <KPI icon={<Target size={16} />} label="PR CE MOIS" value="3" />
-        <KPI icon={<TrendingUp size={16} />} label="VOLUME" value="128T" />
+      <EcmScoreCard ecm={ecm} />
+
+      <div className="mt-6 grid gap-6 md:grid-cols-2">
+        <SleepCard sleep={sleep} />
+        <WeightCard weight={weight} />
       </div>
+
+      <StackCard stack={stack} />
+
+      <AlertsCard alerts={alerts} />
 
       <WeekOverview today={today} weekOrder={demo.weekOrder} />
 
-      <TodayCard today={today} />
+      <TodayCard today={today} recommendedVariant={variant.recommended} variantReason={variant.reason} />
     </section>
   );
 }
@@ -361,7 +388,15 @@ function DayCard({
   );
 }
 
-function TodayCard({ today }: { today: TodaySession }) {
+function TodayCard({
+  today,
+  recommendedVariant,
+  variantReason,
+}: {
+  today: TodaySession;
+  recommendedVariant: SessionVariant;
+  variantReason: string;
+}) {
   if (today.needsFatigueInput) {
     return (
       <div className="mt-12 card grain p-8">
@@ -402,6 +437,8 @@ function TodayCard({ today }: { today: TodaySession }) {
     );
   }
 
+  const aRecommended = recommendedVariant === "A";
+
   return (
     <div className="mt-12">
       <div className="flex flex-wrap items-end justify-between gap-4">
@@ -417,14 +454,86 @@ function TodayCard({ today }: { today: TodaySession }) {
         </Link>
       </div>
 
-      <div className="mt-8 space-y-4">
-        {today.day.blocks.map((block, i) => (
-          <BlockCard key={`${block.name}-${i}`} block={block} index={i} />
-        ))}
-      </div>
+      <SessionVariantTabs recommended={recommendedVariant} reason={variantReason} />
+
+      {aRecommended ? (
+        <div className="mt-6 space-y-4">
+          {today.day.blocks.map((block, i) => (
+            <BlockCard key={`${block.name}-${i}`} block={block} index={i} />
+          ))}
+        </div>
+      ) : (
+        <div className="mt-6 card grain p-6 md:p-8">
+          <div className="label text-[color:var(--color-accent)]">[ VARIANTE B · ALLÉGÉE ]</div>
+          <h3 className="mt-3 text-lg font-semibold">
+            Mêmes blocs, intensité réduite à 80%.
+          </h3>
+          <p className="mt-2 text-sm text-[color:var(--color-mute)]">
+            Charges abaissées, rounds optionnels en moins, mouvements à risque
+            remplacés. La génération précise de la variante B viendra à
+            l&apos;Étape 2.5 — pour l&apos;instant tu peux lancer la séance A
+            et adapter manuellement.
+          </p>
+          <div className="mt-4 space-y-4">
+            {today.day.blocks.map((block, i) => (
+              <BlockCard key={`${block.name}-${i}`} block={block} index={i} />
+            ))}
+          </div>
+        </div>
+      )}
 
       {today.day.notes && (
         <p className="mono mt-6 text-xs text-[color:var(--color-mute)]">{today.day.notes}</p>
+      )}
+    </div>
+  );
+}
+
+function SessionVariantTabs({
+  recommended,
+  reason,
+}: {
+  recommended: SessionVariant;
+  reason: string;
+}) {
+  return (
+    <div className="mt-6 border border-[color:var(--color-line)] bg-[color:var(--color-ash)] p-1">
+      <div className="grid grid-cols-2 gap-1">
+        <TabPill variant="A" recommended={recommended} label="Standard" />
+        <TabPill variant="B" recommended={recommended} label="Adaptée · 80%" />
+      </div>
+      <div className="mono mt-2 px-2 py-1 text-[10px] tracking-[0.2em] text-[color:var(--color-mute)]">
+        Recommandée : {recommended} · {reason}
+      </div>
+    </div>
+  );
+}
+
+function TabPill({
+  variant,
+  recommended,
+  label,
+}: {
+  variant: SessionVariant;
+  recommended: SessionVariant;
+  label: string;
+}) {
+  const isRecommended = variant === recommended;
+  return (
+    <div
+      className={`flex items-center justify-between gap-2 px-3 py-2 ${
+        isRecommended
+          ? "bg-[color:var(--color-accent)]/10 text-white"
+          : "text-[color:var(--color-mute)]"
+      }`}
+    >
+      <span className="mono text-xs font-semibold tracking-[0.25em]">
+        SÉANCE {variant} · {label}
+      </span>
+      {isRecommended && (
+        <span className="mono inline-flex items-center border border-[color:var(--color-accent)] px-1.5 py-0.5 text-[9px] tracking-[0.2em] text-[color:var(--color-accent)]">
+          REC
+        </span>
       )}
     </div>
   );
@@ -454,28 +563,24 @@ function ExerciseRow({ exercise }: { exercise: Exercise }) {
   const movement = resolveExerciseMovement(exercise);
   const name = movement?.name ?? exercise.movementId;
   const { primary, secondary } = formatExerciseLine(exercise, name);
+  const boxeTransfer = hasBoxeTransfer(movement);
   return (
     <li className="flex items-start gap-2">
       <span aria-hidden className="mt-1 select-none text-[color:var(--color-mute)]">▸</span>
       <div className="flex-1">
-        <div className="text-sm leading-snug">{primary}</div>
+        <div className="flex flex-wrap items-baseline gap-2 text-sm leading-snug">
+          <span>{primary}</span>
+          {boxeTransfer && (
+            <span className="mono inline-flex items-center border border-[color:var(--color-data)] px-1.5 py-0.5 text-[9px] tracking-[0.2em] text-[color:var(--color-data)]">
+              BOXE TRANSFER
+            </span>
+          )}
+        </div>
         {secondary && (
           <div className="mt-0.5 text-xs text-[color:var(--color-mute)]">{secondary}</div>
         )}
       </div>
     </li>
-  );
-}
-
-function KPI({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
-  return (
-    <div className="bg-[color:var(--color-ash)] p-4 md:p-6">
-      <div className="flex items-center justify-between gap-2">
-        <span className="label truncate">{label}</span>
-        <span className="shrink-0">{icon}</span>
-      </div>
-      <div className="mono mt-3 text-2xl font-semibold md:mt-4 md:text-3xl">{value}</div>
-    </div>
   );
 }
 
