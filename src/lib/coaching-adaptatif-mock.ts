@@ -222,6 +222,38 @@ export function buildStack4Moments(fatigueScore: number): StackMoment[] {
 }
 
 // ============================================================================
+// En-cas du jour — mock dérivé du fatigueScore (Couche 3 du Coaching Adaptatif)
+// ============================================================================
+
+export type SnackInsight = {
+  titre: string;
+  contenu: string;
+  note: string;
+};
+
+export function buildSnack(fatigueScore: number): SnackInsight {
+  if (fatigueScore <= 3) {
+    return {
+      titre: "🥤 Pré-séance",
+      contenu: "Lait végétal + banane + 2 dattes",
+      note: "Format liquide · Digestion rapide ✅",
+    };
+  }
+  if (fatigueScore <= 6) {
+    return {
+      titre: "🍫 Collation légère",
+      contenu: "Fruit + poignée d'amandes",
+      note: "Glycémie stable avant l'effort",
+    };
+  }
+  return {
+    titre: "🍵 Focus récupération",
+    contenu: "Infusion + oléagineux + carré de chocolat noir",
+    note: "Pas d'excitant · priorité au sommeil ce soir",
+  };
+}
+
+// ============================================================================
 // Alertes — blessures / sommeil / récup (mock dérivé du score)
 // ============================================================================
 

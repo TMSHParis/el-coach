@@ -1,60 +1,30 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { auth, currentUser } from "@clerk/nextjs/server";
-import {
-  ArrowDown,
-  ArrowUp,
-  ChevronLeft,
-  ChevronRight,
-  MoreHorizontal,
-  Play,
-  RotateCcw,
-} from "lucide-react";
+import { isCheckinDoneToday } from "../checkin/actions";
+import { getEcmProfileState, getSignupState } from "../signup/actions";
 import { clerkEnabled } from "@/lib/clerk";
-import {
-  getDemoState,
-  orderedWeek,
-  resolveTodaySession,
-  todayDayNumber,
-  DAY_SHORT_NAMES,
-  DAY_FULL_NAMES,
-  type TodaySession,
-} from "@/lib/demo-session";
-import {
-  formatExerciseLine,
-  resolveExerciseMovement,
-  type Block,
-  type Day,
-  type Exercise,
-} from "@/lib/programming";
+import { getDemoState, resolveTodaySession } from "@/lib/demo-session";
 import {
   buildAlerts,
   buildSleepInsight,
+  buildSnack,
   buildStack4Moments,
   buildWeightInsight,
   computeEcmScore,
-  hasBoxeTransfer,
   recommendVariant,
-  type SessionVariant,
 } from "@/lib/coaching-adaptatif-mock";
-import { BlockHeader } from "@/components/block-header";
-import { setFatigue, resetDemo, moveDay, resetWeekOrder } from "./actions";
-import {
-  AlertsCard,
-  EcmScoreCard,
-  SleepCard,
-  StackCard,
-  WeightCard,
-} from "./coaching-adaptatif-blocks";
+import { toDisplayBlocks } from "@/lib/session-format";
+import { minutesToHM, ETAT_LABELS, sleepPhaseBadge, trendColor } from "./dashboard-helpers";
+import { dashboardFontVariables } from "./dashboard-fonts";
+import { CalendarWeek } from "./calendar-week";
+import { SessionTabs } from "./session-tabs";
+import { SessionPanel } from "./session-panel";
+import styles from "./dashboard.module.css";
 
 export const metadata = { title: "Dashboard — EL COACH METHOD" };
 
-const FATIGUE_PRESETS: { score: number; label: string; hint: string }[] = [
-  { score: 1, label: "Frais", hint: "Sommeil bon, zéro courbature" },
-  { score: 3, label: "Correct", hint: "Légères courbatures" },
-  { score: 5, label: "Chargé", hint: "Semaine dense, sommeil moyen" },
-  { score: 7, label: "Cramé", hint: "Dette de sommeil, RPE élevé" },
-  { score: 9, label: "Vidé", hint: "Quasi nuit blanche" },
-];
+const cx = (...classes: (string | false | undefined)[]) => classes.filter(Boolean).join(" ");
 
 export default async function DashboardPage() {
   const demo = await getDemoState();
@@ -67,58 +37,268 @@ export default async function DashboardPage() {
       userFirstName = user?.firstName ?? null;
     }
   }
+  if (!userFirstName) {
+    const ecmProfile = await getEcmProfileState();
+    const signup = await getSignupState();
+    userFirstName = ecmProfile?.prenom || signup?.firstName || null;
+  }
 
   if (!demo.programSlug) {
     return <EmptyState />;
   }
 
+  if (!(await isCheckinDoneToday())) {
+    redirect("/checkin");
+  }
+
   const today = resolveTodaySession(demo.programSlug, demo.fatigueScore);
   if (!today) return <EmptyState />;
 
-  // Coaching Adaptatif — données dérivées du fatigueScore (mocks tant que
-  // Supabase + moteur ne sont pas en place — Étape 2.5).
   const fatigueScore = demo.fatigueScore ?? 3;
   const ecm = computeEcmScore(fatigueScore);
   const sleep = buildSleepInsight(fatigueScore);
   const weight = buildWeightInsight(fatigueScore);
   const stack = buildStack4Moments(fatigueScore);
   const alerts = buildAlerts(fatigueScore, sleep);
+  const snack = buildSnack(fatigueScore);
   const variant = recommendVariant(ecm);
+  const etat = ETAT_LABELS[ecm.state];
+  const isRestDay = today.needsFatigueInput || today.day.blocks.length === 0;
+
+  const tomorrow = buildTomorrowPreview(today, fatigueScore);
 
   return (
-    <section className="mx-auto max-w-7xl px-6 py-16">
-      <div className="label">[ DASHBOARD · COACHING ADAPTATIF ]</div>
-      <div className="mt-3 flex flex-wrap items-end justify-between gap-4">
-        <h1 className="text-4xl font-semibold tracking-tight md:text-5xl">
-          Salut {userFirstName ?? "Athlète"}.
-        </h1>
-        <form action={resetDemo}>
-          <button type="submit" className="label inline-flex items-center gap-2 text-[color:var(--color-mute)] hover:text-white">
-            <RotateCcw size={12} /> Changer de programme
-          </button>
-        </form>
+    <div className={dashboardFontVariables}>
+      <div className={styles.dashRoot}>
+        <div className={styles.header}>
+          <div className={styles.salut}>Salut {userFirstName ?? "Athlète"}.</div>
+        </div>
+
+        <div className={styles.wrap}>
+          <CalendarWeek />
+
+          {/* SCORE ECM */}
+          <div className={cx(styles.ecmCard, styles[etat.cls])}>
+            <div className={styles.ecmLabel}>
+              [ SCORE ECM · {etat.label} ]
+            </div>
+            <div className={styles.ecmTop}>
+              <div className={styles.ecmDot} />
+              <div className={styles.ecmGrade}>{ecm.letter}</div>
+            </div>
+            <div className={styles.ecmPhrase}>{ecm.headline}</div>
+            <div className={styles.ecmDesc}>{ecm.summary}</div>
+            <div className={styles.ecmBottom}>
+              <div>
+                <div className={styles.ecmScoreLabel}>SCORE /100</div>
+                <div className={styles.ecmScoreVal}>{ecm.numeric}</div>
+              </div>
+            </div>
+          </div>
+
+          {/* POIDS */}
+          <div className={styles.sl}>Suivi poids</div>
+          <div className={styles.weightCard}>
+            <div>
+              <div className={styles.wLabel}>Poids ce matin</div>
+              <div className={styles.wValRow}>
+                <div className={styles.wVal}>{weight.today}</div>
+                <div className={styles.wUnit}>kg</div>
+              </div>
+              <div className={cx(styles.wTrend, weight.deltaWeek > 0 ? styles.up : styles.down)}>
+                {weight.deltaWeek > 0 ? "▲" : "▼"} {Math.abs(weight.deltaWeek)} kg sur 7 jours
+              </div>
+            </div>
+            <div className={styles.wHistory}>
+              <div className={styles.wLabel} style={{ textAlign: "right", marginBottom: 4 }}>
+                Historique
+              </div>
+              {weight.history
+                .slice()
+                .reverse()
+                .slice(0, 3)
+                .map((h) => (
+                  <div key={h.label} className={styles.whRow}>
+                    <span className={styles.whDate}>{h.label}</span>
+                    <span className={styles.whVal}>{h.kg} kg</span>
+                  </div>
+                ))}
+            </div>
+          </div>
+
+          {/* SOMMEIL */}
+          <div className={styles.sl}>Analyse sommeil</div>
+          <div className={styles.sleepCard}>
+            <div className={styles.sleepHdr}>
+              <div>
+                <div className={styles.wLabel}>Durée totale estimée</div>
+                <div className={styles.sleepTotal}>{minutesToHM(sleep.lastNight.totalMinutes)}</div>
+              </div>
+              <div style={{ textAlign: "right" }}>
+                <div className={styles.wLabel}>Éveil</div>
+                <div className={styles.sleepEveil} style={{ color: sleep.lastNight.awakeMinutes > 120 ? "var(--red)" : "var(--yellow)" }}>
+                  {minutesToHM(sleep.lastNight.awakeMinutes)}
+                </div>
+              </div>
+            </div>
+            <div className={styles.phases}>
+              <SleepPhaseRow color="#3B82F6" name="Sommeil lent" minutes={sleepLightMinutes(sleep.lastNight)} totalMinutes={sleep.lastNight.totalMinutes} kind="lent" />
+              <SleepPhaseRow color="#38bdf8" name="Paradoxal (REM)" minutes={sleep.lastNight.remMinutes} totalMinutes={sleep.lastNight.totalMinutes} kind="rem" />
+              <SleepPhaseRow color="#818cf8" name="Profond" minutes={sleep.lastNight.deepMinutes} totalMinutes={sleep.lastNight.totalMinutes} kind="profond" />
+              <SleepPhaseRow color="#ef4444" name="Éveil" minutes={sleep.lastNight.awakeMinutes} totalMinutes={sleep.lastNight.totalMinutes} kind="eveil" />
+            </div>
+            {sleep.alerts.length > 0 && (
+              <div className={styles.sleepAlert}>
+                <span>⚠️</span>
+                <span>{sleep.alerts[0]}</span>
+              </div>
+            )}
+          </div>
+
+          {/* TENDANCE */}
+          <div className={styles.trendCard}>
+            <div className={styles.trendTitle}>📈 Tendance sommeil — 7 nuits</div>
+            <div>
+              {sleep.nights.map((n, i) => {
+                const isToday = i === sleep.nights.length - 1;
+                return (
+                  <div key={n.label} className={cx(styles.tr, isToday && styles.trToday)}>
+                    <span className={styles.trDate} style={{ color: isToday ? "var(--g)" : "var(--m)" }}>
+                      {n.label}
+                      {isToday ? " ★" : ""}
+                    </span>
+                    <span className={styles.trTotal}>{minutesToHM(n.totalMinutes)}</span>
+                    <span className={styles.trEveil} style={{ color: trendColor(n.awakeMinutes, "eveil") }}>
+                      {minutesToHM(n.awakeMinutes)}
+                    </span>
+                    <span className={styles.trProfond} style={{ color: trendColor(n.deepMinutes, "profond") }}>
+                      {minutesToHM(n.deepMinutes)} profond
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* ALERTES */}
+          {alerts.length > 0 && (
+            <>
+              <div className={styles.sl}>Alertes du jour</div>
+              <div>
+                {alerts.map((a, i) => (
+                  <div key={i} className={cx(styles.alertCard, styles[alertCls(a.level)])}>
+                    <div className={styles.alertIcon}>{alertIcon(a.category)}</div>
+                    <div className={styles.alertText}>
+                      <strong>{a.message}</strong>
+                      {a.hint}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          {/* STACK */}
+          <div className={styles.sl}>Stack du jour</div>
+          <StackGroup label="🌅 Matin à jeun" items={stack[0].items} />
+          <StackGroup label="🍽️ Avec repas midi" items={stack[1].items} />
+          <StackGroup label="⚡ Pré-séance" items={stack[2].items} />
+          <StackGroup label="🌙 Soir" items={stack[3].items} />
+
+          {/* EN-CAS */}
+          <div className={styles.sl}>En-cas du jour</div>
+          <div className={styles.snackCard}>
+            <div className={styles.snackTitle}>{snack.titre}</div>
+            <div className={styles.snackContent}>{snack.contenu}</div>
+            <div className={styles.snackNote}>{snack.note}</div>
+          </div>
+
+          {/* SÉANCE DU JOUR */}
+          <div className={styles.sdj}>
+            <div className={styles.sdjLabel}>[ SÉANCE DU JOUR ]</div>
+            <div className={styles.sdjTitle}>{isRestDay ? "Repos" : today.day.focus}</div>
+            <div className={styles.sdjMeta}>
+              {isRestDay ? (
+                <span>{today.day.notes ?? "Récupération complète."}</span>
+              ) : (
+                <span>
+                  {minutesToHM(today.day.estimatedMinutes)} · {today.day.blocks.length} bloc
+                  {today.day.blocks.length > 1 ? "s" : ""}
+                </span>
+              )}
+            </div>
+            {!isRestDay && (
+              <Link href="/session" className={styles.sdjBtn}>
+                <span className={styles.sdjBtnIcon}>▷</span>
+                <span className={styles.sdjBtnText}>Démarrer la séance</span>
+              </Link>
+            )}
+          </div>
+
+          {!isRestDay && (
+            <>
+              <div
+                style={{
+                  background: "var(--s)",
+                  border: "1px solid var(--bd)",
+                  borderRadius: 4,
+                  padding: "9px 13px",
+                  marginBottom: 0,
+                  fontSize: 11,
+                  color: "var(--m)",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 7,
+                }}
+              >
+                <span>▶️</span>
+                <span>Appuie sur le bouton rouge pour voir la démo YouTube du mouvement</span>
+              </div>
+
+              <SessionTabs
+                recommended={variant.recommended === "A" ? "a" : "b"}
+                recoText={`Recommandée : ${variant.recommended} · ${variant.reason}`}
+                labelA="SÉANCE A"
+                labelB="SÉANCE B"
+                subA="Standard"
+                subB="Adaptée"
+                panelA={
+                  <SessionPanel
+                    variant="a"
+                    nom={`${today.template.name} — ${today.day.focus}`}
+                    duree={minutesToHM(today.day.estimatedMinutes)}
+                    difficulte={difficultyFor(today.template.level, "a")}
+                    tags={sessionTags(today.day.blocks)}
+                    blocs={toDisplayBlocks(today.day.blocks)}
+                  />
+                }
+                panelB={
+                  <SessionPanel
+                    variant="b"
+                    nom={`${today.template.name} — Allégée`}
+                    duree={minutesToHM(Math.round(today.day.estimatedMinutes * 0.75))}
+                    difficulte={difficultyFor(today.template.level, "b")}
+                    tags={sessionTags(today.day.blocks)}
+                    blocs={toDisplayBlocks(today.day.blocks)}
+                  />
+                }
+              />
+            </>
+          )}
+
+          {/* DEMAIN */}
+          <div className={styles.sl} style={{ marginTop: 20 }}>
+            Demain
+          </div>
+          <div className={styles.demainCard}>
+            <div className={styles.demainTitle}>{tomorrow.titre}</div>
+            <div className={styles.demainContent} dangerouslySetInnerHTML={{ __html: tomorrow.contenu }} />
+          </div>
+
+          <div className={styles.spacer} />
+        </div>
       </div>
-      <p className="mt-3 text-[color:var(--color-mute)]">
-        {today.template.name} · by El Coach Method · Semaine {today.weekNumber} · {DAY_FULL_NAMES[today.dayNumber - 1]}
-      </p>
-
-      <WeeklyCalendarBar today={today} weekOrder={demo.weekOrder} />
-
-      <EcmScoreCard ecm={ecm} />
-
-      <div className="mt-6 grid gap-6 md:grid-cols-2">
-        <SleepCard sleep={sleep} />
-        <WeightCard weight={weight} />
-      </div>
-
-      <StackCard stack={stack} />
-
-      <AlertsCard alerts={alerts} />
-
-      <WeekOverview today={today} weekOrder={demo.weekOrder} />
-
-      <TodayCard today={today} recommendedVariant={variant.recommended} variantReason={variant.reason} />
-    </section>
+    </div>
   );
 }
 
@@ -137,450 +317,130 @@ function EmptyState() {
   );
 }
 
-// ============================================================================
-// Barre calendrier hebdo Lun-Dim (cahier des charges § 07)
-// ============================================================================
-
-function WeeklyCalendarBar({
-  today,
-  weekOrder,
+function SleepPhaseRow({
+  color,
+  name,
+  minutes,
+  totalMinutes,
+  kind,
 }: {
-  today: TodaySession;
-  weekOrder: number[] | null;
+  color: string;
+  name: string;
+  minutes: number;
+  totalMinutes: number;
+  kind: "lent" | "rem" | "profond" | "eveil";
 }) {
-  // On affiche la semaine grégorienne du Lundi au Dimanche autour d'aujourd'hui.
-  const now = new Date();
-  const todayIso = now.toISOString().slice(0, 10);
-  const todayWeekday = now.getDay() === 0 ? 7 : now.getDay(); // 1 = Lun, 7 = Dim
-  const monday = new Date(now);
-  monday.setDate(now.getDate() - (todayWeekday - 1));
-
-  const orderedDays = orderedWeek(today.template, weekOrder);
-
-  // Pour chaque position 1..7 (Lun..Dim), récupère la programmation prévue.
-  const cells = Array.from({ length: 7 }, (_, i) => {
-    const date = new Date(monday);
-    date.setDate(monday.getDate() + i);
-    const programDay = orderedDays[i] ?? null;
-    const isToday = date.toISOString().slice(0, 10) === todayIso;
-    const isRest = !programDay || programDay.blocks.length === 0;
-    return { date, programDay, isToday, isRest };
-  });
-
-  const monthLabel = monday.toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
-
+  const { badge, cls } = sleepPhaseBadge(minutes, kind);
+  const pct = totalMinutes > 0 ? Math.min(100, Math.round((minutes / totalMinutes) * 100)) : 0;
   return (
-    <div className="mt-8 border border-[color:var(--color-line)] bg-[color:var(--color-ash)]">
-      <div className="flex items-center justify-between border-b border-[color:var(--color-line)] px-4 py-3">
-        <button
-          type="button"
-          className="text-[color:var(--color-mute)] hover:text-white disabled:opacity-30"
-          aria-label="Semaine précédente"
-          disabled
-          title="Bientôt"
-        >
-          <ChevronLeft size={16} />
-        </button>
-        <div className="mono text-xs uppercase tracking-[0.2em]">{monthLabel}</div>
-        <button
-          type="button"
-          className="text-[color:var(--color-mute)] hover:text-white disabled:opacity-30"
-          aria-label="Semaine suivante"
-          disabled
-          title="Bientôt"
-        >
-          <ChevronRight size={16} />
-        </button>
+    <div className={styles.ph}>
+      <div className={styles.phDot} style={{ background: color }} />
+      <div className={styles.phName}>{name}</div>
+      <div className={styles.phBarWrap}>
+        <div className={styles.phBar} style={{ background: color, width: `${pct}%` }} />
       </div>
-      <div className="grid grid-cols-7">
-        {cells.map((cell, i) => {
-          const dayNum = cell.date.getDate();
-          const dayShort = DAY_SHORT_NAMES[i];
-          // Point coloré : vert (séance prévue passée — ici on triche : on considère comme "fait" si avant aujourd'hui),
-          // jaune (séance prévue future), vide (rest).
-          let dotClass = "";
-          if (cell.isRest) dotClass = "";
-          else {
-            const isPast = cell.date < new Date(todayIso);
-            dotClass = isPast
-              ? "bg-emerald-400"
-              : cell.isToday
-                ? "bg-[color:var(--color-accent)]"
-                : "bg-white";
-          }
+      <div className={styles.phTime}>{minutesToHM(minutes)}</div>
+      <div className={cx(styles.phBadge, styles[cls])}>{badge}</div>
+    </div>
+  );
+}
+
+function sleepLightMinutes(night: { totalMinutes: number; deepMinutes: number; remMinutes: number; awakeMinutes: number }): number {
+  return Math.max(0, night.totalMinutes - night.deepMinutes - night.remMinutes - night.awakeMinutes);
+}
+
+function alertCls(level: "info" | "warning" | "critical"): "alertRed" | "alertYellow" | "alertPurple" {
+  if (level === "critical") return "alertRed";
+  if (level === "warning") return "alertYellow";
+  return "alertPurple";
+}
+
+function alertIcon(category: "sleep" | "injury" | "recovery" | "hormonal" | "load"): string {
+  switch (category) {
+    case "sleep":
+      return "😴";
+    case "injury":
+      return "🤕";
+    case "recovery":
+      return "🔄";
+    case "hormonal":
+      return "⚗️";
+    case "load":
+      return "⚠️";
+  }
+}
+
+const STACK_EMOJI: Record<string, string> = {
+  Créatine: "💪",
+  Citrulline: "🔥",
+  "Vitamines B complex": "🧪",
+  Ginseng: "🌿",
+  "Oméga 3": "🐟",
+  "Vitamine D3": "☀️",
+  Zinc: "⚡",
+  "Beta-alanine": "🔋",
+  Café: "☕",
+  Maca: "💊",
+  "Magnésium bisglycinate": "😴",
+  "Ashwagandha KSM-66": "🌿",
+  Collagène: "🧴",
+};
+
+function StackGroup({ label, items }: { label: string; items: { name: string; dose?: string; active: boolean; note?: string }[] }) {
+  return (
+    <>
+      <div className={styles.sm}>{label}</div>
+      <div className={styles.sg}>
+        {items.map((it) => {
+          const emoji = STACK_EMOJI[it.name] ?? "•";
+          const type = !it.active ? "pillOff" : it.note ? "pillKey" : "pillOn";
           return (
-            <div
-              key={i}
-              className={`flex flex-col items-center gap-2 px-1 py-3 text-center ${
-                cell.isToday ? "border-b-2 border-[color:var(--color-accent)]" : ""
-              }`}
-            >
-              <div className="mono text-[10px] tracking-[0.2em] text-[color:var(--color-mute)]">
-                {dayShort}
-              </div>
-              <div
-                className={`mono text-lg font-semibold tabular-nums ${
-                  cell.isToday ? "text-[color:var(--color-accent)]" : ""
-                }`}
-              >
-                {dayNum}
-              </div>
-              <div className={`h-1.5 w-1.5 rounded-full ${dotClass}`} />
+            <div key={it.name} className={cx(styles.pill, styles[type])}>
+              {emoji} {it.name}
+              {it.dose ? ` · ${it.dose}` : ""}
             </div>
           );
         })}
       </div>
-    </div>
+    </>
   );
 }
 
-function WeekOverview({
-  today,
-  weekOrder,
-}: {
-  today: TodaySession;
-  weekOrder: number[] | null;
-}) {
-  const days = orderedWeek(today.template, weekOrder);
-  const currentDay = todayDayNumber();
-  const isCustomOrder = weekOrder !== null;
-
-  return (
-    <div className="mt-12">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div className="label">[ SEMAINE {today.weekNumber} · réorganisable ]</div>
-        {isCustomOrder && (
-          <form action={resetWeekOrder}>
-            <button
-              type="submit"
-              className="label inline-flex items-center gap-2 text-[color:var(--color-mute)] hover:text-white"
-            >
-              <RotateCcw size={12} /> Réinitialiser l&apos;ordre
-            </button>
-          </form>
-        )}
-      </div>
-      <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-        {days.map((d, displayIndex) => (
-          <DayCard
-            key={d.day}
-            day={d}
-            displayIndex={displayIndex}
-            totalDays={days.length}
-            isToday={d.day === currentDay}
-          />
-        ))}
-      </div>
-    </div>
-  );
+function difficultyFor(level: "beginner" | "intermediate" | "advanced", variant: "a" | "b"): number {
+  const base = level === "beginner" ? 2 : level === "advanced" ? 4 : 3;
+  return variant === "a" ? base : Math.max(1, base - 1);
 }
 
-function DayCard({
-  day,
-  displayIndex,
-  totalDays,
-  isToday,
-}: {
-  day: Day;
-  displayIndex: number;
-  totalDays: number;
-  isToday: boolean;
-}) {
-  const isRest = day.blocks.length === 0;
-  const dayName = DAY_FULL_NAMES[day.day - 1] ?? `Jour ${day.day}`;
-  const shortName = DAY_SHORT_NAMES[day.day - 1] ?? "—";
-  const isFirst = displayIndex === 0;
-  const isLast = displayIndex === totalDays - 1;
-
-  return (
-    <article
-      className={`flex h-full flex-col gap-3 border p-4 md:p-5 ${
-        isToday
-          ? "border-white bg-white/5"
-          : "border-[color:var(--color-line)] bg-[color:var(--color-ash)]"
-      }`}
-    >
-      <header className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="mono text-[11px] tracking-[0.2em] text-[color:var(--color-mute)]">
-            {shortName} · {dayName.toUpperCase()}
-          </div>
-          <h3 className={`mt-1.5 text-base font-semibold leading-tight md:text-lg ${isRest ? "text-[color:var(--color-mute)]" : ""}`}>
-            {isRest ? "REST" : day.focus}
-          </h3>
-        </div>
-        {isToday && (
-          <span className="mono shrink-0 border border-white px-1.5 py-0.5 text-[10px] tracking-[0.15em]">
-            AUJ.
-          </span>
-        )}
-      </header>
-
-      {!isRest && (
-        <div className="mono text-xs text-[color:var(--color-mute)]">
-          {day.estimatedMinutes}min · {day.blocks.length} blocs
-        </div>
-      )}
-
-      <div className="mt-auto flex items-center gap-2 pt-2">
-        {!isRest ? (
-          <Link
-            href={`/dashboard/session?day=${day.day}`}
-            className="btn-primary flex-1 justify-center text-sm"
-          >
-            <Play size={12} /> Démarrer
-          </Link>
-        ) : (
-          <span className="flex-1 px-3 py-2 text-center text-xs text-[color:var(--color-mute)]">
-            {day.notes ?? "OFF"}
-          </span>
-        )}
-        <details className="relative">
-          <summary className="flex cursor-pointer list-none items-center justify-center border border-[color:var(--color-line)] p-2 text-[color:var(--color-mute)] hover:text-white [&::-webkit-details-marker]:hidden">
-            <MoreHorizontal size={14} />
-          </summary>
-          <div className="absolute right-0 top-full z-20 mt-1 w-56 border border-[color:var(--color-line)] bg-[color:var(--color-ash)] shadow-lg">
-            <div className="mono border-b border-[color:var(--color-line)] px-3 py-2 text-[10px] uppercase tracking-[0.2em] text-[color:var(--color-mute)]">
-              Move your session
-            </div>
-            <form action={moveDay}>
-              <input type="hidden" name="day" value={day.day} />
-              <input type="hidden" name="direction" value="up" />
-              <button
-                type="submit"
-                disabled={isFirst}
-                className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-[color:var(--color-mute)] hover:bg-black hover:text-white disabled:opacity-30"
-              >
-                <ArrowUp size={12} /> Déplacer vers le haut
-              </button>
-            </form>
-            <form action={moveDay}>
-              <input type="hidden" name="day" value={day.day} />
-              <input type="hidden" name="direction" value="down" />
-              <button
-                type="submit"
-                disabled={isLast}
-                className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-[color:var(--color-mute)] hover:bg-black hover:text-white disabled:opacity-30"
-              >
-                <ArrowDown size={12} /> Déplacer vers le bas
-              </button>
-            </form>
-            {!isRest && (
-              <Link
-                href={`/training/${day.adaptive ? "" : ""}#change-session`}
-                className="flex w-full items-center gap-2 border-t border-[color:var(--color-line)] px-3 py-2 text-xs text-[color:var(--color-mute)] hover:bg-black hover:text-white"
-              >
-                ↻ Changer la séance du jour
-              </Link>
-            )}
-            {!isRest && (
-              <Link
-                href={`/dashboard/session?day=${day.day}`}
-                className="flex w-full items-center gap-2 border-t border-[color:var(--color-line)] px-3 py-2 text-xs text-[color:var(--color-mute)] hover:bg-black hover:text-white"
-              >
-                <Play size={12} /> Démarrer cette séance
-              </Link>
-            )}
-          </div>
-        </details>
-      </div>
-    </article>
-  );
+function sessionTags(blocks: { format?: string }[]): { label: string; cls: "tagBlue" | "tagGreen" | "tagOrange" | "tagRed" | "tagPurple" }[] {
+  const formats = [...new Set(blocks.map((b) => b.format).filter((f): f is string => Boolean(f)))].slice(0, 2);
+  const clsFor = (f: string): "tagBlue" | "tagGreen" | "tagOrange" | "tagRed" | "tagPurple" => {
+    if (f === "AMRAP") return "tagGreen";
+    if (f === "EMOM" || f === "E2MOM" || f === "E3MOM") return "tagBlue";
+    if (f === "Tabata") return "tagPurple";
+    if (f === "ForTime" || f === "RFT") return "tagRed";
+    return "tagOrange";
+  };
+  return formats.map((f) => ({ label: f, cls: clsFor(f) }));
 }
 
-function TodayCard({
-  today,
-  recommendedVariant,
-  variantReason,
-}: {
-  today: TodaySession;
-  recommendedVariant: SessionVariant;
-  variantReason: string;
-}) {
-  if (today.needsFatigueInput) {
-    return (
-      <div className="mt-12 card grain p-8">
-        <div className="label">[ SÉANCE DU JOUR · ADAPTATIF ]</div>
-        <h2 className="mt-3 text-2xl font-semibold md:text-3xl">Cooldown à calibrer</h2>
-        <p className="mt-3 text-[color:var(--color-mute)]">
-          Comment tu te sens ce matin ? Le système choisit la bonne modalité :
-          walk Z1, footing Z2, nage technique, boxe technique, ou repos complet.
-        </p>
-        <div className="mt-8 grid gap-px bg-[color:var(--color-line)] md:grid-cols-5">
-          {FATIGUE_PRESETS.map((preset) => (
-            <form key={preset.score} action={setFatigue}>
-              <input type="hidden" name="score" value={preset.score} />
-              <button
-                type="submit"
-                className="flex w-full flex-col items-start gap-2 bg-[color:var(--color-ash)] p-4 text-left transition-colors hover:bg-black"
-              >
-                <div className="mono text-2xl font-semibold">{preset.score}</div>
-                <div className="label">{preset.label}</div>
-                <div className="text-xs text-[color:var(--color-mute)]">{preset.hint}</div>
-              </button>
-            </form>
-          ))}
-        </div>
-      </div>
-    );
+function buildTomorrowPreview(
+  today: NonNullable<Awaited<ReturnType<typeof resolveTodaySession>>>,
+  fatigueScore: number,
+): { titre: string; contenu: string } {
+  const tomorrowNum = today.dayNumber >= 7 ? 1 : today.dayNumber + 1;
+  const week = today.template.weeks[0];
+  const tomorrowDay = week.days.find((d) => d.day === tomorrowNum);
+
+  if (!tomorrowDay || tomorrowDay.blocks.length === 0) {
+    return {
+      titre: "😴 DEMAIN — REPOS",
+      contenu: "📸 <strong>Envoie ton check-in ECM</strong> dès le réveil<br>🧘 Récupération complète · sommeil prioritaire",
+    };
   }
 
-  if (today.day.blocks.length === 0) {
-    return (
-      <div className="mt-12 card grain p-8">
-        <div className="label">[ AUJOURD&apos;HUI ]</div>
-        <h2 className="mt-3 text-2xl font-semibold md:text-3xl">Jour de repos</h2>
-        <p className="mt-3 text-[color:var(--color-mute)]">
-          {today.day.notes ?? "Off total. Sommeil, nutrition, récupération."}
-        </p>
-      </div>
-    );
-  }
-
-  const aRecommended = recommendedVariant === "A";
-
-  return (
-    <div className="mt-12">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <div className="label">[ SÉANCE DU JOUR ]</div>
-          <h2 className="mt-3 text-2xl font-semibold md:text-3xl">{today.day.focus}</h2>
-          <div className="mono mt-2 text-xs text-[color:var(--color-mute)]">
-            {today.day.estimatedMinutes}min · {today.day.blocks.length} blocs
-          </div>
-        </div>
-        <Link href="/dashboard/session" className="btn-primary inline-flex">
-          <Play size={14} /> Démarrer la séance
-        </Link>
-      </div>
-
-      <SessionVariantTabs recommended={recommendedVariant} reason={variantReason} />
-
-      {aRecommended ? (
-        <div className="mt-6 space-y-4">
-          {today.day.blocks.map((block, i) => (
-            <BlockCard key={`${block.name}-${i}`} block={block} index={i} />
-          ))}
-        </div>
-      ) : (
-        <div className="mt-6 card grain p-6 md:p-8">
-          <div className="label text-[color:var(--color-accent)]">[ VARIANTE B · ALLÉGÉE ]</div>
-          <h3 className="mt-3 text-lg font-semibold">
-            Mêmes blocs, intensité réduite à 80%.
-          </h3>
-          <p className="mt-2 text-sm text-[color:var(--color-mute)]">
-            Charges abaissées, rounds optionnels en moins, mouvements à risque
-            remplacés. La génération précise de la variante B viendra à
-            l&apos;Étape 2.5 — pour l&apos;instant tu peux lancer la séance A
-            et adapter manuellement.
-          </p>
-          <div className="mt-4 space-y-4">
-            {today.day.blocks.map((block, i) => (
-              <BlockCard key={`${block.name}-${i}`} block={block} index={i} />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {today.day.notes && (
-        <p className="mono mt-6 text-xs text-[color:var(--color-mute)]">{today.day.notes}</p>
-      )}
-    </div>
-  );
+  const bedtime = fatigueScore >= 7 ? "22h00" : "22h30";
+  return {
+    titre: `🏋️ DEMAIN — ${today.template.name.toUpperCase()}`,
+    contenu: `📸 <strong>Envoie ton check-in ECM</strong> dès le réveil<br>💪 Séance focus <strong>${tomorrowDay.focus}</strong><br>🕕 ${tomorrowDay.estimatedMinutes}min prévues · Dors avant <strong>${bedtime}</strong>`,
+  };
 }
-
-function SessionVariantTabs({
-  recommended,
-  reason,
-}: {
-  recommended: SessionVariant;
-  reason: string;
-}) {
-  return (
-    <div className="mt-6 border border-[color:var(--color-line)] bg-[color:var(--color-ash)] p-1">
-      <div className="grid grid-cols-2 gap-1">
-        <TabPill variant="A" recommended={recommended} label="Standard" />
-        <TabPill variant="B" recommended={recommended} label="Adaptée · 80%" />
-      </div>
-      <div className="mono mt-2 px-2 py-1 text-[10px] tracking-[0.2em] text-[color:var(--color-mute)]">
-        Recommandée : {recommended} · {reason}
-      </div>
-    </div>
-  );
-}
-
-function TabPill({
-  variant,
-  recommended,
-  label,
-}: {
-  variant: SessionVariant;
-  recommended: SessionVariant;
-  label: string;
-}) {
-  const isRecommended = variant === recommended;
-  return (
-    <div
-      className={`flex items-center justify-between gap-2 px-3 py-2 ${
-        isRecommended
-          ? "bg-[color:var(--color-accent)]/10 text-white"
-          : "text-[color:var(--color-mute)]"
-      }`}
-    >
-      <span className="mono text-xs font-semibold tracking-[0.25em]">
-        SÉANCE {variant} · {label}
-      </span>
-      {isRecommended && (
-        <span className="mono inline-flex items-center border border-[color:var(--color-accent)] px-1.5 py-0.5 text-[9px] tracking-[0.2em] text-[color:var(--color-accent)]">
-          REC
-        </span>
-      )}
-    </div>
-  );
-}
-
-function BlockCard({ block, index }: { block: Block; index: number }) {
-  return (
-    <div className="card p-6">
-      <BlockHeader block={block} index={index} />
-
-      <ul className="mt-5 space-y-1.5">
-        {block.exercises.map((ex, i) => (
-          <ExerciseRow key={`${ex.movementId}-${i}`} exercise={ex} />
-        ))}
-      </ul>
-
-      {block.notes && (
-        <p className="mono mt-4 border-t border-[color:var(--color-line)] pt-3 text-xs text-[color:var(--color-mute)]">
-          {block.notes}
-        </p>
-      )}
-    </div>
-  );
-}
-
-function ExerciseRow({ exercise }: { exercise: Exercise }) {
-  const movement = resolveExerciseMovement(exercise);
-  const name = movement?.name ?? exercise.movementId;
-  const { primary, secondary } = formatExerciseLine(exercise, name);
-  const boxeTransfer = hasBoxeTransfer(movement);
-  return (
-    <li className="flex items-start gap-2">
-      <span aria-hidden className="mt-1 select-none text-[color:var(--color-mute)]">▸</span>
-      <div className="flex-1">
-        <div className="flex flex-wrap items-baseline gap-2 text-sm leading-snug">
-          <span>{primary}</span>
-          {boxeTransfer && (
-            <span className="mono inline-flex items-center border border-[color:var(--color-data)] px-1.5 py-0.5 text-[9px] tracking-[0.2em] text-[color:var(--color-data)]">
-              BOXE TRANSFER
-            </span>
-          )}
-        </div>
-        {secondary && (
-          <div className="mt-0.5 text-xs text-[color:var(--color-mute)]">{secondary}</div>
-        )}
-      </div>
-    </li>
-  );
-}
-
