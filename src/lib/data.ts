@@ -12,9 +12,9 @@ export type Coach = {
 };
 
 // Tarification officielle EL COACH METHOD — modèle unique (Coaching Adaptatif, mai 2026 v2).
-// Une seule offre, pas de tier. 9,99 €/mois · Free Trial 7 jours · sans engagement.
+// Une seule offre, pas de tier. 12,99 €/mois · Free Trial 7 jours · sans engagement.
 // PROGRAM_ADDITIONAL_PRICE_CENTS : conservé pour la legacy marketplace coachs (data.ts `programs`).
-export const PROGRAM_BASE_PRICE_CENTS = 999;
+export const PROGRAM_BASE_PRICE_CENTS = 1299;
 export const PROGRAM_ADDITIONAL_PRICE_CENTS = 499;
 
 export type Program = {
@@ -116,7 +116,7 @@ export const programs: Program[] = [
     level: "INTERMEDIATE",
     weeks: 12,
     sessionsPerWeek: 4,
-    priceCents: 999,
+    priceCents: 1299,
     priceIntervalLabel: "/mois",
     description:
       "Cycle périodisé en 3 blocs (accumulation, intensification, réalisation). Objectif : +15kg sur total SBD en 12 semaines.",
@@ -131,7 +131,7 @@ export const programs: Program[] = [
     level: "ADVANCED",
     weeks: 16,
     sessionsPerWeek: 6,
-    priceCents: 999,
+    priceCents: 1299,
     priceIntervalLabel: "/mois",
     description:
       "Programme hybride force + endurance. Double séance 3x/semaine, cible Hyrox ou athlète polyvalent.",
@@ -146,7 +146,7 @@ export const programs: Program[] = [
     level: "INTERMEDIATE",
     weeks: 8,
     sessionsPerWeek: 5,
-    priceCents: 999,
+    priceCents: 1299,
     priceIntervalLabel: "/mois",
     description:
       "Bloc volume haute fréquence, split Upper/Lower/Push/Pull/Legs. Progression série/rep autopilotée.",
@@ -161,7 +161,7 @@ export const programs: Program[] = [
     level: "ADVANCED",
     weeks: 16,
     sessionsPerWeek: 5,
-    priceCents: 999,
+    priceCents: 1299,
     priceIntervalLabel: "/mois",
     description:
       "Plan marathon sub-3h. Seuils précis, sorties longues progressives, tapering 3 semaines.",
@@ -176,7 +176,7 @@ export const programs: Program[] = [
     level: "BEGINNER",
     weeks: 4,
     sessionsPerWeek: 7,
-    priceCents: 999,
+    priceCents: 1299,
     priceIntervalLabel: "/mois",
     description:
       "Routine 15min/jour pour débloquer hanches, épaules, thoracique. Pensé pour lifters.",
@@ -191,7 +191,7 @@ export const programs: Program[] = [
     level: "ADVANCED",
     weeks: 10,
     sessionsPerWeek: 5,
-    priceCents: 999,
+    priceCents: 1299,
     priceIntervalLabel: "/mois",
     description:
       "Programmation conjuguée pour CrossFit compétiteur. ME / DE / WOD thématisé.",
@@ -206,7 +206,7 @@ export const programs: Program[] = [
     level: "BEGINNER",
     weeks: 8,
     sessionsPerWeek: 3,
-    priceCents: 999,
+    priceCents: 1299,
     priceIntervalLabel: "/mois",
     description:
       "Linear progression pour débutants. 3 séances full-body, apprentissage technique solide.",
@@ -221,7 +221,7 @@ export const programs: Program[] = [
     level: "ADVANCED",
     weeks: 12,
     sessionsPerWeek: 5,
-    priceCents: 999,
+    priceCents: 1299,
     priceIntervalLabel: "/mois",
     description:
       "Sèche structurée avec maintien de la masse. Ajustements macro hebdo, cardio progressif.",

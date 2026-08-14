@@ -27,9 +27,6 @@ export function Footer() {
               <Link href="/marketplace">Marketplace</Link>
             </li>
             <li>
-              <Link href="/coaches">Coachs</Link>
-            </li>
-            <li>
               <Link href="/dashboard">Dashboard</Link>
             </li>
           </ul>
@@ -38,9 +35,6 @@ export function Footer() {
           <div className="label mb-4">Entreprise</div>
           <ul className="space-y-2 text-sm text-[color:var(--color-mute)]">
             <li>À propos</li>
-            <li>
-              <Link href="/coach/apply" className="hover:text-white">Devenir coach</Link>
-            </li>
             <li>Contact</li>
           </ul>
         </div>

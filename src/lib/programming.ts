@@ -76,6 +76,7 @@ export type Week = {
 export type ProgramTemplate = {
   slug: string;
   name: string;
+  tagline?: string; // sous-titre italique optionnel, affiché sous "· by El Coach Method"
   discipline: Discipline;
   level: "beginner" | "intermediate" | "advanced";
   daysPerWeek: number;
@@ -619,7 +620,8 @@ const HYBRID_WEEK_1: Week = {
 
 export const HYBRID: ProgramTemplate = {
   slug: "hybrid-cf-strength",
-  name: "Hybrid Engine (Hybrid · CrossFit × Musculation)",
+  name: "Hybrid Engine",
+  tagline: "CrossFit × Musculation × Récupération adaptative",
   discipline: "hybrid",
   level: "intermediate",
   daysPerWeek: 5,

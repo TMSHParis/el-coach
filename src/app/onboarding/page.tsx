@@ -33,7 +33,17 @@ export default function OnboardingPage() {
                 <div className="text-white">
                   <ProgramIcon template={t} size={32} />
                 </div>
-                <h2 className="text-2xl font-semibold md:text-3xl">{t.name}</h2>
+                <div>
+                  <h2 className="text-2xl font-semibold md:text-3xl">{t.name}</h2>
+                  <div className="mono mt-1 text-[10px] uppercase tracking-[0.2em] text-[color:var(--color-mute)]">
+                    · by El Coach Method
+                  </div>
+                  {t.tagline && (
+                    <div className="mt-1 text-xs italic text-[color:var(--color-mute)]">
+                      {t.tagline}
+                    </div>
+                  )}
+                </div>
               </div>
               <ArrowRight
                 size={20}
@@ -41,9 +51,6 @@ export default function OnboardingPage() {
               />
             </div>
             <p className="text-sm text-[color:var(--color-mute)]">{t.summary}</p>
-            <div className="mono mt-auto text-xs uppercase text-[color:var(--color-mute)]">
-              {t.daysPerWeek}j/sem · niveau {t.level} · by El Coach Method
-            </div>
           </Link>
         ))}
       </div>

@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, ArrowRight } from "lucide-react";
 import {
   formatExerciseLine,
   getTemplate,
@@ -11,7 +11,18 @@ import {
   type Day,
   type Exercise,
 } from "@/lib/programming";
+import { getProgramDetailContent, type SessionBlock, type SessionGroup } from "@/lib/program-content";
 import { BlockHeader } from "@/components/block-header";
+
+const STATE_STYLES: Record<"VERT" | "JAUNE" | "ROUGE", { bg: string; dot: string; text: string }> = {
+  VERT: { bg: "bg-emerald-500/10 border-emerald-500/40", dot: "bg-emerald-400", text: "text-emerald-300" },
+  JAUNE: {
+    bg: "bg-[color:var(--color-accent)]/10 border-[color:var(--color-accent)]/40",
+    dot: "bg-[color:var(--color-accent)]",
+    text: "text-[color:var(--color-accent)]",
+  },
+  ROUGE: { bg: "bg-red-500/10 border-red-500/40", dot: "bg-red-400", text: "text-red-300" },
+};
 
 const DAY_NAMES = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
 
@@ -50,6 +61,7 @@ export default async function TrainingTemplatePage({
 
   const template = getTemplate(slug);
   if (!template) notFound();
+  const content = getProgramDetailContent(slug);
 
   const weekIndex = Math.max(0, Math.min((Number(weekParam) || 1) - 1, template.weeks.length - 1));
   const week = template.weeks[weekIndex];
@@ -70,9 +82,16 @@ export default async function TrainingTemplatePage({
 
       <div className="mt-8 grid gap-10 md:grid-cols-[2fr_1fr] md:items-end">
         <div>
-          <div className="label">[ {template.discipline.toUpperCase()} · {template.level.toUpperCase()} ]</div>
-          <h1 className="mt-3 text-4xl font-semibold tracking-tight md:text-6xl">{template.name}</h1>
-          <p className="mt-5 max-w-2xl text-[color:var(--color-mute)]">{template.summary}</p>
+          <h1 className="text-4xl font-semibold tracking-tight md:text-6xl">{template.name}</h1>
+          <div className="mono mt-2 text-[10px] uppercase tracking-[0.2em] text-[color:var(--color-mute)]">
+            · by El Coach Method
+          </div>
+          {content?.tagline && (
+            <div className="mt-1 text-sm italic text-[color:var(--color-mute)]">{content.tagline}</div>
+          )}
+          <p className="mt-5 max-w-2xl text-[color:var(--color-mute)]">
+            {content?.shortDescription ?? template.summary}
+          </p>
         </div>
 
         <aside className="card grain p-6">
@@ -94,13 +113,22 @@ export default async function TrainingTemplatePage({
         </aside>
       </div>
 
+      {content && <ProgramDetailSections content={content} />}
+
+      <div className="mt-20">
+        <div className="label text-[color:var(--color-accent)]">[ SEMAINE TYPE ]</div>
+        <h2 className="mt-3 text-2xl font-semibold tracking-tight md:text-3xl">
+          Détail séance par séance.
+        </h2>
+      </div>
+
       {week.theme && (
-        <p className="mt-10 border-l-2 border-white pl-4 text-sm text-[color:var(--color-mute)]">
+        <p className="mt-6 border-l-2 border-white pl-4 text-sm text-[color:var(--color-mute)]">
           {week.theme}
         </p>
       )}
 
-      <div className="mt-12 space-y-px bg-[color:var(--color-line)]">
+      <div className="mt-8 space-y-px bg-[color:var(--color-line)]">
         {week.days.map((day) => (
           <DayRow
             key={day.day}
@@ -283,6 +311,122 @@ function Meta({ label, value }: { label: string; value: string }) {
     <div>
       <div className="label">{label}</div>
       <div className="mono mt-1 text-sm">{value}</div>
+    </div>
+  );
+}
+
+function ProgramDetailSections({
+  content,
+}: {
+  content: NonNullable<ReturnType<typeof getProgramDetailContent>>;
+}) {
+  return (
+    <>
+      <div className="mt-16">
+        <div className="label text-[color:var(--color-accent)]">[ STRUCTURE D&apos;UNE SÉANCE ]</div>
+        <div className="mt-8 space-y-10">
+          {content.sessionGroups.map((group, i) => (
+            <SessionGroupCard key={group.title ?? i} group={group} />
+          ))}
+        </div>
+      </div>
+
+      {content.weeklySplit && (
+        <div className="mt-16">
+          <div className="label text-[color:var(--color-accent)]">[ RÉPARTITION HEBDOMADAIRE ]</div>
+          <div className="mt-6 grid grid-cols-2 gap-px bg-[color:var(--color-line)] sm:grid-cols-3 md:grid-cols-6">
+            {content.weeklySplit.map((d) => (
+              <div key={d.day} className="bg-[color:var(--color-ash)] p-4">
+                <div className="label">{d.day}</div>
+                <div className="mt-1.5 text-sm">{d.focus}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {content.extraNote && (
+        <div className="mt-16">
+          <div className="label text-[color:var(--color-accent)]">[ {content.extraNote.title} ]</div>
+          <ul className="mt-4 space-y-1.5">
+            {content.extraNote.lines.map((line) => (
+              <li key={line} className="flex items-start gap-2 text-sm text-[color:var(--color-mute)]">
+                <span aria-hidden className="mt-1 select-none">▸</span>
+                {line}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      <div className="mt-16">
+        <div className="label text-[color:var(--color-accent)]">
+          [ CE QUE LE COACHING ADAPTATIF FAIT AVEC CE PROGRAMME ]
+        </div>
+        <div className="mt-6 space-y-3">
+          {content.adaptiveStates.map((s) => {
+            const style = STATE_STYLES[s.level];
+            return (
+              <div
+                key={s.level}
+                className={`flex items-center gap-4 border p-4 ${style.bg}`}
+              >
+                <div className={`h-2.5 w-2.5 shrink-0 rounded-full ${style.dot}`} />
+                <div>
+                  <div className={`mono text-[10px] tracking-[0.3em] ${style.text}`}>{s.level}</div>
+                  <div className="mt-1 text-sm">{s.description}</div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="mt-12">
+        <Link href={`/signup?program=${content.slug}`} className="btn-primary">
+          {content.ctaLabel}
+          <ArrowRight size={14} />
+        </Link>
+      </div>
+    </>
+  );
+}
+
+function SessionGroupCard({ group }: { group: SessionGroup }) {
+  return (
+    <div>
+      {group.title && (
+        <div className="mono mb-4 text-xs uppercase tracking-[0.15em] text-white">{group.title}</div>
+      )}
+      <div className="space-y-4">
+        {group.blocks.map((block, i) => (
+          <SessionBlockRow key={`${block.label}-${i}`} block={block} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function SessionBlockRow({ block }: { block: SessionBlock }) {
+  return (
+    <div className="border border-[color:var(--color-line)] p-5">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="font-semibold">{block.label}</span>
+        {block.tags?.map((tag) => (
+          <span
+            key={tag}
+            className="mono rounded-none border border-[color:var(--color-line)] px-1.5 py-0.5 text-[10px] uppercase tracking-[0.1em] text-[color:var(--color-mute)]"
+          >
+            {tag}
+          </span>
+        ))}
+        {block.duration && (
+          <span className="mono text-[10px] text-[color:var(--color-mute)]">· {block.duration}</span>
+        )}
+      </div>
+      {block.description && (
+        <p className="mt-2 text-sm text-[color:var(--color-mute)]">{block.description}</p>
+      )}
     </div>
   );
 }
