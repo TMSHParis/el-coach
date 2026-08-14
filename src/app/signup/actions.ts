@@ -3,6 +3,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { COOKIE_KEYS } from "@/lib/demo-session";
+import { getTemplate } from "@/lib/programming";
 
 const YEAR = 60 * 60 * 24 * 365;
 
@@ -193,4 +194,98 @@ export async function getSignupState(): Promise<SignupCookie | null> {
 
 export async function getProfileState(): Promise<ProfileCookie | null> {
   return readProfileCookie();
+}
+
+// ============================================================================
+// ECM Signup — flow unifié compte + profil complet + paiement (mai 2026)
+// ============================================================================
+
+const COOKIE_ECM_PROFILE = "el_coach_ecm_profile";
+
+export type EcmSport = { nom: string; jours: string[]; h: string; du: string; niv: string };
+
+export type EcmProfileCookie = {
+  prenom: string;
+  age: string;
+  taille: string;
+  poids: string;
+  obj: string;
+  s1: EcmSport;
+  s2: EcmSport;
+  s2on: boolean;
+  equip: string;
+  jeune: boolean | null;
+  tj: string;
+  df: string;
+  ff: string;
+  rest: string[];
+  hydra: string;
+  bles: boolean | null;
+  bt: string;
+  comp: string[];
+  ca: string;
+  qs: string;
+  ds: string;
+};
+
+export type EcmSignupPayload = {
+  firstName: string;
+  lastName: string;
+  email: string;
+  programSlug: string;
+  profile: EcmProfileCookie;
+  cardNumber: string;
+};
+
+export async function submitEcmSignup(
+  payload: EcmSignupPayload,
+): Promise<{ ok: true; firstName: string } | { ok: false; error: string }> {
+  const { firstName, lastName, email, programSlug, profile, cardNumber } = payload;
+
+  if (!firstName || !email.includes("@")) {
+    return { ok: false, error: "Vérifie tes informations et réessaie." };
+  }
+
+  const trialEnd = new Date();
+  trialEnd.setDate(trialEnd.getDate() + 7);
+
+  await writeSignupCookie({
+    firstName,
+    lastName,
+    email,
+    programSlug,
+    cardLast4: cardNumber.replace(/\s/g, "").slice(-4),
+    trialEndsAt: trialEnd.toISOString(),
+  });
+
+  const jar = await cookies();
+  jar.set(COOKIE_ECM_PROFILE, JSON.stringify(profile), {
+    path: "/",
+    maxAge: YEAR,
+    sameSite: "lax",
+  });
+
+  // N'active la programmation dashboard que si elle correspond à une base
+  // EL COACH METHOD connue (les sports hors catalogue restent en profil seul).
+  if (programSlug && getTemplate(programSlug)) {
+    jar.set(COOKIE_KEYS.program, programSlug, { path: "/", maxAge: YEAR, sameSite: "lax" });
+    jar.set(COOKIE_KEYS.startDate, new Date().toISOString(), {
+      path: "/",
+      maxAge: YEAR,
+      sameSite: "lax",
+    });
+  }
+
+  return { ok: true, firstName };
+}
+
+export async function getEcmProfileState(): Promise<EcmProfileCookie | null> {
+  const jar = await cookies();
+  const raw = jar.get(COOKIE_ECM_PROFILE)?.value;
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as EcmProfileCookie;
+  } catch {
+    return null;
+  }
 }

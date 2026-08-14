@@ -4,6 +4,7 @@ import { ClerkProvider } from "@clerk/nextjs";
 import { clerkEnabled } from "@/lib/clerk";
 import { Nav } from "@/components/nav";
 import { Footer } from "@/components/footer";
+import { ChromeGate } from "@/components/chrome-gate";
 import "./globals.css";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
@@ -19,9 +20,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const shell = (
     <html lang="fr" className={`${geistSans.variable} ${geistMono.variable}`}>
       <body className="min-h-screen antialiased">
-        <Nav />
+        <ChromeGate>
+          <Nav />
+        </ChromeGate>
         <main className="min-h-[70vh]">{children}</main>
-        <Footer />
+        <ChromeGate>
+          <Footer />
+        </ChromeGate>
       </body>
     </html>
   );
