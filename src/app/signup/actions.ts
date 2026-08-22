@@ -4,6 +4,8 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { COOKIE_KEYS } from "@/lib/demo-session";
 import { getTemplate } from "@/lib/programming";
+import { prisma } from "@/lib/prisma";
+import { ensureUserId } from "@/lib/user-id";
 
 const YEAR = 60 * 60 * 24 * 365;
 
@@ -276,7 +278,58 @@ export async function submitEcmSignup(
     });
   }
 
+  // Persistance réelle (Postgres) — best effort : une erreur ici ne doit pas
+  // bloquer le signup, l'utilisateur reste en mode cookie/démo dans ce cas.
+  try {
+    await persistEcmProfile(profile);
+  } catch (err) {
+    console.error("submitEcmSignup: persistance du profil échouée:", err);
+  }
+
   return { ok: true, firstName };
+}
+
+async function persistEcmProfile(profile: EcmProfileCookie): Promise<void> {
+  const userId = await ensureUserId();
+
+  const data = {
+    prenom: profile.prenom,
+    age: parseInt(profile.age, 10) || 0,
+    taille: parseInt(profile.taille, 10) || 0,
+    poids: parseFloat(profile.poids) || 0,
+    objectif: profile.obj,
+    programme: profile.s1.nom,
+    niveau: profile.s1.niv,
+    sportPrincipal: profile.s1.nom,
+    sportSecondaire: profile.s2on ? profile.s2.nom : null,
+    joursS1: profile.s1.jours,
+    heureS1: profile.s1.h,
+    dureeS1: profile.s1.du,
+    niveauS1: profile.s1.niv,
+    joursS2: profile.s2on ? profile.s2.jours : [],
+    heureS2: profile.s2on ? profile.s2.h : null,
+    dureeS2: profile.s2on ? profile.s2.du : null,
+    niveauS2: profile.s2on ? profile.s2.niv : null,
+    equipement: profile.equip,
+    jeune: profile.jeune ?? false,
+    typeJeune: profile.tj || null,
+    debutFenetre: profile.df || null,
+    finFenetre: profile.ff || null,
+    restrictions: profile.rest,
+    hydratation: profile.hydra,
+    blessures: profile.bles ?? false,
+    blessuresDetail: profile.bt || null,
+    complements: profile.comp,
+    complementsAutres: profile.ca || null,
+    qualiteSommeil: profile.qs,
+    dureeSommeil: profile.ds,
+  };
+
+  await prisma.profile.upsert({
+    where: { userId },
+    create: { userId, ...data },
+    update: data,
+  });
 }
 
 export async function getEcmProfileState(): Promise<EcmProfileCookie | null> {

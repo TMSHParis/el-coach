@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { submitCheckin, type CheckinGender } from "./actions";
+import { submitCheckin, type CheckinGender, type SleepPhotoAnalysis } from "./actions";
 import styles from "./checkin.module.css";
 
 const cx = (...classes: (string | false | undefined)[]) => classes.filter(Boolean).join(" ");
@@ -35,6 +35,8 @@ type FormState = {
   sleepFc: string;
   sleepHrv: string;
   sleepRecup: string;
+  sleepAnalysis: SleepPhotoAnalysis | null;
+  sleepAnalyzing: boolean;
   poids: string;
   jambes: string;
   douleur: boolean | null;
@@ -63,6 +65,8 @@ const INITIAL_STATE: FormState = {
   sleepFc: "",
   sleepHrv: "",
   sleepRecup: "",
+  sleepAnalysis: null,
+  sleepAnalyzing: false,
   poids: "",
   jambes: "",
   douleur: null,
@@ -101,8 +105,30 @@ export function CheckinForm() {
   function handlePhoto(file: File | undefined) {
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = (e) => {
-      set({ sleepPhoto: true, sleepPhotoPreview: String(e.target?.result ?? "") });
+    reader.onload = async (e) => {
+      const dataUrl = String(e.target?.result ?? "");
+      set({ sleepPhoto: true, sleepPhotoPreview: dataUrl, sleepAnalyzing: true });
+
+      const [, base64] = dataUrl.split(",");
+      try {
+        const res = await fetch("/api/analyze-sleep-photo", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ imageBase64: base64, mediaType: file.type }),
+        });
+        if (!res.ok) throw new Error(await res.text());
+        const analysis = (await res.json()) as SleepPhotoAnalysis;
+        set({
+          sleepAnalysis: analysis,
+          sleepAnalyzing: false,
+          sleepCoucher: analysis.coucher ?? d.sleepCoucher,
+          sleepReveil: analysis.reveil ?? d.sleepReveil,
+          sleepDuree: analysis.total ?? d.sleepDuree,
+        });
+      } catch {
+        // Analyse indisponible (clé absente, erreur réseau...) — la saisie manuelle reste possible.
+        set({ sleepAnalyzing: false });
+      }
     };
     reader.readAsDataURL(file);
   }
@@ -140,6 +166,7 @@ export function CheckinForm() {
       sleepFc: d.sleepFc,
       sleepHrv: d.sleepHrv,
       sleepRecup: d.sleepRecup,
+      sleepAnalysis: d.sleepAnalysis,
       poids: d.poids,
       jambes: d.jambes,
       douleur: d.douleur,
@@ -238,8 +265,13 @@ export function CheckinForm() {
               </>
             )}
           </label>
-          {d.sleepPhoto && (
-            <div className={cx(styles.pok, isH ? styles.h : styles.f)}>✅ Photo sommeil ajoutée</div>
+          {d.sleepAnalyzing && (
+            <div className={cx(styles.pok, isH ? styles.h : styles.f)}>⏳ Analyse de la photo...</div>
+          )}
+          {d.sleepPhoto && !d.sleepAnalyzing && (
+            <div className={cx(styles.pok, isH ? styles.h : styles.f)}>
+              {d.sleepAnalysis ? "✅ Photo analysée — champs pré-remplis" : "✅ Photo sommeil ajoutée"}
+            </div>
           )}
           <div className={styles.orSep}>ou saisie manuelle</div>
           <div className={styles.smw}>

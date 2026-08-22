@@ -1,0 +1,128 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// user_id = Clerk user id (auth reste géré par Clerk, pas de table auth ici).
+model Profile {
+  id     String @id @default(cuid())
+  userId String @unique @map("user_id")
+
+  prenom            String
+  age               Int
+  taille            Int
+  poids             Float
+  objectif          String
+  programme         String
+  niveau            String
+  sportPrincipal    String   @map("sport_principal")
+  sportSecondaire   String?  @map("sport_secondaire")
+  joursS1           String[] @map("jours_s1")
+  heureS1           String   @map("heure_s1")
+  dureeS1           String   @map("duree_s1")
+  niveauS1          String   @map("niveau_s1")
+  joursS2           String[] @map("jours_s2")
+  heureS2           String?  @map("heure_s2")
+  dureeS2           String?  @map("duree_s2")
+  niveauS2          String?  @map("niveau_s2")
+  equipement        String
+  jeune             Boolean
+  typeJeune         String?  @map("type_jeune")
+  debutFenetre      String?  @map("debut_fenetre")
+  finFenetre        String?  @map("fin_fenetre")
+  restrictions      String[]
+  hydratation       String
+  blessures         Boolean
+  blessuresDetail   String?  @map("blessures_detail")
+  complements       String[]
+  complementsAutres String?  @map("complements_autres")
+  qualiteSommeil    String   @map("qualite_sommeil")
+  dureeSommeil      String   @map("duree_sommeil")
+  // Pas collecté au signup ECM actuel — rempli au premier check-in.
+  genre             String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  checkins         Checkin[]
+  dashboardOutputs DashboardOutput[]
+  sessions         Session[]
+
+  @@map("profiles")
+}
+
+// Une entrée par jour et par utilisateur (contrainte unique userId+date).
+model Checkin {
+  id     String @id @default(cuid())
+  userId String @map("user_id")
+  date   String // clé YYYY-MM-DD
+
+  genre           String
+  energie         Int?
+  motivation      Int?
+  mental          String?
+  stress          String?
+  libido          String?
+  jambes          String?
+  douleur         Boolean?
+  douleurDetail   String?  @map("douleur_detail")
+  sleepPhoto      Boolean  @default(false) @map("sleep_photo")
+  sleepCoucher    String?  @map("sleep_coucher")
+  sleepReveil     String?  @map("sleep_reveil")
+  sleepDuree      String?  @map("sleep_duree")
+  sleepFc         String?  @map("sleep_fc")
+  sleepHrv        String?  @map("sleep_hrv")
+  sleepRecup      String?  @map("sleep_recup")
+  sleepAnalysis   Json?    @map("sleep_analysis")
+  poids           String?
+  seance          String?
+  travail         Boolean?
+  soirPerformance Boolean? @map("soir_performance")
+  cycle           Boolean?
+  cycleDouleur    String?  @map("cycle_douleur")
+  cycleJour       String?  @map("cycle_jour")
+  notes           String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  profile Profile @relation(fields: [userId], references: [userId])
+
+  @@unique([userId, date])
+  @@map("checkins")
+}
+
+// Plan quotidien généré par Claude (profil + check-in du jour). Un par user/jour.
+model DashboardOutput {
+  id     String @id @default(cuid())
+  userId String @map("user_id")
+  date   String
+
+  output Json
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  profile Profile @relation(fields: [userId], references: [userId])
+
+  @@unique([userId, date])
+  @@map("dashboard_outputs")
+}
+
+// Log de séance réalisée (variante choisie + éventuel détail sets/reps).
+model Session {
+  id     String @id @default(cuid())
+  userId String @map("user_id")
+  date   String
+
+  variant   String? // "A" | "B"
+  completed Boolean @default(false)
+  data      Json?
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  profile Profile @relation(fields: [userId], references: [userId])
+
+  @@map("sessions")
+}

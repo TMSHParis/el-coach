@@ -1,15 +1,17 @@
-import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+import { clerkMiddleware } from "@clerk/nextjs/server";
 import { NextResponse, type NextRequest } from "next/server";
-
-const isProtected = createRouteMatcher(["/dashboard(.*)"]);
 
 const clerkEnabled = Boolean(
   process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY && process.env.CLERK_SECRET_KEY,
 );
 
-const clerkHandler = clerkMiddleware(async (auth, req) => {
-  if (isProtected(req)) await auth.protect();
-});
+// Clerk reste optionnel : l'app fonctionne sur son propre modèle
+// cookie + Postgres (signup ECM → checkin → dashboard), qui ne crée jamais de
+// session Clerk. On garde clerkMiddleware() actif pour que `auth()` /
+// `currentUser()` marchent côté serveur (personnalisation, futur vrai compte),
+// mais sans jamais bloquer une route — protéger /dashboard casserait le flux
+// ECM pour tout le monde tant que le signup ne crée pas réellement un compte Clerk.
+const clerkHandler = clerkMiddleware();
 
 export default function middleware(req: NextRequest) {
   if (!clerkEnabled) return NextResponse.next();

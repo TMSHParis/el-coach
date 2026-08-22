@@ -5,6 +5,10 @@ import { isCheckinDoneToday } from "../checkin/actions";
 import { getEcmProfileState, getSignupState } from "../signup/actions";
 import { clerkEnabled } from "@/lib/clerk";
 import { getDemoState, resolveTodaySession } from "@/lib/demo-session";
+import { getUserId } from "@/lib/user-id";
+import { prisma } from "@/lib/prisma";
+import { todayKey } from "@/lib/date-key";
+import type { Alert, EcmScore, SleepInsight, SnackInsight, StackMoment, WeightInsight } from "@/lib/coaching-adaptatif-mock";
 import {
   buildAlerts,
   buildSleepInsight,
@@ -14,6 +18,17 @@ import {
   computeEcmScore,
   recommendVariant,
 } from "@/lib/coaching-adaptatif-mock";
+
+type DashboardOutputJson = {
+  ecm: EcmScore;
+  recommendedVariant: "A" | "B";
+  recommendedReason: string;
+  stack: StackMoment[];
+  alerts: Alert[];
+  snack: SnackInsight;
+  sleep: SleepInsight;
+  weight: WeightInsight;
+};
 import { toDisplayBlocks } from "@/lib/session-format";
 import { minutesToHM, ETAT_LABELS, sleepPhaseBadge, trendColor } from "./dashboard-helpers";
 import { dashboardFontVariables } from "./dashboard-fonts";
@@ -55,13 +70,24 @@ export default async function DashboardPage() {
   if (!today) return <EmptyState />;
 
   const fatigueScore = demo.fatigueScore ?? 3;
-  const ecm = computeEcmScore(fatigueScore);
-  const sleep = buildSleepInsight(fatigueScore);
-  const weight = buildWeightInsight(fatigueScore);
-  const stack = buildStack4Moments(fatigueScore);
-  const alerts = buildAlerts(fatigueScore, sleep);
-  const snack = buildSnack(fatigueScore);
-  const variant = recommendVariant(ecm);
+
+  const userId = await getUserId();
+  const dbOutput = userId
+    ? await prisma.dashboardOutput.findUnique({ where: { userId_date: { userId, date: todayKey() } } })
+    : null;
+  const real = dbOutput ? (dbOutput.output as unknown as DashboardOutputJson) : null;
+
+  // Repli sur le moteur mock déterministe si pas encore de profil ECM /
+  // génération Claude pour cet utilisateur (mode démo classique inchangé).
+  const ecm = real?.ecm ?? computeEcmScore(fatigueScore);
+  const sleep = real?.sleep ?? buildSleepInsight(fatigueScore);
+  const weight = real?.weight ?? buildWeightInsight(fatigueScore);
+  const stack = real ? normalizeStackOrder(real.stack, fatigueScore) : buildStack4Moments(fatigueScore);
+  const alerts = real?.alerts ?? buildAlerts(fatigueScore, sleep);
+  const snack = real?.snack ?? buildSnack(fatigueScore);
+  const variant = real
+    ? { recommended: real.recommendedVariant, reason: real.recommendedReason }
+    : recommendVariant(ecm);
   const etat = ETAT_LABELS[ecm.state];
   const isRestDay = today.needsFatigueInput || today.day.blocks.length === 0;
 
@@ -404,6 +430,15 @@ function StackGroup({ label, items }: { label: string; items: { name: string; do
       </div>
     </>
   );
+}
+
+const STACK_SLOT_ORDER = ["morning", "noon", "pre-workout", "evening"] as const;
+
+/** L'ordre du tableau stack[] n'est pas garanti par Claude — on le réordonne pour l'affichage indexé. */
+function normalizeStackOrder(stack: StackMoment[], fatigueScore: number): StackMoment[] {
+  const bySlot = new Map(stack.map((m) => [m.slot, m]));
+  const fallback = buildStack4Moments(fatigueScore);
+  return STACK_SLOT_ORDER.map((slot, i) => bySlot.get(slot) ?? fallback[i]);
 }
 
 function difficultyFor(level: "beginner" | "intermediate" | "advanced", variant: "a" | "b"): number {
