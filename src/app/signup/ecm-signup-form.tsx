@@ -1,7 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type Dispatch, type SetStateAction } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useSignUp } from "@clerk/nextjs";
+import { clerkEnabledClient } from "@/lib/clerk";
 import { submitEcmSignup, type EcmProfileCookie, type EcmSport } from "./actions";
 import { PROGRAM_BASE_PRICE_CENTS } from "@/lib/data";
 import { formatPrice } from "@/lib/utils";
@@ -378,69 +381,31 @@ export function EcmSignupForm({ defaultProgramSlug }: { defaultProgramSlug: stri
 
         {/* ══ STEP 1 — COMPTE ══ */}
         <div className={cx(styles.stepWrap, mainStep === 1 && styles.active)}>
-          <div className={styles.fieldRow}>
-            <div className={styles.field}>
-              <label>Prénom</label>
-              <input
-                type="text"
-                placeholder="Prénom"
-                value={data.firstName}
-                onChange={(e) => setData((d) => ({ ...d, firstName: e.target.value }))}
-                className={firstNameError ? styles.fieldError : undefined}
-              />
-              {firstNameError && <span className={cx(styles.fieldHint, styles.errorMsg, styles.show)}>Champ requis</span>}
-            </div>
-            <div className={styles.field}>
-              <label>Nom</label>
-              <input
-                type="text"
-                placeholder="Nom"
-                value={data.lastName}
-                onChange={(e) => setData((d) => ({ ...d, lastName: e.target.value }))}
-              />
-            </div>
-          </div>
-          <div className={styles.field}>
-            <label>Email</label>
-            <input
-              type="email"
-              placeholder="email@exemple.com"
-              value={data.email}
-              onChange={(e) => setData((d) => ({ ...d, email: e.target.value }))}
-              className={emailError ? styles.fieldError : undefined}
+          {clerkEnabledClient ? (
+            <AccountStepClerk
+              data={data}
+              setData={setData}
+              firstNameError={firstNameError}
+              setFirstNameError={setFirstNameError}
+              emailError={emailError}
+              setEmailError={setEmailError}
+              showPassword={showPassword}
+              setShowPassword={setShowPassword}
+              strength={strength}
+              onNext={() => setMainStep(2)}
             />
-            {emailError && <span className={cx(styles.fieldHint, styles.errorMsg, styles.show)}>Email invalide</span>}
-          </div>
-          <div className={styles.field}>
-            <label>Mot de passe</label>
-            <div className={styles.fieldPw}>
-              <input
-                type={showPassword ? "text" : "password"}
-                placeholder="Minimum 8 caractères"
-                value={data.password}
-                onChange={(e) => setData((d) => ({ ...d, password: e.target.value }))}
-              />
-              <button className={styles.pwToggle} type="button" onClick={() => setShowPassword((v) => !v)}>
-                {showPassword ? "CACHER" : "VOIR"}
-              </button>
-            </div>
-            <div className={styles.pwStrength}>
-              {[0, 1, 2].map((i) => (
-                <div
-                  key={i}
-                  className={cx(
-                    styles.pwBar,
-                    strength === "weak" && i === 0 && styles.weak,
-                    strength === "medium" && i < 2 && styles.medium,
-                    strength === "strong" && styles.strong,
-                  )}
-                />
-              ))}
-            </div>
-          </div>
-          <button className={styles.btnNext} type="button" onClick={goToStep1to2}>
-            Continuer <span className={styles.arrow}>→</span>
-          </button>
+          ) : (
+            <AccountStepDemo
+              data={data}
+              setData={setData}
+              firstNameError={firstNameError}
+              emailError={emailError}
+              showPassword={showPassword}
+              setShowPassword={setShowPassword}
+              strength={strength}
+              onContinue={goToStep1to2}
+            />
+          )}
         </div>
 
         {/* ══ STEP 2 — PROFIL ECM ══ */}
@@ -870,6 +835,300 @@ function LeftPanel() {
         </div>
       </div>
     </div>
+  );
+}
+
+function AccountFields({
+  data,
+  setData,
+  firstNameError,
+  emailError,
+  showPassword,
+  setShowPassword,
+  strength,
+  passwordPlaceholder = "Minimum 8 caractères",
+}: {
+  data: FormState;
+  setData: Dispatch<SetStateAction<FormState>>;
+  firstNameError: boolean;
+  emailError: boolean;
+  showPassword: boolean;
+  setShowPassword: Dispatch<SetStateAction<boolean>>;
+  strength: "weak" | "medium" | "strong" | null;
+  passwordPlaceholder?: string;
+}) {
+  return (
+    <>
+      <div className={styles.fieldRow}>
+        <div className={styles.field}>
+          <label>Prénom</label>
+          <input
+            type="text"
+            placeholder="Prénom"
+            value={data.firstName}
+            onChange={(e) => setData((d) => ({ ...d, firstName: e.target.value }))}
+            className={firstNameError ? styles.fieldError : undefined}
+          />
+          {firstNameError && <span className={cx(styles.fieldHint, styles.errorMsg, styles.show)}>Champ requis</span>}
+        </div>
+        <div className={styles.field}>
+          <label>Nom</label>
+          <input
+            type="text"
+            placeholder="Nom"
+            value={data.lastName}
+            onChange={(e) => setData((d) => ({ ...d, lastName: e.target.value }))}
+          />
+        </div>
+      </div>
+      <div className={styles.field}>
+        <label>Email</label>
+        <input
+          type="email"
+          placeholder="email@exemple.com"
+          value={data.email}
+          onChange={(e) => setData((d) => ({ ...d, email: e.target.value }))}
+          className={emailError ? styles.fieldError : undefined}
+        />
+        {emailError && <span className={cx(styles.fieldHint, styles.errorMsg, styles.show)}>Email invalide</span>}
+      </div>
+      <div className={styles.field}>
+        <label>Mot de passe</label>
+        <div className={styles.fieldPw}>
+          <input
+            type={showPassword ? "text" : "password"}
+            placeholder={passwordPlaceholder}
+            value={data.password}
+            onChange={(e) => setData((d) => ({ ...d, password: e.target.value }))}
+          />
+          <button className={styles.pwToggle} type="button" onClick={() => setShowPassword((v) => !v)}>
+            {showPassword ? "CACHER" : "VOIR"}
+          </button>
+        </div>
+        <div className={styles.pwStrength}>
+          {[0, 1, 2].map((i) => (
+            <div
+              key={i}
+              className={cx(
+                styles.pwBar,
+                strength === "weak" && i === 0 && styles.weak,
+                strength === "medium" && i < 2 && styles.medium,
+                strength === "strong" && styles.strong,
+              )}
+            />
+          ))}
+        </div>
+      </div>
+    </>
+  );
+}
+
+function AccountStepDemo({
+  data,
+  setData,
+  firstNameError,
+  emailError,
+  showPassword,
+  setShowPassword,
+  strength,
+  onContinue,
+}: {
+  data: FormState;
+  setData: Dispatch<SetStateAction<FormState>>;
+  firstNameError: boolean;
+  emailError: boolean;
+  showPassword: boolean;
+  setShowPassword: Dispatch<SetStateAction<boolean>>;
+  strength: "weak" | "medium" | "strong" | null;
+  onContinue: () => void;
+}) {
+  return (
+    <>
+      <AccountFields
+        data={data}
+        setData={setData}
+        firstNameError={firstNameError}
+        emailError={emailError}
+        showPassword={showPassword}
+        setShowPassword={setShowPassword}
+        strength={strength}
+      />
+      <button className={styles.btnNext} type="button" onClick={onContinue}>
+        Continuer <span className={styles.arrow}>→</span>
+      </button>
+    </>
+  );
+}
+
+/**
+ * Crée un vrai compte Clerk (persistant, multi-appareil) au lieu du cookie
+ * démo. Vérification email par code — c'est le comportement par défaut d'une
+ * app Clerk ; on ne désactive pas cette protection.
+ */
+function AccountStepClerk({
+  data,
+  setData,
+  firstNameError,
+  setFirstNameError,
+  emailError,
+  setEmailError,
+  showPassword,
+  setShowPassword,
+  strength,
+  onNext,
+}: {
+  data: FormState;
+  setData: Dispatch<SetStateAction<FormState>>;
+  firstNameError: boolean;
+  setFirstNameError: Dispatch<SetStateAction<boolean>>;
+  emailError: boolean;
+  setEmailError: Dispatch<SetStateAction<boolean>>;
+  showPassword: boolean;
+  setShowPassword: Dispatch<SetStateAction<boolean>>;
+  strength: "weak" | "medium" | "strong" | null;
+  onNext: () => void;
+}) {
+  const { signUp } = useSignUp();
+  const router = useRouter();
+  const [verifying, setVerifying] = useState(false);
+  const [code, setCode] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  /**
+   * En dev (pas de domaine custom), la session Clerk n'est vraiment
+   * synchronisée côté serveur qu'après avoir traversé l'URL décorée par
+   * `decorateUrl` (poignée de main "dev browser") — sans ça, `auth()` côté
+   * serveur reste signed-out même si le SDK client se croit connecté.
+   * On revient ensuite sur /signup (même route, mainStep passe à 2 via onNext).
+   */
+  async function finalizeSession() {
+    await signUp.finalize({
+      navigate: async ({ decorateUrl }) => {
+        const url = decorateUrl("/signup");
+        if (url.startsWith("http")) {
+          window.location.href = url;
+        } else if (url !== "/signup") {
+          router.push(url);
+        }
+        onNext();
+      },
+    });
+  }
+
+  async function handleContinue() {
+    const okFirst = data.firstName.trim().length > 0;
+    const okEmail = data.email.includes("@");
+    setFirstNameError(!okFirst);
+    setEmailError(!okEmail);
+    if (!okFirst || !okEmail) return;
+
+    setBusy(true);
+    setError(null);
+    try {
+      // Le prénom/nom sont collectés dans le profil ECM (étape suivante, en
+      // base Postgres) — cette instance Clerk ne collecte pas ces champs.
+      const { error: signUpError } = await signUp.password({
+        emailAddress: data.email,
+        password: data.password,
+      });
+      if (signUpError) {
+        setError(signUpError.message ?? "Impossible de créer le compte.");
+        return;
+      }
+      if (signUp.status === "complete") {
+        await finalizeSession();
+        return;
+      }
+      if (signUp.unverifiedFields?.includes("email_address")) {
+        await signUp.verifications.sendEmailCode();
+        setVerifying(true);
+        return;
+      }
+      setError("Cet email est peut-être déjà utilisé — essaie de te connecter.");
+    } catch (err) {
+      console.error("AccountStepClerk.handleContinue:", err);
+      setError("Erreur technique — réessaie.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleVerify() {
+    setBusy(true);
+    setError(null);
+    try {
+      const { error: verifyError } = await signUp.verifications.verifyEmailCode({ code });
+      if (verifyError) {
+        setError(verifyError.message ?? "Code invalide.");
+        return;
+      }
+      if (signUp.status === "complete") {
+        await finalizeSession();
+      }
+    } catch (err) {
+      console.error("AccountStepClerk.handleVerify:", err);
+      setError("Erreur technique — réessaie.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (verifying) {
+    return (
+      <>
+        <p className={styles.formSubtitle} style={{ marginBottom: 16 }}>
+          Code envoyé à <strong>{data.email}</strong>.
+        </p>
+        <div className={styles.field}>
+          <label>Code de vérification</label>
+          <input
+            type="text"
+            inputMode="numeric"
+            maxLength={6}
+            placeholder="123456"
+            value={code}
+            onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+          />
+        </div>
+        {error && (
+          <div className="mb-4 border-l-2 border-red-400 bg-red-500/5 px-4 py-3 text-sm text-red-400">{error}</div>
+        )}
+        <button className={styles.btnNext} type="button" disabled={busy || code.length < 6} onClick={handleVerify}>
+          {busy ? "Vérification…" : "Vérifier"} <span className={styles.arrow}>→</span>
+        </button>
+        <button
+          className={styles.pwToggle}
+          type="button"
+          onClick={() => signUp.verifications.sendEmailCode()}
+          style={{ marginTop: 12 }}
+        >
+          Renvoyer le code
+        </button>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <AccountFields
+        data={data}
+        setData={setData}
+        firstNameError={firstNameError}
+        emailError={emailError}
+        showPassword={showPassword}
+        setShowPassword={setShowPassword}
+        strength={strength}
+        passwordPlaceholder="Minimum 15 caractères"
+      />
+      {error && (
+        <div className="mb-4 border-l-2 border-red-400 bg-red-500/5 px-4 py-3 text-sm text-red-400">{error}</div>
+      )}
+      <button className={styles.btnNext} type="button" disabled={busy} onClick={handleContinue}>
+        {busy ? "Création…" : "Continuer"} <span className={styles.arrow}>→</span>
+      </button>
+      <div id="clerk-captcha" />
+    </>
   );
 }
 
