@@ -30,6 +30,7 @@ type DashboardOutputJson = {
   weight: WeightInsight;
 };
 import { toDisplayBlocks } from "@/lib/session-format";
+import { adaptDayForInjuries, detectInjuryAreas, reduceVolume, substitutionMessage } from "@/lib/session-adapt";
 import { minutesToHM, ETAT_LABELS, sleepPhaseBadge, trendColor } from "./dashboard-helpers";
 import { dashboardFontVariables } from "./dashboard-fonts";
 import { CalendarWeek } from "./calendar-week";
@@ -72,10 +73,21 @@ export default async function DashboardPage() {
   const fatigueScore = demo.fatigueScore ?? 3;
 
   const userId = await getUserId();
-  const dbOutput = userId
-    ? await prisma.dashboardOutput.findUnique({ where: { userId_date: { userId, date: todayKey() } } })
-    : null;
+  const [dbOutput, profile, todayCheckin] = userId
+    ? await Promise.all([
+        prisma.dashboardOutput.findUnique({ where: { userId_date: { userId, date: todayKey() } } }),
+        prisma.profile.findUnique({ where: { userId } }),
+        prisma.checkin.findUnique({ where: { userId_date: { userId, date: todayKey() } } }),
+      ])
+    : [null, null, null];
   const real = dbOutput ? (dbOutput.output as unknown as DashboardOutputJson) : null;
+
+  const injuryAreas = detectInjuryAreas(
+    profile?.blessures ? profile.blessuresDetail : null,
+    todayCheckin?.douleur ? todayCheckin.douleurDetail : null,
+  );
+  const { day: safeDay, substitutions } = adaptDayForInjuries(today.day, injuryAreas);
+  const lightDay = reduceVolume(safeDay);
 
   // Repli sur le moteur mock déterministe si pas encore de profil ECM /
   // génération Claude pour cet utilisateur (mode démo classique inchangé).
@@ -83,7 +95,16 @@ export default async function DashboardPage() {
   const sleep = real?.sleep ?? buildSleepInsight(fatigueScore);
   const weight = real?.weight ?? buildWeightInsight(fatigueScore);
   const stack = real ? normalizeStackOrder(real.stack, fatigueScore) : buildStack4Moments(fatigueScore);
-  const alerts = real?.alerts ?? buildAlerts(fatigueScore, sleep);
+  const baseAlerts = real?.alerts ?? buildAlerts(fatigueScore, sleep);
+  const alerts: Alert[] = [
+    ...baseAlerts,
+    ...substitutions.map((s) => ({
+      level: "info" as const,
+      category: "injury" as const,
+      message: substitutionMessage(s),
+      hint: s.reason,
+    })),
+  ];
   const snack = real?.snack ?? buildSnack(fatigueScore);
   const variant = real
     ? { recommended: real.recommendedVariant, reason: real.recommendedReason }
@@ -254,7 +275,10 @@ export default async function DashboardPage() {
               )}
             </div>
             {!isRestDay && (
-              <Link href="/session" className={styles.sdjBtn}>
+              <Link
+                href={`/session?variant=${variant.recommended === "A" ? "a" : "b"}`}
+                className={styles.sdjBtn}
+              >
                 <span className={styles.sdjBtnIcon}>▷</span>
                 <span className={styles.sdjBtnText}>Démarrer la séance</span>
               </Link>
@@ -292,20 +316,20 @@ export default async function DashboardPage() {
                   <SessionPanel
                     variant="a"
                     nom={`${today.template.name} — ${today.day.focus}`}
-                    duree={minutesToHM(today.day.estimatedMinutes)}
+                    duree={minutesToHM(safeDay.estimatedMinutes)}
                     difficulte={difficultyFor(today.template.level, "a")}
-                    tags={sessionTags(today.day.blocks)}
-                    blocs={toDisplayBlocks(today.day.blocks)}
+                    tags={sessionTags(safeDay.blocks)}
+                    blocs={toDisplayBlocks(safeDay.blocks)}
                   />
                 }
                 panelB={
                   <SessionPanel
                     variant="b"
                     nom={`${today.template.name} — Allégée`}
-                    duree={minutesToHM(Math.round(today.day.estimatedMinutes * 0.75))}
+                    duree={minutesToHM(lightDay.estimatedMinutes)}
                     difficulte={difficultyFor(today.template.level, "b")}
-                    tags={sessionTags(today.day.blocks)}
-                    blocs={toDisplayBlocks(today.day.blocks)}
+                    tags={sessionTags(lightDay.blocks)}
+                    blocs={toDisplayBlocks(lightDay.blocks)}
                   />
                 }
               />
