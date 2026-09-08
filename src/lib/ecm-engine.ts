@@ -208,7 +208,7 @@ ${JSON.stringify(
     prenom: profile.prenom,
     age: profile.age,
     genre: profile.genre,
-    objectif: profile.objectif,
+    objectifs: [profile.objectif, profile.objectif2].filter(Boolean),
     programme: profile.programme,
     niveau: profile.niveau,
     equipement: profile.equipement,
@@ -247,6 +247,7 @@ POIDS : ${weight.today} kg, delta 7j ${weight.deltaWeek} kg.
 NOMBRE DE CHECK-INS RÉCENTS DISPONIBLES : ${recentCheckins.length}.
 
 RÈGLES :
+- Priorité des données : le CHECK-IN DU JOUR fait foi pour l'état du jour (énergie, douleur, jambes, mental, séance prévue) — c'est la source la plus fraîche. Le PROFIL ATHLÈTE reste la référence uniquement pour ce que le check-in ne couvre pas (compléments, programme, restrictions, jeûne, objectifs, blessures chroniques). En cas de contradiction apparente entre les deux sur un point donné, le check-in du jour l'emporte.
 - Le stack utilise UNIQUEMENT des compléments réalistes cohérents avec profil.complements (${profile.complements.join(", ") || "aucun déclaré — stack vide ou générique léger"}).
 - recommendedVariant = "B" si état jaune/rouge ou douleur/blessure signalée, sinon "A".
 - N'invente aucune donnée numérique (poids, sommeil) — utilise uniquement les valeurs fournies ci-dessus.

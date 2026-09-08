@@ -675,3 +675,54 @@
   .left { display: none; }
   .right { padding: 32px 24px; }
 }
+
+/* ═══ ONGLETS (Bienvenue / J'ai changé / Déjà inscrit) ═══ */
+.tabBar {
+  display: flex;
+  background: #080808;
+  border-bottom: 1px solid #222;
+}
+
+.tabBtn {
+  flex: 1;
+  padding: 16px 12px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: #666;
+  font-family: var(--font-barlow);
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.tabBtn:hover { color: #f0ede8; }
+
+.tabBtnActive {
+  color: #e8ff00;
+  border-bottom-color: #e8ff00;
+}
+
+.updateGate {
+  min-height: 60vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 48px 24px;
+  background: #080808;
+  color: #f0ede8;
+  text-align: center;
+}
+
+.updateSuccess {
+  padding: 16px;
+  border-left: 2px solid #00ff88;
+  background: rgba(0, 255, 136, 0.05);
+  color: #f0ede8;
+  font-size: 0.9rem;
+  margin-bottom: 16px;
+}

@@ -15,7 +15,8 @@ model Profile {
   age               Int
   taille            Int
   poids             Float
-  objectif          String
+  objectif          String  @map("objectif_1")
+  objectif2         String? @map("objectif_2")
   programme         String
   niveau            String
   sportPrincipal    String   @map("sport_principal")

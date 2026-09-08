@@ -34,7 +34,7 @@ function Hero() {
           5 secondes.
         </p>
         <div className="mt-10 flex flex-wrap items-center gap-4">
-          <CheckinCTA />
+          <HomeCTAButtons />
           <Link href="#bases-coaching-adaptatif" className="btn-ghost">
             Voir comment ça marche
           </Link>
@@ -119,7 +119,7 @@ function CTA() {
         <span className="text-[#8a8a8a]">Tu exécutes.</span>
       </h2>
       <div className="mt-10 flex flex-wrap justify-center gap-4">
-        <CheckinCTA />
+        <HomeCTAButtons />
         <Link href="/marketplace" className="btn-ghost">
           Découvrir les programmes
         </Link>
@@ -128,16 +128,21 @@ function CTA() {
   );
 }
 
-function CheckinCTA() {
+function HomeCTAButtons() {
   return (
-    <Link href="/signup" className="btn-primary flex-col gap-1 py-3">
-      <span className="inline-flex items-center gap-2">
-        Commencer mon check-in
-        <ArrowRight size={14} />
-      </span>
-      <span className="text-[10px] normal-case tracking-normal opacity-70">
-        Free Trial — 7 jours offerts
-      </span>
-    </Link>
+    <>
+      <Link href="/signup" className="btn-primary flex-col gap-1 py-3">
+        <span className="inline-flex items-center gap-2">
+          Je suis nouveau — M&apos;inscrire et commencer mon check-in
+          <ArrowRight size={14} />
+        </span>
+        <span className="text-[10px] normal-case tracking-normal opacity-70">
+          Free Trial — 7 jours offerts
+        </span>
+      </Link>
+      <Link href="/checkin" className="btn-ghost">
+        Je suis déjà adhérent — Aller à mon check-in du jour
+      </Link>
+    </>
   );
 }

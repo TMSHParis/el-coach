@@ -2,10 +2,13 @@
 
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { auth } from "@clerk/nextjs/server";
+import type { Profile } from "@prisma/client";
 import { COOKIE_KEYS } from "@/lib/demo-session";
 import { getTemplate } from "@/lib/programming";
 import { prisma } from "@/lib/prisma";
 import { ensureUserId } from "@/lib/user-id";
+import { clerkEnabled } from "@/lib/clerk";
 
 const YEAR = 60 * 60 * 24 * 365;
 
@@ -211,7 +214,8 @@ export type EcmProfileCookie = {
   age: string;
   taille: string;
   poids: string;
-  obj: string;
+  /** 0 à 2 objectifs sélectionnés — persistés en objectif_1 / objectif_2. */
+  obj: string[];
   s1: EcmSport;
   s2: EcmSport;
   s2on: boolean;
@@ -297,7 +301,8 @@ async function persistEcmProfile(profile: EcmProfileCookie): Promise<void> {
     age: parseInt(profile.age, 10) || 0,
     taille: parseInt(profile.taille, 10) || 0,
     poids: parseFloat(profile.poids) || 0,
-    objectif: profile.obj,
+    objectif: profile.obj[0] ?? "",
+    objectif2: profile.obj[1] || null,
     programme: profile.s1.nom,
     niveau: profile.s1.niv,
     sportPrincipal: profile.s1.nom,
@@ -325,6 +330,10 @@ async function persistEcmProfile(profile: EcmProfileCookie): Promise<void> {
     dureeSommeil: profile.ds,
   };
 
+  // Vérification demandée par Kamel : confirmer en prod (logs Vercel) qu'aucun
+  // champ n'arrive null/undefined par erreur avant l'écriture en base.
+  console.log("[persistEcmProfile] payload →", data);
+
   await prisma.profile.upsert({
     where: { userId },
     create: { userId, ...data },
@@ -341,4 +350,66 @@ export async function getEcmProfileState(): Promise<EcmProfileCookie | null> {
   } catch {
     return null;
   }
+}
+
+// ============================================================================
+// Édition de profil — onglet "J'ai changé" (compte déjà créé via Clerk).
+// ============================================================================
+
+function profileRowToCookie(row: Profile): EcmProfileCookie {
+  return {
+    prenom: row.prenom,
+    age: String(row.age),
+    taille: String(row.taille),
+    poids: String(row.poids),
+    obj: [row.objectif, row.objectif2].filter((v): v is string => Boolean(v)),
+    s1: {
+      nom: row.sportPrincipal,
+      jours: row.joursS1,
+      h: row.heureS1,
+      du: row.dureeS1,
+      niv: row.niveauS1,
+    },
+    s2: {
+      nom: row.sportSecondaire ?? "",
+      jours: row.joursS2,
+      h: row.heureS2 ?? "",
+      du: row.dureeS2 ?? "",
+      niv: row.niveauS2 ?? "",
+    },
+    s2on: Boolean(row.sportSecondaire),
+    equip: row.equipement,
+    jeune: row.jeune,
+    tj: row.typeJeune ?? "",
+    df: row.debutFenetre ?? "",
+    ff: row.finFenetre ?? "",
+    rest: row.restrictions,
+    hydra: row.hydratation,
+    bles: row.blessures,
+    bt: row.blessuresDetail ?? "",
+    comp: row.complements,
+    ca: row.complementsAutres ?? "",
+    qs: row.qualiteSommeil,
+    ds: row.dureeSommeil,
+  };
+}
+
+/** Profil de l'utilisateur Clerk connecté, pour préremplir l'onglet "J'ai changé". */
+export async function getMyEcmProfile(): Promise<EcmProfileCookie | null> {
+  if (!clerkEnabled) return null;
+  const session = await auth();
+  if (!session.userId) return null;
+  const row = await prisma.profile.findUnique({ where: { userId: session.userId } });
+  return row ? profileRowToCookie(row) : null;
+}
+
+/** Upsert du profil — n'autorise que les utilisateurs réellement connectés via Clerk. */
+export async function updateEcmProfile(
+  profile: EcmProfileCookie,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (!clerkEnabled) return { ok: false, error: "Connexion requise." };
+  const session = await auth();
+  if (!session.userId) return { ok: false, error: "Connecte-toi d'abord." };
+  await persistEcmProfile(profile);
+  return { ok: true };
 }

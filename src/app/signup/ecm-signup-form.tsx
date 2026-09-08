@@ -8,106 +8,29 @@ import { clerkEnabledClient } from "@/lib/clerk";
 import { submitEcmSignup, type EcmProfileCookie, type EcmSport } from "./actions";
 import { PROGRAM_BASE_PRICE_CENTS } from "@/lib/data";
 import { formatPrice } from "@/lib/utils";
+import {
+  cx,
+  LEFT_PROGRAMS,
+  SPORT_LABEL_TO_SLUG,
+  SLUG_TO_SPORT_LABEL,
+  OBJECTIFS,
+  EQUIPEMENTS,
+  RESTRICTIONS,
+  COMPLEMENTS,
+  EMPTY_SPORT,
+  emptyEcmProfile,
+  validatePassword,
+  MoSolo,
+  MoMulti,
+  MoMultiCapped,
+  YesNo,
+  SportBlock,
+} from "./ecm-shared";
 import styles from "./ecm-signup.module.css";
-
-const cx = (...classes: (string | false | undefined)[]) => classes.filter(Boolean).join(" ");
 
 // ============================================================================
 // Données statiques
 // ============================================================================
-
-const LEFT_PROGRAMS: { name: string; tag: string }[] = [
-  { name: "CrossFit Pure", tag: "Force · Olympique · Metcon" },
-  { name: "Hybrid Engine", tag: "CrossFit · Muscu · Adaptatif" },
-  { name: "Hyrox Pure", tag: "Stations · Course · Compétition" },
-  { name: "Volume Block Hypertrophy", tag: "Split · Volume · Progression" },
-  { name: "At Home", tag: "Bodyweight · Accessible · Run" },
-];
-
-const SPORT_LABEL_TO_SLUG: Record<string, string> = {
-  "⚡ CrossFit Pure": "crossfit-pure",
-  "🔥 Hybrid Engine": "hybrid-cf-strength",
-  "🏁 Hyrox Pure": "hyrox-pure",
-  "💪 Volume Block Hypertrophy": "volume-block-hypertrophy",
-  "🏠 At Home": "at-home",
-};
-
-const SLUG_TO_SPORT_LABEL: Record<string, string> = Object.fromEntries(
-  Object.entries(SPORT_LABEL_TO_SLUG).map(([label, slug]) => [slug, label]),
-);
-
-const DAYS = ["LUN", "MAR", "MER", "JEU", "VEN", "SAM", "DIM"];
-const LEVELS = ["🌱 Débutant", "📈 Intermédiaire", "🔥 Avancé", "⚡ Élite"];
-
-const OBJECTIFS = [
-  "🔥 Réduire la graisse corporelle",
-  "💪 Gagner de la masse musculaire",
-  "🏆 Améliorer mes performances sportives",
-  "⚡ Recomposition corporelle",
-  "🧘 Bien-être général",
-];
-
-const EQUIPEMENTS = [
-  "🏋️ Salle complète",
-  "🏠 Maison (équipement limité)",
-  "🌳 Extérieur / Calisthénie",
-  "🔄 Les deux (salle + maison)",
-];
-
-const RESTRICTIONS = [
-  "Aucune restriction",
-  "🥛 Intolérance lactose",
-  "🌾 Gluten",
-  "🐖 Pas de porc",
-  "🍖 Végétarien",
-  "🌱 Vegan",
-  "🤢 Problèmes digestifs",
-];
-
-const COMPLEMENTS = [
-  "☀️ Vitamine D3/K2",
-  "🐟 Oméga 3",
-  "😴 Magnésium",
-  "⚡ Zinc",
-  "💪 Créatine",
-  "🔥 L-Citrulline",
-  "🌿 Ashwagandha",
-  "💊 Maca",
-  "🌿 Ginseng",
-  "🥛 Protéines en poudre",
-  "🧴 Collagène",
-  "🫐 Vitamine C / Antioxydants",
-  "🔬 Probiotiques",
-  "⚗️ BCAA / Acides aminés",
-  "🩸 Fer",
-  "🌊 Spiruline / Chlorelle",
-  "🦁 Tongkat Ali",
-  "🔥 Horny Goat Weed",
-  "Aucun pour l'instant",
-];
-
-const SPORT_OPTGROUPS: { label: string; options: string[] }[] = [
-  {
-    label: "⚡ PROGRAMMATIONS EL COACH METHOD",
-    options: Object.keys(SPORT_LABEL_TO_SLUG),
-  },
-  {
-    label: "🥊 SPORTS DE COMBAT",
-    options: ["🥊 Boxe Thaï / Muay Thai", "🥋 MMA", "🥊 Boxe anglaise", "🥋 Jiu-Jitsu brésilien", "🥋 Judo / Lutte"],
-  },
-  {
-    label: "🏃 CARDIO & ENDURANCE",
-    options: ["🏃 Running", "🚴 Cyclisme", "🏊 Natation", "⛷️ Trail"],
-  },
-  {
-    label: "⚽ SPORTS COLLECTIFS",
-    options: ["⚽ Football", "🏀 Basketball", "🏈 Rugby", "🎾 Tennis / Padel"],
-  },
-  {
-    label: "🧘 MOBILITÉ & BIEN-ÊTRE",
-    options: ["🧘 Yoga / Pilates", "🤸 Calisthénie", "🧗 Escalade"],
-  },
-];
 
 const LANDING_STEPS = [
   { n: "01", name: "Check-in du matin", desc: "2 minutes. Énergie, sommeil, corps, mental. Le Coaching Adaptatif lit ton état réel." },
@@ -115,8 +38,6 @@ const LANDING_STEPS = [
   { n: "03", name: "Plan sur mesure", desc: "Séance adaptée, stack compléments, en-cas, récupération ciblée. Zéro générique." },
   { n: "04", name: "Aperçu demain", desc: "Prépare ta prochaine séance, ton en-cas et ton heure de coucher recommandée." },
 ];
-
-const EMPTY_SPORT: EcmSport = { nom: "", jours: [], h: "", du: "", niv: "" };
 
 type FormState = {
   firstName: string;
@@ -131,32 +52,6 @@ type FormState = {
   cgv: boolean;
   remind: boolean;
 };
-
-function emptyProfile(preselectedSport: string): EcmProfileCookie {
-  return {
-    prenom: "",
-    age: "",
-    taille: "",
-    poids: "",
-    obj: "",
-    s1: { ...EMPTY_SPORT, nom: preselectedSport },
-    s2: { ...EMPTY_SPORT },
-    s2on: false,
-    equip: "",
-    jeune: null,
-    tj: "",
-    df: "",
-    ff: "",
-    rest: [],
-    hydra: "",
-    bles: null,
-    bt: "",
-    comp: [],
-    ca: "",
-    qs: "",
-    ds: "",
-  };
-}
 
 // ============================================================================
 // Composant principal
@@ -174,7 +69,7 @@ export function EcmSignupForm({ defaultProgramSlug }: { defaultProgramSlug: stri
     lastName: "",
     email: "",
     password: "",
-    profile: emptyProfile(preselectedSport),
+    profile: emptyEcmProfile(preselectedSport),
     cardNumber: "",
     cardholder: "",
     expiry: "",
@@ -186,6 +81,7 @@ export function EcmSignupForm({ defaultProgramSlug }: { defaultProgramSlug: stri
   const [firstNameError, setFirstNameError] = useState(false);
   const [emailError, setEmailError] = useState(false);
   const [cgvError, setCgvError] = useState(false);
+  const [objError, setObjError] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -240,6 +136,16 @@ export function EcmSignupForm({ defaultProgramSlug }: { defaultProgramSlug: stri
     const arr = profile[key];
     const next = arr.includes(value) ? arr.filter((v) => v !== value) : [...arr, value];
     setProfile({ [key]: next } as Partial<EcmProfileCookie>);
+  }
+
+  function toggleObjectif(value: string) {
+    const next = profile.obj.includes(value) ? profile.obj.filter((v) => v !== value) : [...profile.obj, value];
+    setProfile({ obj: next });
+  }
+
+  function onObjectifExceed() {
+    setObjError(true);
+    setTimeout(() => setObjError(false), 1500);
   }
 
   function formatCard(raw: string) {
@@ -482,9 +388,18 @@ export function EcmSignupForm({ defaultProgramSlug }: { defaultProgramSlug: stri
             </div>
             <div className={styles.qc}>
               <div className={styles.ql}>
-                <i>🎯</i> Objectif principal
+                <i>🎯</i> Objectifs <span className={styles.hint}>(2 maximum)</span>
               </div>
-              <MoSolo options={OBJECTIFS} value={profile.obj} onChange={(v) => setProfile({ obj: v })} />
+              <MoMultiCapped
+                options={OBJECTIFS}
+                values={profile.obj}
+                max={2}
+                onToggle={toggleObjectif}
+                onExceed={onObjectifExceed}
+              />
+              {objError && (
+                <div style={{ marginTop: 6, fontSize: "0.8rem", color: "var(--error)" }}>2 objectifs maximum</div>
+              )}
             </div>
             <button className={styles.btnSubNext} type="button" onClick={() => ecmGo(1)}>
               Suivant → Profil sportif
@@ -846,7 +761,8 @@ function AccountFields({
   showPassword,
   setShowPassword,
   strength,
-  passwordPlaceholder = "Minimum 8 caractères",
+  passwordPlaceholder = "8 caractères min. · 1 chiffre · 1 symbole",
+  passwordError,
 }: {
   data: FormState;
   setData: Dispatch<SetStateAction<FormState>>;
@@ -856,6 +772,7 @@ function AccountFields({
   setShowPassword: Dispatch<SetStateAction<boolean>>;
   strength: "weak" | "medium" | "strong" | null;
   passwordPlaceholder?: string;
+  passwordError?: string | null;
 }) {
   return (
     <>
@@ -918,6 +835,7 @@ function AccountFields({
             />
           ))}
         </div>
+        {passwordError && <span className={cx(styles.fieldHint, styles.errorMsg, styles.show)}>{passwordError}</span>}
       </div>
     </>
   );
@@ -993,6 +911,7 @@ function AccountStepClerk({
   const [verifying, setVerifying] = useState(false);
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   /**
@@ -1019,9 +938,11 @@ function AccountStepClerk({
   async function handleContinue() {
     const okFirst = data.firstName.trim().length > 0;
     const okEmail = data.email.includes("@");
+    const pwError = validatePassword(data.password);
     setFirstNameError(!okFirst);
     setEmailError(!okEmail);
-    if (!okFirst || !okEmail) return;
+    setPasswordError(pwError);
+    if (!okFirst || !okEmail || pwError) return;
 
     setBusy(true);
     setError(null);
@@ -1119,7 +1040,7 @@ function AccountStepClerk({
         showPassword={showPassword}
         setShowPassword={setShowPassword}
         strength={strength}
-        passwordPlaceholder="Minimum 15 caractères"
+        passwordError={passwordError}
       />
       {error && (
         <div className="mb-4 border-l-2 border-red-400 bg-red-500/5 px-4 py-3 text-sm text-red-400">{error}</div>
@@ -1129,154 +1050,5 @@ function AccountStepClerk({
       </button>
       <div id="clerk-captcha" />
     </>
-  );
-}
-
-function MoSolo({ options, value, onChange }: { options: string[]; value: string; onChange: (v: string) => void }) {
-  return (
-    <>
-      {options.map((o) => (
-        <div
-          key={o}
-          className={cx(styles.mo, value === o && styles.sel)}
-          onClick={() => onChange(o)}
-        >
-          <div className={styles.mc}>{value === o ? "✓" : ""}</div>
-          {o}
-        </div>
-      ))}
-    </>
-  );
-}
-
-function MoMulti({
-  options,
-  values,
-  onToggle,
-}: {
-  options: string[];
-  values: string[];
-  onToggle: (v: string) => void;
-}) {
-  return (
-    <>
-      {options.map((o) => (
-        <div
-          key={o}
-          className={cx(styles.mo, values.includes(o) && styles.sel)}
-          onClick={() => onToggle(o)}
-        >
-          <div className={styles.mc}>{values.includes(o) ? "✓" : ""}</div>
-          {o}
-        </div>
-      ))}
-    </>
-  );
-}
-
-function YesNo({ value, onChange }: { value: boolean | null; onChange: (v: boolean) => void }) {
-  return (
-    <div className={styles.yn}>
-      <div
-        className={cx(styles.ynb, styles.y, value === true && styles.sel)}
-        onClick={() => onChange(true)}
-      >
-        ✓ OUI
-      </div>
-      <div
-        className={cx(styles.ynb, styles.n, value === false && styles.sel)}
-        onClick={() => onChange(false)}
-      >
-        ✗ NON
-      </div>
-    </div>
-  );
-}
-
-function SportBlock({
-  title,
-  sport,
-  onField,
-  onDay,
-  onRemove,
-}: {
-  title: string;
-  sport: EcmSport;
-  onField: (patch: Partial<EcmSport>) => void;
-  onDay: (day: string) => void;
-  onRemove?: () => void;
-}) {
-  return (
-    <div className={styles.sb}>
-      <div className={styles.sbt}>
-        {title}
-        {onRemove && (
-          <span className={styles.rm} onClick={onRemove}>
-            ✕ Supprimer
-          </span>
-        )}
-      </div>
-      <select className={styles.ss} value={sport.nom} onChange={(e) => onField({ nom: e.target.value })}>
-        <option value="" disabled>
-          Choisir ta programmation / sport...
-        </option>
-        {SPORT_OPTGROUPS.map((g) => (
-          <optgroup key={g.label} label={g.label}>
-            {g.options.map((o) => (
-              <option key={o} value={o}>
-                {o}
-              </option>
-            ))}
-          </optgroup>
-        ))}
-        <option value="Autre">Autre</option>
-      </select>
-      <div className={styles.dl}>📅 Jours d&apos;entraînement</div>
-      <div className={styles.dg}>
-        {DAYS.map((d) => (
-          <div
-            key={d}
-            className={cx(styles.db, sport.jours.includes(d) && styles.sel)}
-            onClick={() => onDay(d)}
-          >
-            {d}
-          </div>
-        ))}
-      </div>
-      <div className={styles.dr}>
-        <div className={styles.di}>
-          <label>⏰ Heure de séance</label>
-          <input
-            className={styles.mi}
-            type="text"
-            placeholder="ex: 18h30"
-            value={sport.h}
-            onChange={(e) => onField({ h: e.target.value })}
-          />
-        </div>
-        <div className={styles.di}>
-          <label>⏱️ Durée moyenne</label>
-          <input
-            className={styles.mi}
-            type="text"
-            placeholder="ex: 1h30"
-            value={sport.du}
-            onChange={(e) => onField({ du: e.target.value })}
-          />
-        </div>
-      </div>
-      <div className={styles.ll}>🏆 Niveau</div>
-      <div className={styles.lb}>
-        {LEVELS.map((l) => (
-          <div
-            key={l}
-            className={cx(styles.lbb, sport.niv === l && styles.sel)}
-            onClick={() => onField({ niv: l })}
-          >
-            {l}
-          </div>
-        ))}
-      </div>
-    </div>
   );
 }
