@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 
 // Masque le Nav/Footer globaux sur les routes plein écran (ex: /signup, /checkin,
 // /session — designs autonomes avec leur propre header/logo).
-const BARE_PREFIX_ROUTES = ["/signup", "/checkin", "/session"];
+const BARE_PREFIX_ROUTES = ["/signup", "/checkin", "/session", "/signin", "/profile"];
 // /dashboard seul (pas /dashboard/session, qui garde le chrome du site).
 const BARE_EXACT_ROUTES = ["/dashboard"];
 

@@ -3,6 +3,7 @@ import { clerkEnabled } from "@/lib/clerk";
 import { auth } from "@clerk/nextjs/server";
 import { UserButton } from "@clerk/nextjs";
 import { Logo } from "./logo";
+import { isCheckinDoneToday } from "@/app/checkin/actions";
 
 export async function Nav() {
   let userId: string | null = null;
@@ -11,6 +12,7 @@ export async function Nav() {
     userId = session.userId;
   }
   const signedIn = Boolean(userId);
+  const checkinDone = signedIn ? await isCheckinDoneToday() : false;
 
   return (
     <header className="hairline-b sticky top-0 z-50 bg-black/80 backdrop-blur">
@@ -29,11 +31,15 @@ export async function Nav() {
         </nav>
         <div className="flex items-center gap-3">
           {clerkEnabled && !signedIn && (
-            <Link href="/sign-in" className="btn-ghost">Connexion</Link>
+            <Link href="/signin" className="btn-ghost">Connexion</Link>
           )}
           {clerkEnabled && signedIn && (
             <>
-              <Link href="/dashboard" className="btn-ghost">Dashboard</Link>
+              {checkinDone ? (
+                <Link href="/dashboard" className="btn-ghost">Mon Dashboard</Link>
+              ) : (
+                <Link href="/checkin" className="btn-ghost">Mon check-in du jour</Link>
+              )}
               <UserButton
                 appearance={{
                   elements: { userButtonAvatarBox: "h-9 w-9 rounded-none border border-white/20" },

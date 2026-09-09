@@ -676,33 +676,38 @@
   .right { padding: 32px 24px; }
 }
 
-/* ═══ ONGLETS (Bienvenue / J'ai changé / Déjà inscrit) ═══ */
-.tabBar {
+/* ═══ HEADER PARTAGÉ (Bienvenue. / Content de te revoir. / Je mets à jour mon profil) ═══ */
+.pageHeader {
   display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 56px 24px 32px;
   background: #080808;
-  border-bottom: 1px solid #222;
+  text-align: center;
 }
 
-.tabBtn {
-  flex: 1;
-  padding: 16px 12px;
-  background: transparent;
-  border: none;
-  border-bottom: 2px solid transparent;
-  color: #666;
-  font-family: var(--font-barlow);
-  font-size: 0.85rem;
-  font-weight: 600;
+.pageHeaderLogo {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.8rem;
+  letter-spacing: 0.25em;
+  color: #f0ede8;
+  margin-bottom: 8px;
+}
+
+.pageHeaderLogo span { color: #e8ff00; }
+
+.pageHeaderTitle {
+  font-family: var(--font-bebas, var(--font-barlow));
+  font-size: 2.6rem;
+  font-weight: 700;
+  color: #f0ede8;
   letter-spacing: 0.5px;
-  cursor: pointer;
-  transition: color 0.15s, border-color 0.15s;
 }
 
-.tabBtn:hover { color: #f0ede8; }
-
-.tabBtnActive {
-  color: #e8ff00;
-  border-bottom-color: #e8ff00;
+.pageHeaderSubtitle {
+  font-size: 1rem;
+  color: #8a8a8a;
 }
 
 .updateGate {
@@ -716,13 +721,4 @@
   background: #080808;
   color: #f0ede8;
   text-align: center;
-}
-
-.updateSuccess {
-  padding: 16px;
-  border-left: 2px solid #00ff88;
-  background: rgba(0, 255, 136, 0.05);
-  color: #f0ede8;
-  font-size: 0.9rem;
-  margin-bottom: 16px;
 }

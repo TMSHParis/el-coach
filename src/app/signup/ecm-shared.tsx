@@ -132,6 +132,19 @@ export function emptyEcmProfile(preselectedSport = ""): EcmProfileCookie {
   };
 }
 
+/** Header partagé "Bienvenue." / "Content de te revoir." / "Je mets à jour mon profil". */
+export function EcmPageHeader({ title, subtitle }: { title: string; subtitle?: string }) {
+  return (
+    <div className={styles.pageHeader}>
+      <div className={styles.pageHeaderLogo}>
+        EL <span>COACH</span>
+      </div>
+      <h1 className={styles.pageHeaderTitle}>{title}</h1>
+      {subtitle && <p className={styles.pageHeaderSubtitle}>{subtitle}</p>}
+    </div>
+  );
+}
+
 /** 8 caractères min. · 1 chiffre · 1 symbole — retourne le message d'erreur, ou null si valide. */
 export function validatePassword(pw: string): string | null {
   const ok = /^(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/.test(pw);

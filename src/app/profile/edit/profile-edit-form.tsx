@@ -1,9 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
-import { useUser } from "@clerk/nextjs";
-import { getMyEcmProfile, updateEcmProfile, type EcmProfileCookie } from "./actions";
+import { useRouter } from "next/navigation";
+import { getMyEcmProfile, updateEcmProfile, type EcmProfileCookie } from "@/app/signup/actions";
 import {
   cx,
   OBJECTIFS,
@@ -15,39 +14,20 @@ import {
   MoMultiCapped,
   YesNo,
   SportBlock,
-} from "./ecm-shared";
-import { EcmInlineSignIn } from "./ecm-signin-form";
-import styles from "./ecm-signup.module.css";
+} from "@/app/signup/ecm-shared";
+import styles from "@/app/signup/ecm-signup.module.css";
 
-export function EcmUpdateForm() {
-  const { isLoaded, isSignedIn } = useUser();
-
-  if (!isLoaded) return null;
-
-  if (!isSignedIn) {
-    return (
-      <div className={styles.updateGate}>
-        <div className={styles.logo}>
-          EL <span>COACH</span>
-        </div>
-        <h2 style={{ fontSize: "1.4rem", fontWeight: 600 }}>Connecte-toi pour modifier ton profil.</h2>
-        <p style={{ color: "#8a8a8a", fontSize: "0.9rem", maxWidth: 360 }}>
-          Ce compte doit déjà exister — si tu n&apos;es pas encore inscrit, utilise l&apos;onglet « Bienvenue ».
-        </p>
-        <EcmInlineSignIn redirectTo="/signup?tab=update" />
-      </div>
-    );
-  }
-
-  return <EditFields />;
-}
-
-function EditFields() {
+/**
+ * Contenu de /profile/edit. Aucun garde-fou d'auth ici — le middleware
+ * (src/middleware.ts) protège déjà /profile/edit et redirige vers
+ * /signin?redirect=/profile/edit avant que cette page ne s'affiche.
+ */
+export function ProfileEditForm() {
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<EcmProfileCookie>(emptyEcmProfile());
   const [notFound, setNotFound] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [objError, setObjError] = useState(false);
 
@@ -89,14 +69,13 @@ function EditFields() {
   async function handleSave() {
     setSaving(true);
     setError(null);
-    setSaved(false);
     const result = await updateEcmProfile(profile);
-    setSaving(false);
     if (!result.ok) {
+      setSaving(false);
       setError(result.error);
       return;
     }
-    setSaved(true);
+    router.push("/checkin");
   }
 
   if (loading) {
@@ -118,7 +97,7 @@ function EditFields() {
         </div>
         <h2 style={{ fontSize: "1.4rem", fontWeight: 600 }}>Pas encore de profil ECM sur ce compte.</h2>
         <p style={{ color: "#8a8a8a", fontSize: "0.9rem", maxWidth: 360 }}>
-          Termine d&apos;abord ton inscription depuis l&apos;onglet « Bienvenue ».
+          Termine d&apos;abord ton inscription depuis <a href="/signup" style={{ color: "inherit" }}>/signup</a>.
         </p>
       </div>
     );
@@ -127,19 +106,6 @@ function EditFields() {
   return (
     <div className={cx(styles.ecmRoot)} style={{ minHeight: "auto" }}>
       <div className={styles.right} style={{ maxWidth: 640, margin: "0 auto" }}>
-        <div className={styles.formHeader}>
-          <h2 className={styles.formTitle}>Mets à jour ton profil</h2>
-          <p className={styles.formSubtitle}>Modifie ce qui a changé, le reste reste identique.</p>
-        </div>
-
-        {saved && (
-          <div className={styles.updateSuccess}>
-            Modifications enregistrées.{" "}
-            <Link href="/checkin" style={{ color: "inherit", textDecoration: "underline" }}>
-              Aller à mon check-in →
-            </Link>
-          </div>
-        )}
         {error && (
           <div className="mb-4 border-l-2 border-red-400 bg-red-500/5 px-4 py-3 text-sm text-red-400">{error}</div>
         )}
