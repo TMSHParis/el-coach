@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { submitCheckin, type CheckinGender, type SleepPhotoAnalysis } from "./actions";
+import { BackHomeButton } from "@/components/back-home-button";
 import styles from "./checkin.module.css";
 
 const cx = (...classes: (string | false | undefined)[]) => classes.filter(Boolean).join(" ");
@@ -15,6 +16,10 @@ const SEANCE_GROUPS: { label: string; options: string[] }[] = [
   {
     label: "⚡ PROGRAMMATIONS ECM",
     options: ["⚡ CrossFit Pure", "🔥 Hybrid Engine", "🏁 Hyrox Pure", "💪 Volume Block Hypertrophy", "🏠 At Home"],
+  },
+  {
+    label: "🏃 COURS COLLECTIFS",
+    options: ["Step", "CrossTraining", "CAF — Cuisse Abdo Fessier", "HIIT", "Cardio Boxe"],
   },
   {
     label: "🥊 SPORTS DE COMBAT",
@@ -202,6 +207,7 @@ export function CheckinForm() {
       )}
 
       <div className={styles.hero}>
+        <BackHomeButton style={{ position: "absolute", top: 16, left: 16, zIndex: 2 }} />
         <div className={styles.logo}>⚡</div>
         <div className={styles.bn}>EL COACH METHOD</div>
         <div className={styles.bt}>Daily Performance Check-In</div>

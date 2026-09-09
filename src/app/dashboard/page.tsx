@@ -29,6 +29,7 @@ type DashboardOutputJson = {
   sleep: SleepInsight;
   weight: WeightInsight;
 };
+import { BackHomeButton } from "@/components/back-home-button";
 import { toDisplayBlocks } from "@/lib/session-format";
 import { adaptDayForInjuries, detectInjuryAreas, reduceVolume, substitutionMessage } from "@/lib/session-adapt";
 import { minutesToHM, ETAT_LABELS, sleepPhaseBadge, trendColor } from "./dashboard-helpers";
@@ -118,6 +119,7 @@ export default async function DashboardPage() {
     <div className={dashboardFontVariables}>
       <div className={styles.dashRoot}>
         <div className={styles.header}>
+          <BackHomeButton style={{ marginBottom: 14 }} />
           <div className={styles.salut}>Salut {userFirstName ?? "Athlète"}.</div>
         </div>
 

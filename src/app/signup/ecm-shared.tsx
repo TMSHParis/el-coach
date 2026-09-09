@@ -87,6 +87,10 @@ export const SPORT_OPTGROUPS: { label: string; options: string[] }[] = [
     options: Object.keys(SPORT_LABEL_TO_SLUG),
   },
   {
+    label: "🏃 COURS COLLECTIFS",
+    options: ["Step", "CrossTraining", "CAF — Cuisse Abdo Fessier", "HIIT", "Cardio Boxe"],
+  },
+  {
     label: "🥊 SPORTS DE COMBAT",
     options: ["🥊 Boxe Thaï / Muay Thai", "🥋 MMA", "🥊 Boxe anglaise", "🥋 Jiu-Jitsu brésilien", "🥋 Judo / Lutte"],
   },

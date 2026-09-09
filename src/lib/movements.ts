@@ -93,6 +93,13 @@ export function extractYoutubeId(url: string | undefined): string | null {
   return m?.[1] ?? null;
 }
 
+// Lien de recherche YouTube "réel" (results page, pas un embed) — toujours
+// fonctionnel, aucune clé API requise. Fallback quand la recherche automatique
+// (/api/movement-video, qui nécessite YOUTUBE_API_KEY) n'a rien trouvé.
+export function youtubeSearchUrl(query: string): string {
+  return `https://www.youtube.com/results?search_query=${encodeURIComponent(`${query} tutorial technique`)}`;
+}
+
 // URL d'embed officielle (joue dans l'iframe). Si videoId connu → vidéo précise.
 // Sinon, fallback recherche YouTube intégrée (listType=search — déprécié 2020,
 // mais souvent encore fonctionnel ; on laisse en best-effort).

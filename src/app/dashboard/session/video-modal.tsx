@@ -2,7 +2,7 @@
 
 import { startTransition, useEffect, useMemo, useRef, useState } from "react";
 import { Loader2, Video as VideoIcon, X } from "lucide-react";
-import { extractYoutubeId } from "@/lib/movements";
+import { extractYoutubeId, youtubeSearchUrl } from "@/lib/movements";
 
 type Props = {
   open: boolean;
@@ -104,12 +104,18 @@ export function VideoModal({ open, onClose, title, searchQuery, videoUrl }: Prop
           {open && !loading && !embedSrc && (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-6 text-center">
               <VideoIcon size={36} className="text-[color:var(--color-mute)]" />
-              <div className="label">VIDÉO INDISPONIBLE</div>
+              <div className="label">PAS DE VIDÉO INTÉGRÉE</div>
               <p className="max-w-sm text-sm text-[color:var(--color-mute)]">
-                Aucun résultat pour <span className="text-white">{title}</span>.
-                Configure <span className="mono">YOUTUBE_API_KEY</span> pour activer
-                la recherche YouTube intégrée.
+                Aucun résultat direct pour <span className="text-white">{title}</span>.
               </p>
+              <a
+                href={youtubeSearchUrl(searchQuery)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn-primary"
+              >
+                Rechercher sur YouTube ↗
+              </a>
             </div>
           )}
         </div>

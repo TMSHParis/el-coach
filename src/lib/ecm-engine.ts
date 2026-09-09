@@ -189,6 +189,43 @@ const STACK_TOOL = {
   },
 };
 
+function omit<T extends object, K extends keyof T>(obj: T, keys: K[]): Omit<T, K> {
+  const clone = { ...obj };
+  for (const k of keys) delete clone[k];
+  return clone;
+}
+
+/**
+ * Fusionne profil (base permanente) et check-in du jour (le plus frais) en un
+ * seul objet — le check-in écrase le profil sur les clés en commun (poids,
+ * genre). C'est ce qui est envoyé à Claude ET ce qui est loggué pour
+ * vérification (§1 de la note "Corrections prioritaires").
+ */
+export function buildDashboardData(profile: Profile, checkin: Checkin) {
+  const profileData = omit(profile, ["id", "userId", "createdAt", "updatedAt"]);
+  const checkinData = omit(checkin, ["id", "userId", "createdAt"]);
+  return { ...profileData, ...checkinData };
+}
+
+const REQUIRED_DASHBOARD_FIELDS = [
+  "programme",
+  "niveau",
+  "sportPrincipal",
+  "joursS1",
+  "heureS1",
+  "dureeS1",
+  "complements",
+  "restrictions",
+  "objectif",
+  "seance",
+  "energie",
+  "motivation",
+  "mental",
+  "stress",
+  "libido",
+  "jambes",
+] as const;
+
 export async function generateEcmAnalysis(input: {
   profile: Profile;
   checkin: Checkin;
@@ -198,60 +235,38 @@ export async function generateEcmAnalysis(input: {
 }): Promise<EcmAnalysisResult> {
   const { profile, checkin, sleep, weight, recentCheckins } = input;
 
+  const dataForDashboard = buildDashboardData(profile, checkin);
+
+  // Vérification demandée par Kamel : logué avant l'appel Claude pour
+  // confirmer en prod (logs Vercel) qu'aucun champ n'arrive vide par erreur.
+  console.log("[generateEcmAnalysis] dataForDashboard →", dataForDashboard);
+  const emptyRequired = REQUIRED_DASHBOARD_FIELDS.filter((key) => {
+    const v = dataForDashboard[key as keyof typeof dataForDashboard];
+    return v === null || v === undefined || v === "" || (Array.isArray(v) && v.length === 0);
+  });
+  if (emptyRequired.length > 0) {
+    console.warn("[generateEcmAnalysis] champs requis vides dans dataForDashboard →", emptyRequired);
+  }
+
   const client = getAnthropicClient();
 
-  const prompt = `Tu es le Coaching Adaptatif EL COACH METHOD. Analyse le profil et le check-in du jour de cet athlète, puis appelle l'outil emit_ecm_analysis avec ton analyse.
+  const prompt = `Tu es le Coaching Adaptatif EL COACH METHOD. Analyse les données de cet athlète (profil fusionné avec le check-in du jour) puis appelle l'outil emit_ecm_analysis avec ton analyse.
 
-PROFIL ATHLÈTE :
-${JSON.stringify(
-  {
-    prenom: profile.prenom,
-    age: profile.age,
-    genre: profile.genre,
-    objectifs: [profile.objectif, profile.objectif2].filter(Boolean),
-    programme: profile.programme,
-    niveau: profile.niveau,
-    equipement: profile.equipement,
-    blessures: profile.blessures,
-    blessuresDetail: profile.blessuresDetail,
-    complements: profile.complements,
-    jeune: profile.jeune,
-    typeJeune: profile.typeJeune,
-  },
-  null,
-  2,
-)}
-
-CHECK-IN DU JOUR :
-${JSON.stringify(
-  {
-    energie: checkin.energie,
-    motivation: checkin.motivation,
-    mental: checkin.mental,
-    stress: checkin.stress,
-    jambes: checkin.jambes,
-    douleur: checkin.douleur,
-    douleurDetail: checkin.douleurDetail,
-    cycle: checkin.cycle,
-    cycleDouleur: checkin.cycleDouleur,
-    travail: checkin.travail,
-    soirPerformance: checkin.soirPerformance,
-    notes: checkin.notes,
-  },
-  null,
-  2,
-)}
+DONNÉES ATHLÈTE (profil + check-in du jour déjà fusionnés — les champs du check-in, quand renseignés, ont déjà écrasé ceux du profil : ex. poids, genre) :
+${JSON.stringify(dataForDashboard, null, 2)}
 
 SOMMEIL CETTE NUIT (déjà calculé, ne pas recalculer) : ${sleep.lastNight.totalMinutes} min total, tendance 7j ${sleep.trendMinutes >= 0 ? "+" : ""}${sleep.trendMinutes} min.
 POIDS : ${weight.today} kg, delta 7j ${weight.deltaWeek} kg.
 NOMBRE DE CHECK-INS RÉCENTS DISPONIBLES : ${recentCheckins.length}.
 
 RÈGLES :
-- Priorité des données : le CHECK-IN DU JOUR fait foi pour l'état du jour (énergie, douleur, jambes, mental, séance prévue) — c'est la source la plus fraîche. Le PROFIL ATHLÈTE reste la référence uniquement pour ce que le check-in ne couvre pas (compléments, programme, restrictions, jeûne, objectifs, blessures chroniques). En cas de contradiction apparente entre les deux sur un point donné, le check-in du jour l'emporte.
-- Le stack utilise UNIQUEMENT des compléments réalistes cohérents avec profil.complements (${profile.complements.join(", ") || "aucun déclaré — stack vide ou générique léger"}).
+- Les données ci-dessus sont déjà fusionnées avec la bonne priorité (check-in > profil) — utilise-les telles quelles, ne réinterprète pas de conflit.
+- objectif / objectif2 = les 2 objectifs de l'athlète (objectif2 peut être vide).
+- seance = le sport/la séance prévue par l'athlète CE JOUR (check-in) — peut différer de sportPrincipal (son sport habituel, profil) ; utilise seance en priorité pour orienter la séance du jour.
+- Le stack utilise UNIQUEMENT des compléments réalistes cohérents avec la liste "complements" (${profile.complements.join(", ") || "aucun déclaré — stack vide ou générique léger"}).
 - recommendedVariant = "B" si état jaune/rouge ou douleur/blessure signalée, sinon "A".
 - N'invente aucune donnée numérique (poids, sommeil) — utilise uniquement les valeurs fournies ci-dessus.
-- Les alertes de la catégorie "injury" ne doivent apparaître que si profil.blessures ou check-in.douleur est vrai.
+- Les alertes de la catégorie "injury" ne doivent apparaître que si blessures ou douleur est vrai.
 - Réponds uniquement via l'appel à l'outil, sans texte additionnel.`;
 
   const response = await client.messages.create({
