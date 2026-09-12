@@ -28,8 +28,12 @@ type DashboardOutputJson = {
   snack: SnackInsight;
   sleep: SleepInsight;
   weight: WeightInsight;
+  /** Séance composée par le moteur de génération dynamique (ecm-engine.ts) — absente si la
+   * génération a échoué ou si l'utilisateur n'a pas encore de profil ECM (mode démo). */
+  generatedDay?: Day;
 };
 import { BackHomeButton } from "@/components/back-home-button";
+import type { Day } from "@/lib/programming";
 import { toDisplayBlocks } from "@/lib/session-format";
 import { adaptDayForInjuries, detectInjuryAreas, reduceVolume, substitutionMessage } from "@/lib/session-adapt";
 import { minutesToHM, ETAT_LABELS, sleepPhaseBadge, trendColor } from "./dashboard-helpers";
@@ -87,7 +91,11 @@ export default async function DashboardPage() {
     profile?.blessures ? profile.blessuresDetail : null,
     todayCheckin?.douleur ? todayCheckin.douleurDetail : null,
   );
-  const { day: safeDay, substitutions } = adaptDayForInjuries(today.day, injuryAreas);
+  // La séance composée par Claude (moteur de génération dynamique) prime sur le
+  // programme fixe hebdomadaire dès qu'elle existe pour aujourd'hui.
+  const baseDay = real?.generatedDay ?? today.day;
+  const sessionTitle = real?.generatedDay ? baseDay.focus : `${today.template.name} — ${baseDay.focus}`;
+  const { day: safeDay, substitutions } = adaptDayForInjuries(baseDay, injuryAreas);
   const lightDay = reduceVolume(safeDay);
 
   // Repli sur le moteur mock déterministe si pas encore de profil ECM /
@@ -111,7 +119,7 @@ export default async function DashboardPage() {
     ? { recommended: real.recommendedVariant, reason: real.recommendedReason }
     : recommendVariant(ecm);
   const etat = ETAT_LABELS[ecm.state];
-  const isRestDay = today.needsFatigueInput || today.day.blocks.length === 0;
+  const isRestDay = (!real?.generatedDay && today.needsFatigueInput) || baseDay.blocks.length === 0;
 
   const tomorrow = buildTomorrowPreview(today, fatigueScore);
 
@@ -265,14 +273,14 @@ export default async function DashboardPage() {
           {/* SÉANCE DU JOUR */}
           <div className={styles.sdj}>
             <div className={styles.sdjLabel}>[ SÉANCE DU JOUR ]</div>
-            <div className={styles.sdjTitle}>{isRestDay ? "Repos" : today.day.focus}</div>
+            <div className={styles.sdjTitle}>{isRestDay ? "Repos" : baseDay.focus}</div>
             <div className={styles.sdjMeta}>
               {isRestDay ? (
-                <span>{today.day.notes ?? "Récupération complète."}</span>
+                <span>{baseDay.notes ?? "Récupération complète."}</span>
               ) : (
                 <span>
-                  {minutesToHM(today.day.estimatedMinutes)} · {today.day.blocks.length} bloc
-                  {today.day.blocks.length > 1 ? "s" : ""}
+                  {minutesToHM(baseDay.estimatedMinutes)} · {baseDay.blocks.length} bloc
+                  {baseDay.blocks.length > 1 ? "s" : ""}
                 </span>
               )}
             </div>
@@ -317,7 +325,7 @@ export default async function DashboardPage() {
                 panelA={
                   <SessionPanel
                     variant="a"
-                    nom={`${today.template.name} — ${today.day.focus}`}
+                    nom={sessionTitle}
                     duree={minutesToHM(safeDay.estimatedMinutes)}
                     difficulte={difficultyFor(today.template.level, "a")}
                     tags={sessionTags(safeDay.blocks)}
@@ -327,7 +335,7 @@ export default async function DashboardPage() {
                 panelB={
                   <SessionPanel
                     variant="b"
-                    nom={`${today.template.name} — Allégée`}
+                    nom={`${sessionTitle} — Allégée`}
                     duree={minutesToHM(lightDay.estimatedMinutes)}
                     difficulte={difficultyFor(today.template.level, "b")}
                     tags={sessionTags(lightDay.blocks)}

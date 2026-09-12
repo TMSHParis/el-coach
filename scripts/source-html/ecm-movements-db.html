@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ECM — Base de données mouvements</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Barlow:wght@400;500;600&display=swap');
+  :root{
+    --bg:#0a0a0a;--card:#141414;--card2:#1c1c1c;--border:#242424;
+    --blue:#3B82F6;--green:#22C55E;--orange:#F97316;--red:#EF4444;
+    --yellow:#EAB308;--purple:#A855F7;--teal:#14B8A6;--text:#fff;--muted:#6b7280;
+    --pink:#EC4899;--gold:#C9A84C;--cyan:#06B6D4;--lime:#84CC16;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:var(--bg);color:var(--text);font-family:'Barlow',sans-serif;}
+
+  .tab-nav{position:sticky;top:0;z-index:100;background:rgba(10,10,10,.97);backdrop-filter:blur(8px);padding:10px 12px;display:flex;gap:6px;border-bottom:1px solid var(--border);overflow-x:auto;flex-wrap:nowrap;}
+  .tab-nav::-webkit-scrollbar{height:2px;background:var(--border);}
+  .tab-nav::-webkit-scrollbar-thumb{background:var(--gold);}
+  .tab-btn{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:11px;letter-spacing:1px;text-transform:uppercase;padding:7px 12px;border-radius:6px;border:1px solid;cursor:pointer;white-space:nowrap;transition:all .2s;}
+
+  .section{display:none;padding:0 14px 80px;}
+  .section.active{display:block;}
+
+  .hero-banner{padding:20px 16px 14px;text-align:center;border-bottom:1px solid var(--border);}
+  .hero-title{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:32px;letter-spacing:4px;text-transform:uppercase;line-height:1;margin-bottom:4px;}
+  .hero-sub{font-size:11px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:14px;}
+  .hero-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;max-width:420px;margin:0 auto;}
+  .hs{border-radius:8px;padding:8px;text-align:center;}
+  .hs-val{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:24px;line-height:1;}
+  .hs-label{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;}
+
+  .section-head{padding:18px 0 10px;border-bottom:2px solid;margin-bottom:14px;margin-top:8px;}
+  .section-head-title{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:26px;letter-spacing:3px;text-transform:uppercase;margin-bottom:3px;}
+  .section-head-sub{font-size:11px;color:var(--muted);}
+
+  .subsection{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:10px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin:16px 0 8px;padding:4px 0;border-bottom:1px solid var(--border);}
+
+  .move-card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:11px 13px;margin-bottom:7px;border-left-width:3px;}
+  .move-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:5px;gap:8px;}
+  .move-name{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:16px;letter-spacing:.5px;line-height:1.1;flex:1;}
+  .move-tag{font-size:9px;padding:2px 7px;border-radius:4px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;white-space:nowrap;flex-shrink:0;}
+  .move-desc{font-size:11px;color:#9ca3af;line-height:1.5;margin-bottom:5px;}
+  .move-pills{display:flex;flex-wrap:wrap;gap:4px;}
+  .pill{font-size:9px;padding:2px 7px;border-radius:4px;background:rgba(255,255,255,.05);color:var(--muted);border:1px solid var(--border);}
+  .move-ecm{margin-top:6px;padding:5px 9px;border-radius:5px;font-size:10px;font-style:italic;}
+
+  /* SEARCH */
+  .search-bar{padding:12px 14px;position:sticky;top:53px;z-index:99;background:rgba(10,10,10,.97);}
+  .search-input{width:100%;background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 14px;color:var(--text);font-family:'Barlow',sans-serif;font-size:13px;outline:none;transition:border-color .2s;}
+  .search-input:focus{border-color:var(--gold);}
+  .search-input::placeholder{color:var(--muted);}
+
+  /* COLORS PER DISCIPLINE */
+  .c-muscu{border-left-color:var(--blue);}
+  .c-haltero{border-left-color:var(--yellow);}
+  .c-gymn{border-left-color:var(--purple);}
+  .c-cf{border-left-color:var(--orange);}
+  .c-hyrox{border-left-color:var(--red);}
+  .c-func{border-left-color:var(--teal);}
+  .c-cali{border-left-color:var(--lime);}
+  .c-boxe{border-left-color:var(--pink);}
+  .c-sport{border-left-color:var(--cyan);}
+
+  .tag-machine{background:rgba(59,130,246,.15);color:#93c5fd;}
+  .tag-bb{background:rgba(234,179,8,.15);color:#fde047;}
+  .tag-db{background:rgba(249,115,22,.15);color:#fdba74;}
+  .tag-kb{background:rgba(20,184,166,.15);color:#5eead4;}
+  .tag-bw{background:rgba(168,85,247,.15);color:#d8b4fe;}
+  .tag-cable{background:rgba(239,68,68,.15);color:#fca5a5;}
+  .tag-olymp{background:rgba(234,179,8,.2);color:#fde047;}
+  .tag-gymn{background:rgba(168,85,247,.2);color:#d8b4fe;}
+  .tag-skill{background:rgba(20,184,166,.15);color:#5eead4;}
+  .tag-cardio{background:rgba(34,197,94,.15);color:#86efac;}
+  .tag-combat{background:rgba(236,72,153,.15);color:#f9a8d4;}
+
+  .ecm-blue{background:rgba(59,130,246,.06);color:#93c5fd;border:1px solid rgba(59,130,246,.2);}
+  .ecm-yellow{background:rgba(234,179,8,.06);color:#fde047;border:1px solid rgba(234,179,8,.2);}
+  .ecm-purple{background:rgba(168,85,247,.06);color:#d8b4fe;border:1px solid rgba(168,85,247,.2);}
+  .ecm-orange{background:rgba(249,115,22,.06);color:#fdba74;border:1px solid rgba(249,115,22,.2);}
+  .ecm-red{background:rgba(239,68,68,.06);color:#fca5a5;border:1px solid rgba(239,68,68,.2);}
+  .ecm-teal{background:rgba(20,184,166,.06);color:#5eead4;border:1px solid rgba(20,184,166,.2);}
+  .ecm-lime{background:rgba(132,204,22,.06);color:#bef264;border:1px solid rgba(132,204,22,.2);}
+  .ecm-pink{background:rgba(236,72,153,.06);color:#f9a8d4;border:1px solid rgba(236,72,153,.2);}
+  .ecm-cyan{background:rgba(6,182,212,.06);color:#67e8f9;border:1px solid rgba(6,182,212,.2);}
+</style>
+</head>
+<body>
+
+<div class="hero-banner">
+  <div class="hero-title">ECM · <span style="color:var(--gold);">Movements</span> DB</div>
+  <div class="hero-sub">Base de données complète · Tous les mouvements · Toutes les disciplines</div>
+  <div class="hero-stats">
+    <div class="hs" style="background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.2);">
+      <div class="hs-val" style="color:var(--blue);">180+</div>
+      <div class="hs-label">Musculation</div>
+    </div>
+    <div class="hs" style="background:rgba(249,115,22,.08);border:1px solid rgba(249,115,22,.2);">
+      <div class="hs-val" style="color:var(--orange);">60+</div>
+      <div class="hs-label">CrossFit</div>
+    </div>
+    <div class="hs" style="background:rgba(168,85,247,.08);border:1px solid rgba(168,85,247,.2);">
+      <div class="hs-val" style="color:var(--purple);">50+</div>
+      <div class="hs-label">Gymn & Haltéro</div>
+    </div>
+    <div class="hs" style="background:rgba(236,72,153,.08);border:1px solid rgba(236,72,153,.2);">
+      <div class="hs-val" style="color:var(--pink);">80+</div>
+      <div class="hs-label">Sports & Combat</div>
+    </div>
+  </div>
+</div>
+
+<div class="tab-nav">
+  <button class="tab-btn active" style="border-color:var(--blue);color:var(--blue);background:rgba(59,130,246,.15);" onclick="switchTab('muscu')">💪 Muscu</button>
+  <button class="tab-btn" style="border-color:var(--yellow);color:var(--yellow);background:rgba(234,179,8,.08);" onclick="switchTab('haltero')">🏋️ Haltéro</button>
+  <button class="tab-btn" style="border-color:var(--purple);color:var(--purple);background:rgba(168,85,247,.08);" onclick="switchTab('gymn')">🤸 Gymnast.</button>
+  <button class="tab-btn" style="border-color:var(--orange);color:var(--orange);background:rgba(249,115,22,.08);" onclick="switchTab('cf')">⚡ CrossFit</button>
+  <button class="tab-btn" style="border-color:var(--red);color:var(--red);background:rgba(239,68,68,.08);" onclick="switchTab('hyrox')">🏁 Hyrox</button>
+  <button class="tab-btn" style="border-color:var(--teal);color:var(--teal);background:rgba(20,184,166,.08);" onclick="switchTab('func')">🔥 Functional</button>
+  <button class="tab-btn" style="border-color:var(--lime);color:var(--lime);background:rgba(132,204,22,.08);" onclick="switchTab('cali')">🧗 Calisténie</button>
+  <button class="tab-btn" style="border-color:var(--pink);color:var(--pink);background:rgba(236,72,153,.08);" onclick="switchTab('combat')">🥊 Combat</button>
+  <button class="tab-btn" style="border-color:var(--cyan);color:var(--cyan);background:rgba(6,182,212,.08);" onclick="switchTab('sports')">🏃 Sports</button>
+</div>
+
+<div class="search-bar">
+  <input class="search-input" type="text" placeholder="🔍 Rechercher un mouvement..." oninput="searchMovements(this.value)">
+</div>
+
+<!-- ════════ MUSCULATION ════════ -->
+<div id="tab-muscu" class="section active">
+  <div class="section-head" style="border-color:var(--blue);">
+    <div class="section-head-title" style="color:var(--blue);">💪 Musculation — Poids libres & Machines</div>
+    <div class="section-head-sub">Barbell · Dumbbell · Machine · Cable · Bodyweight</div>
+  </div>
+
+  <div class="subsection">🦵 JAMBES — QUAD DOMINANTS</div>
+  <div class="move-card c-muscu"><div class="move-top"><div class="move-name">Back Squat</div><div class="move-tag tag-bb">Barbell</div></div><div class="move-desc">Squat barre haute ou basse — mouvement fondamental force jambes</div><div class="move-pills"><span class="pill">Quad</span><span class="pill">Fessiers</span><span class="pill">Ischio</span><span class="pill">Core</span></div><div class="move-ecm ecm-blue">💡 ECM : Main Lift Lundi Lower · Build to Heavy</div></div>
+  <div class="move-card c-muscu"><div class="move-top"><div class="move-name">Front Squat</div><div class="move-tag tag-bb">Barbell</div></div><div class="move-desc">Barre en position frontale — plus quad-dominant, exige mobilité thoracique</div><div class="move-pills"><span class="pill">Quad</span><span class="pill">Core</span><span class="pill">Mobilité</span></div><div class="move-ecm ecm-blue">💡 ECM : Skill/Strength CrossFit · transition Clean</div></div>
+  <div class="move-card c-muscu"><div class="move-top"><div class="move-name">Goblet Squat</div><div class="move-tag tag-kb">KB/DB</div></div><div class="move-desc">Kettlebell ou dumbbell tenu devant la poitrine — parfait pour la mobilité</div><div class="move-pills"><span class="pill">Quad</span><span class="pill">Fessiers</span><span class="pill">Mobilité hanche</span></div></div>
+  <div class="move-card c-muscu"><div class="move-top"><div class="move-name">Hack Squat</div><div class="move-tag tag-machine">Machine</div></div><div class="move-desc">Machine guidée à 45° — isolation quad sans stress lombaire</div><div class="move-pills"><span class="pill">Quad</span><span class="pill">Vaste externe</span></div><div class="move-ecm ecm-blue">💡 ECM : Accessory Lower après Back Squat</div></div>
+  <div class="move-card c-muscu"><div class="move-top"><div class="move-name">Leg Press</div><div class="move-tag tag-machine">Machine</div></div><div class="move-desc">Presse à jambes — charge lourde, faible stress rachidien</div><div class="move-pills"><span class="pill">Quad</span><span class="pill">Fessiers</span><span class="pill">Ischio</span></div></div>
+  <div class="move-card c-muscu"><div class="move-top"><div class="move-name">Leg Extension</div><div class="move-tag tag-machine">Machine</div></div><div class="move-desc">Isolation quadriceps — finisher ou post-blessure genou</div><div class="move-pills"><span class="pill">Quad isolation</span></div></div>
+  <div class="move-card c-muscu"><div class="move-top"><div class="move-name">Bulgarian Split Squat</div><div class="move-tag tag-db">DB/BB</div></div><div class="move-desc">Fente arrière pied surélevé — unilatéral, déséquilibre musculaire</div><div class="move-pills"><span class="pill">Quad</span><span class="pill">Fessiers</span><span class="pill">Équilibre</span></div><div class="move-ecm ecm-blue">💡 ECM : Accessory Lower · substitut squat si blessure lombaire</div></div>
+  <div class="move-card c-muscu"><div class="move-top"><div class="move-name">Walking Lunges</div><div class="move-tag tag-db">DB/BB/BW</div></div><div class="move-desc">Fentes marchées — volume, endurance musculaire, cardio léger</div><div class="move-pills"><span class="pill">Quad</span><span class="pill">Fessiers</span><span class="pill">Équilibre</span></div></div>
+  <div class="move-card c-muscu"><div class="move-top"><div class="move-name">Box Step Up</div><div class="move-tag tag-db">DB/BB/BW</div></div><div class="move-desc">Montée sur boîte unilatérale — quad + fessiers + équilibre</div><div class="move-pills"><span class="pill">Quad</span><span class="pill">Fessiers</span></div></div>
+  <div class="move-card c-muscu"><div class="move-top"><div class="move-name">Sissy Squat</div><div class="move-tag tag-bw">BW</div></div><div class="move-desc">Squat genoux vers avant — isolation quadriceps maximale</div><div class="move-pills"><span class="pill">Quad isolation</span></div></div>
+
+  <div class="subsection">🦵 JAMBES — ISCHIO DOMINANTS</div>
+  <div class="move-card c-muscu"><div class="move-top"><div class="move-name">Romanian Deadlift (RDL)</div><div class="move-tag tag-bb">Barbell</div></div><div class="move-desc">Deadlift roumain — ischio-jambiers et fessiers en étirement</div><div class="move-pills"><span class="pill">Ischio</span><span class="pill">Fessiers</span><span class="pill">Lombaires</span></div><div class="move-ecm ecm-blue">💡 ECM : Main Lift Lower · substitut DL si ischio fatigués</div></div>
+  <div class="move-card c-muscu"><div class="move-top"><div class="move-name">Single Leg RDL</div><div class="move-tag tag-db">DB/KB</div></div><div class="move-desc">RDL unilatéral — équilibre, chaîne postérieure, proprioception</div><div class="move-pills"><span class="pill">Ischio</span><span class="pill">Fessiers</span><span class="pill">Équilibre</span></div></div>
+  <div class="move-card c-muscu"><div class="move-top"><div class="move-name">Leg Curl Couché</div><div class="move-tag tag-machine">Machine</div></div><div class="move-desc">Isolation ischio-jambiers en position allongée</div><div class="move-pills"><span class="pill">Ischio isolation</span></div></div>
+  <div class="move-card c-muscu"><div class="move-top"><div class="move-name">Leg Curl Assis</div><div class="move-tag tag-machine">Machine</div></div><div class="move-desc">Isolation ischio position assise — tension peak différente du couché</div><div class="move-pills"><span class="pill">Ischio isolation</span></div></div>
+  <div class="move-card c-muscu"><div class="move-top"><div class="move-name">Nordic Curl</div><div class="move-tag tag-bw">BW</div></div><div class="move-desc">Curl ischio au sol avec point fixe — très exigeant, renforcement préventif</div><div class="move-pills"><span class="pill">Ischio</span><span class="pill">Prévention blessure</span></div></div>
+  <div class="move-card c-muscu"><div class="move-top"><div class="move-name">Good Morning</div><div class="move-tag tag-bb">Barbell</div></div><div class="move-desc">Inclinaison avant barre sur épaules — ischio + lombaires</div><div class="move-pills"><span class="pill">Ischio</span><span class="pill">Lombaires</span></div></div>
+  <div class="move-card c-muscu"><div class="move-top"><div class="move-name">Glute Ham Raise (GHR)</div><div class="move-tag tag-machine">Machine GHD</div></div><div class="move-desc">Leg curl inversé sur banc GHD — ischio + fessiers + bas du dos</div><div class="move-pills"><span class="pill">Ischio</span><span class="pill">Fessiers</span></div></div>
+
+  <div class="subsection">🍑 FESSIERS</div>
+  <div class="move-card c-muscu"><div class="move-top"><div class="move-name">Hip Thrust</div><div class="move-tag tag-bb">Barbell</div></div><div class="move-desc">Poussée des hanches sur banc — isolation fessiers maximale</div><div class="move-pills"><span class="pill">Fessiers</span><span class="pill">Ischio</span></div><div class="move-ecm ecm-blue">💡 ECM : Main Lift Lower (femme) · Accessory Lower</div></div>
+  <div class="move-card c-muscu"><div class="move-top"><div class="move-name">Glute Bridge</div><div class="move-tag tag-bw">BW/DB</div></div><div class="move-desc">Pont fessier au sol — version accessible du Hip Thrust</div><div class="move-pills"><span class="pill">Fessiers</span><span class="pill">Core</span></div></div>
+  <div class="move-card c-muscu"><div class="move-top"><div class="move-name">Cable Kickback</div><div class="move-tag tag-cable">Cable</div></div><div class="move-desc">Extension de hanche à la poulie — isolation grand fessier</div><div class="move-pills"><span class="pill">Grand fessier</span></div></div>
+  <div class="move-card c-muscu"><div class="move-top"><div class="move-name">Abduction Machine</div><div class="move-tag tag-machine">Machine</div></div><div class="move-desc">Écartement cuisses — moyen fessier et stabilisateurs</div><div class="move-pills"><span class="pill">Moyen fessier</span><span class="pill">Stabilisateur</span></div></div>
+  <div class="move-card c-muscu"><div class="move-top"><div class="move-name">Cable Pull-Through</div><div class="move-tag tag-cable">Cable</div></div><div class="move-desc">Passage de la poulie basse entre les jambes — chaîne postérieure</div><div class="move-pills"><span class="pill">Fessiers</span><span class="pill">Ischio</span></div></div>
+  <div class="move-card c-muscu"><div class="move-top"><div class="move-name">Sumo Deadlift</div><div class="move-tag tag-bb">Barbell</div></div><div class="move-desc">Deadlift pieds écartés — plus fessiers et adducteurs que conventionnel</div><div class="move-pills"><span class="pill">Fessiers</span><span class="pill">Adducteurs</span><span class="pill">Ischio</span></div></div>
+
+  <div class="subsection">🦵 MOLLETS</div>
+  <div class="move-card c-muscu"><div class="move-top"><div class="move-name">Calf Raise Debout</div><div class="move-tag tag-machine">Machine/BB/BW</div></div><div class="move-desc">Élévation sur pointes debout — gastrocnémien</div><div class="move-pills"><span class="pill">Gastrocnémien</span></div></div>
+  <div class="move-card c-muscu"><div class="move-top"><div class="move-name">Calf Raise Assis</div><div class="move-tag tag-machine">Machine</div></div><div class="move-desc">Élévation assis — soléaire (muscle profond)</div><div class="move-pills"><span class="pill">Soléaire</span></div></div>
+  <div class="move-card c-muscu"><div class="move-top"><div class="move-name">Donkey Calf Raise</div><div class="move-tag tag-machine">Machine</div></div><div class="move-desc">Position inclinée — amplitude maximale gastrocnémien</div><div class="move-pills"><span class="pill">Gastrocnémien</span></div></div>
+
+  <div class="subsection">🏋️ DOS — TIRAGE VERTICAL</div>
+  <div class="move-card c-muscu"><div class="move-top"><div class="move-name">Pull-Up</div><div class="move-tag tag-bw">BW</div></div><div class="move-desc">Traction prise pronation — grand dorsal + biceps + trapèze</div><div class="move-pills"><span class="pill">Grand dorsal</span><span class="pill">Biceps</span><span class="pill">Trapèze</span></div><div class="move-ecm ecm-blue">💡 ECM : Main Lift Pull Day · WOD CrossFit</div></div>
+  <div class="move-card c-muscu"><div class="move-top"><div class="move-name">Chin-Up</div><div class="move-tag tag-bw">BW</div></div><div class="move-desc">Traction prise supination — plus biceps que Pull-Up</div><div class="move-pills"><span class="pill">Grand dorsal</span><span class="pill">Biceps dominant</span></div></div>
+  <div class="move-card c-muscu"><div class="move-top"><div class="move-name">Lat Pulldown</div><div class="move-tag tag-machine">Machine</div></div><div class="move-desc">Tirage vertical poulie haute — substitut pull-up accessible</div><div class="move-pills"><span class="pill">Grand dorsal</span><span class="pill">Biceps</span></div></div>
+  <div class="move-card c-muscu"><div class="move-top"><div class="move-name">Pulldown Prise Neutre</div><div class="move-tag tag-cable">Cable</div></div><div class="move-desc">Tirage vertical prise neutre — moins de stress épaule</div><div class="move-pills"><span class="pill">Grand dorsal</span><span class="pill">Biceps</span></div></div>
+
+  <div class="subsection">🏋️ DOS — TIRAGE HORIZONTAL</div>
+  <div class="move-card c-muscu"><div class="move-top"><div class="move-name">Barbell Row</div><div class="move-tag tag-bb">Barbell</div></div><div class="move-desc">Rowing barre penché — épaisseur dorsale, trapèze, rhomboïdes</div><div class="move-pills"><span class="pill">Grand dorsal</span><span class="pill">Trapèze</span><span class="pill">Rhomboïdes</span></div><div class="move-ecm ecm-blue">💡 ECM : Main Lift Pull Day · Build to Heavy</div></div>
+  <div class="move-card c-muscu"><div class="move-top"><div class="move-name">DB Row</div><div class="move-tag tag-db">Dumbbell</div></div><div class="move-desc">Rowing unilatéral haltère — amplitude supérieure, moins de fatigue lombaire</div><div class="move-pills"><span class="pill">Grand dorsal</span><span class="pill">Biceps</span></div></div>
+  <div class="move-card c-muscu"><div class="move-top"><div class="move-name">Cable Row</div><div class="move-tag tag-cable">Cable</div></div><div class="move-desc">Rowing assis poulie basse — tension constante sur tout le mouvement</div><div class="move-pills"><span class="pill">Grand dorsal</span><span class="pill">Rhomboïdes</span></div></div>
+  <div class="move-card c-muscu"><div class="move-top"><div class="move-name">Machine Row</div><div class="move-tag tag-machine">Machine</div></div><div class="move-desc">Rowing machine — stabilité, idéal pour les débutants ou fatigue lombaire</div><div class="move-pills"><span class="pill">Grand dorsal</span><span class="pill">Trapèze</span></div></div>
+  <div class="move-card c-muscu"><div class="move-top"><div class="move-name">Chest Supported Row</div><div class="move-tag tag-db">DB/Machine</div></div><div class="move-desc">Rowing appuyé poitrine — zéro stress lombaire, isolation dorsale pure</div><div class="move-pills"><span class="pill">Grand dorsal</span><span class="pill">Rhomboïdes</span></div></div>
+  <div class="move-card c-muscu"><div class="move-top"><div class="move-name">T-Bar Row</div><div class="move-tag tag-bb">Barbell</div></div><div class="move-desc">Rowing T-Bar — épaisseur dos, charges lourdes possibles</div><div class="move-pills"><span class="pill">Grand dorsal</span><span class="pill">Trapèze moyen</span></div></div>
+  <div class="move-card c-muscu"><div class="move-top"><div class="move-name">Inverted Row</div><div class="move-tag tag-bw">BW</div></div><div class="move-desc">Traction inversée corps incliné — substitut row accessible</div><div class="move-pills"><span class="pill">Grand dorsal</span><span class="pill">Rhomboïdes</span><span class="pill">Core</span></div></div>
+
+  <div class="subsection">🏋️ DOS — DEADLIFT</div>
+  <div class="move-card c-muscu"><div class="move-top"><div class="move-name">Deadlift Conventionnel</div><div class="move-tag tag-bb">Barbell</div></div><div class="move-desc">Le roi des exercices — chaîne postérieure complète, force brute</div><div class="move-pills"><span class="pill">Ischio</span><span class="pill">Fessiers</span><span class="pill">Lombaires</span><span class="pill">Trapèze</span></div><div class="move-ecm ecm-blue">💡 ECM : Main Lift Lower · Build to Heavy · benchmark mensuel</div></div>
+  <div class="move-card c-muscu"><div class="move-top"><div class="move-name">Deadlift Roumain</div><div class="move-tag tag-bb">Barbell</div></div><div class="move-desc">Variation avec genoux semi-fléchis — ischio en étirement maximal</div><div class="move-pills"><span class="pill">Ischio</span><span class="pill">Fessiers</span></div></div>
+  <div class="move-card c-muscu"><div class="move-top"><div class="move-name">Trap Bar Deadlift</div><div class="move-tag tag-bb">Trap Bar</div></div><div class="move-desc">Barre hexagonale — moins de stress lombaire, prise neutre</div><div class="move-pills"><span class="pill">Quad</span><span class="pill">Fessiers</span><span class="pill">Ischio</span></div></div>
+  <div class="move-card c-muscu"><div class="move-top"><div class="move-name">Rack Pull</div><div class="move-tag tag-bb">Barbell</div></div><div class="move-desc">Deadlift partiel depuis rack — charges supramaxiales, trapèzes</div><div class="move-pills"><span class="pill">Trapèze</span><span class="pill">Lombaires</span></div></div>
+
+  <div class="subsection">💺 PECTORAUX</div>
+  <div class="move-card c-muscu"><div class="move-top"><div class="move-name">Bench Press</div><div class="move-tag tag-bb">Barbell</div></div><div class="move-desc">Développé couché — mouvement fondamental pectoraux</div><div class="move-pills"><span class="pill">Pec</span><span class="pill">Triceps</span><span class="pill">Deltoïde ant.</span></div><div class="move-ecm ecm-blue">💡 ECM : Main Lift Push Day · Build to Heavy · benchmark</div></div>
+  <div class="move-card c-muscu"><div class="move-top"><div class="move-name">Incline Bench Press</div><div class="move-tag tag-bb">Barbell/DB</div></div><div class="move-desc">Développé incliné — chef claviculaire (haut des pectoraux)</div><div class="move-pills"><span class="pill">Pec supérieur</span><span class="pill">Triceps</span></div></div>
+  <div class="move-card c-muscu"><div class="move-top"><div class="move-name">Decline Bench Press</div><div class="move-tag tag-bb">Barbell/DB</div></div><div class="move-desc">Développé décliné — chef sternal inférieur</div><div class="move-pills"><span class="pill">Pec inférieur</span><span class="pill">Triceps</span></div></div>
+  <div class="move-card c-muscu"><div class="move-top"><div class="move-name">DB Fly</div><div class="move-tag tag-db">Dumbbell</div></div><div class="move-desc">Écartés haltères couché — étirement pec en amplitude complète</div><div class="move-pills"><span class="pill">Pec isolation</span></div></div>
+  <div class="move-card c-muscu"><div class="move-top"><div class="move-name">Cable Fly</div><div class="move-tag tag-cable">Cable</div></div><div class="move-desc">Écartés poulie — tension constante, diverses angles</div><div class="move-pills"><span class="pill">Pec isolation</span></div></div>
+  <div class="move-card c-muscu"><div class="move-top"><div class="move-name">Pec Deck</div><div class="move-tag tag-machine">Machine</div></div><div class="move-desc">Butterfly machine — isolation pectoraux, ROM contrôlé</div><div class="move-pills"><span class="pill">Pec isolation</span></div></div>
+  <div class="move-card c-muscu"><div class="move-top"><div class="move-name">Dips</div><div class="move-tag tag-bw">BW</div></div><div class="move-desc">Tractions entre barres parallèles — pec + triceps, amplitude profonde</div><div class="move-pills"><span class="pill">Pec inférieur</span><span class="pill">Triceps</span></div><div class="move-ecm ecm-blue">💡 ECM : Accessory Push · WOD CrossFit</div></div>
+  <div class="move-card c-muscu"><div class="move-top"><div class="move-name">Push-Up</div><div class="move-tag tag-bw">BW</div></div><div class="move-desc">Pompe — pec + triceps + deltoïde + core, accessible partout</div><div class="move-pills"><span class="pill">Pec</span><span class="pill">Triceps</span><span class="pill">Core</span></div><div class="move-ecm ecm-blue">💡 ECM : At Home + WOD CrossFit · variations multiples</div></div>
+  <div class="move-card c-muscu"><div class="move-top"><div class="move-name">Landmine Press</div><div class="move-tag tag-bb">Barbell</div></div><div class="move-desc">Press unilatéral avec barre ancrée — pec supérieur + épaule</div><div class="move-pills"><span class="pill">Pec supérieur</span><span class="pill">Épaule</span></div></div>
+
+  <div class="subsection">💪 ÉPAULES</div>
+  <div class="move-card c-muscu"><div class="move-top"><div class="move-name">Overhead Press (OHP)</div><div class="move-tag tag-bb">Barbell</div></div><div class="move-desc">Développé militaire debout — deltoïdes + triceps + trapèze + core</div><div class="move-pills"><span class="pill">Deltoïde ant.</span><span class="pill">Triceps</span><span class="pill">Core</span></div><div class="move-ecm ecm-blue">💡 ECM : Main Lift Push Day · Build to Heavy</div></div>
+  <div class="move-card c-muscu"><div class="move-top"><div class="move-name">DB Shoulder Press</div><div class="move-tag tag-db">Dumbbell</div></div><div class="move-desc">Développé haltères assis ou debout — amplitude et stabilisation supérieures</div><div class="move-pills"><span class="pill">Deltoïde</span><span class="pill">Triceps</span></div></div>
+  <div class="move-card c-muscu"><div class="move-top"><div class="move-name">Lateral Raise</div><div class="move-tag tag-db">DB/Cable</div></div><div class="move-desc">Élévation latérale — isolation chef latéral deltoïde (largeur)</div><div class="move-pills"><span class="pill">Deltoïde latéral</span></div></div>
+  <div class="move-card c-muscu"><div class="move-top"><div class="move-name">Front Raise</div><div class="move-tag tag-db">DB/BB</div></div><div class="move-desc">Élévation frontale — deltoïde antérieur</div><div class="move-pills"><span class="pill">Deltoïde ant.</span></div></div>
+  <div class="move-card c-muscu"><div class="move-top"><div class="move-name">Rear Delt Fly</div><div class="move-tag tag-db">DB/Cable</div></div><div class="move-desc">Oiseau ou écartés penchés — deltoïde postérieur + rhomboïdes</div><div class="move-pills"><span class="pill">Deltoïde post.</span><span class="pill">Rhomboïdes</span></div></div>
+  <div class="move-card c-muscu"><div class="move-top"><div class="move-name">Upright Row</div><div class="move-tag tag-bb">Barbell/DB</div></div><div class="move-desc">Tirage vertical menton — trapèze supérieur + deltoïde</div><div class="move-pills"><span class="pill">Trapèze sup.</span><span class="pill">Deltoïde</span></div></div>
+  <div class="move-card c-muscu"><div class="move-top"><div class="move-name">Face Pull</div><div class="move-tag tag-cable">Cable</div></div><div class="move-desc">Tirage visage à la poulie — deltoïde post. + coiffe des rotateurs</div><div class="move-pills"><span class="pill">Deltoïde post.</span><span class="pill">Coiffe rotateurs</span></div><div class="move-ecm ecm-blue">💡 ECM : Prehab épaule · Accessory Upper</div></div>
+  <div class="move-card c-muscu"><div class="move-top"><div class="move-name">Arnold Press</div><div class="move-tag tag-db">Dumbbell</div></div><div class="move-desc">Press avec rotation — sollicite les 3 chefs du deltoïde</div><div class="move-pills"><span class="pill">Deltoïde complet</span><span class="pill">Triceps</span></div></div>
+
+  <div class="subsection">💪 BICEPS</div>
+  <div class="move-card c-muscu"><div class="move-top"><div class="move-name">Barbell Curl</div><div class="move-tag tag-bb">Barbell</div></div><div class="move-desc">Curl barre — biceps long et court en prise supination</div><div class="move-pills"><span class="pill">Biceps</span><span class="pill">Brachial</span></div><div class="move-ecm ecm-blue">💡 ECM : Main Lift Pull Day ou Accessory Upper</div></div>
+  <div class="move-card c-muscu"><div class="move-top"><div class="move-name">DB Curl</div><div class="move-tag tag-db">Dumbbell</div></div><div class="move-desc">Curl haltère — unilatéral, supination maximale</div><div class="move-pills"><span class="pill">Biceps</span></div></div>
+  <div class="move-card c-muscu"><div class="move-top"><div class="move-name">Hammer Curl</div><div class="move-tag tag-db">Dumbbell</div></div><div class="move-desc">Curl prise neutre — brachial + brachioradial + biceps</div><div class="move-pills"><span class="pill">Brachial</span><span class="pill">Brachioradial</span></div></div>
+  <div class="move-card c-muscu"><div class="move-top"><div class="move-name">Incline DB Curl</div><div class="move-tag tag-db">Dumbbell</div></div><div class="move-desc">Curl incliné — chef long biceps en étirement maximal</div><div class="move-pills"><span class="pill">Chef long biceps</span></div></div>
+  <div class="move-card c-muscu"><div class="move-top"><div class="move-name">Preacher Curl</div><div class="move-tag tag-bb">Barbell/DB</div></div><div class="move-desc">Curl pupitre — chef court biceps, ROM contrôlé</div><div class="move-pills"><span class="pill">Chef court biceps</span></div></div>
+  <div class="move-card c-muscu"><div class="move-top"><div class="move-name">Cable Curl</div><div class="move-tag tag-cable">Cable</div></div><div class="move-desc">Curl poulie basse — tension constante sur tout le mouvement</div><div class="move-pills"><span class="pill">Biceps</span></div></div>
+  <div class="move-card c-muscu"><div class="move-top"><div class="move-name">Concentration Curl</div><div class="move-tag tag-db">Dumbbell</div></div><div class="move-desc">Curl concentré coude sur genou — peak contraction biceps</div><div class="move-pills"><span class="pill">Biceps isolation</span></div></div>
+
+  <div class="subsection">💪 TRICEPS</div>
+  <div class="move-card c-muscu"><div class="move-top"><div class="move-name">Skull Crusher</div><div class="move-tag tag-bb">Barbell/DB</div></div><div class="move-desc">Extension couché — chef long triceps en étirement</div><div class="move-pills"><span class="pill">Triceps</span></div><div class="move-ecm ecm-blue">💡 ECM : Accessory Push Day</div></div>
+  <div class="move-card c-muscu"><div class="move-top"><div class="move-name">Tricep Pushdown</div><div class="move-tag tag-cable">Cable</div></div><div class="move-desc">Tirage poulie haute vers bas — isolation triceps, charge légère à lourde</div><div class="move-pills"><span class="pill">Triceps</span></div></div>
+  <div class="move-card c-muscu"><div class="move-top"><div class="move-name">Overhead Tricep Extension</div><div class="move-tag tag-db">DB/BB/Cable</div></div><div class="move-desc">Extension overhead — chef long triceps en étirement maximal</div><div class="move-pills"><span class="pill">Chef long triceps</span></div></div>
+  <div class="move-card c-muscu"><div class="move-top"><div class="move-name">Dips Triceps</div><div class="move-tag tag-bw">BW</div></div><div class="move-desc">Dips chaise ou barres — triceps dominant si corps vertical</div><div class="move-pills"><span class="pill">Triceps</span><span class="pill">Pec</span></div></div>
+  <div class="move-card c-muscu"><div class="move-top"><div class="move-name">Close Grip Bench Press</div><div class="move-tag tag-bb">Barbell</div></div><div class="move-desc">Développé prise serrée — triceps + pec, charges lourdes</div><div class="move-pills"><span class="pill">Triceps</span><span class="pill">Pec</span></div></div>
+  <div class="move-card c-muscu"><div class="move-top"><div class="move-name">Diamond Push-Up</div><div class="move-tag tag-bw">BW</div></div><div class="move-desc">Pompe prise diamant — isolation triceps en BW</div><div class="move-pills"><span class="pill">Triceps</span></div></div>
+
+  <div class="subsection">🧱 CORE & ABDOMINAUX</div>
+  <div class="move-card c-muscu"><div class="move-top"><div class="move-name">Plank</div><div class="move-tag tag-bw">BW</div></div><div class="move-desc">Gainage isométrique — core complet, stabilisation lombaire</div><div class="move-pills"><span class="pill">Core</span><span class="pill">Transverse</span></div></div>
+  <div class="move-card c-muscu"><div class="move-top"><div class="move-name">Side Plank</div><div class="move-tag tag-bw">BW</div></div><div class="move-desc">Gainage latéral — obliques + carré des lombes</div><div class="move-pills"><span class="pill">Obliques</span><span class="pill">Carré des lombes</span></div></div>
+  <div class="move-card c-muscu"><div class="move-top"><div class="move-name">Crunch</div><div class="move-tag tag-bw">BW</div></div><div class="move-desc">Enroulement vertébral — droit de l'abdomen</div><div class="move-pills"><span class="pill">Droit abdo</span></div></div>
+  <div class="move-card c-muscu"><div class="move-top"><div class="move-name">Sit-Up</div><div class="move-tag tag-bw">BW</div></div><div class="move-desc">Relevé de buste complet — droit abdo + hip flexors</div><div class="move-pills"><span class="pill">Droit abdo</span><span class="pill">Fléchisseurs</span></div></div>
+  <div class="move-card c-muscu"><div class="move-top"><div class="move-name">Russian Twist</div><div class="move-tag tag-bw">BW/DB</div></div><div class="move-desc">Rotation du buste assis — obliques</div><div class="move-pills"><span class="pill">Obliques</span></div></div>
+  <div class="move-card c-muscu"><div class="move-top"><div class="move-name">Ab Wheel Rollout</div><div class="move-tag tag-bw">Roue abdo</div></div><div class="move-desc">Extension roue abdominale — core complet, très exigeant</div><div class="move-pills"><span class="pill">Core complet</span></div></div>
+  <div class="move-card c-muscu"><div class="move-top"><div class="move-name">Hanging Leg Raise</div><div class="move-tag tag-bw">BW</div></div><div class="move-desc">Relevé de jambes suspendu — bas du ventre + hip flexors</div><div class="move-pills"><span class="pill">Bas du ventre</span><span class="pill">Fléchisseurs</span></div></div>
+  <div class="move-card c-muscu"><div class="move-top"><div class="move-name">Cable Crunch</div><div class="move-tag tag-cable">Cable</div></div><div class="move-desc">Crunch à la poulie haute — droit abdo avec charge progressive</div><div class="move-pills"><span class="pill">Droit abdo</span></div></div>
+  <div class="move-card c-muscu"><div class="move-top"><div class="move-name">Dead Bug</div><div class="move-tag tag-bw">BW</div></div><div class="move-desc">Extension opposée bras/jambe au sol — stabilisation lombaire</div><div class="move-pills"><span class="pill">Core</span><span class="pill">Stabilisation</span></div></div>
+  <div class="move-card c-muscu"><div class="move-top"><div class="move-name">Bird Dog</div><div class="move-tag tag-bw">BW</div></div><div class="move-desc">Extension quadrupède — équilibre + core + chaîne postérieure</div><div class="move-pills"><span class="pill">Core</span><span class="pill">Équilibre</span></div></div>
+  <div class="move-card c-muscu"><div class="move-top"><div class="move-name">GHD Sit-Up</div><div class="move-tag tag-machine">Machine GHD</div></div><div class="move-desc">Relevé de buste sur GHD — amplitude complète, exigeant</div><div class="move-pills"><span class="pill">Droit abdo</span><span class="pill">Hip flexors</span></div></div>
+</div>
+
+<!-- ════════ HALTÉROPHILIE ════════ -->
+<div id="tab-haltero" class="section">
+  <div class="section-head" style="border-color:var(--yellow);">
+    <div class="section-head-title" style="color:var(--yellow);">🏋️ Haltérophilie & Powerlifting</div>
+    <div class="section-head-sub">Mouvements olympiques · Powerlifting · Dérivés</div>
+  </div>
+
+  <div class="subsection">🏆 MOUVEMENTS OLYMPIQUES</div>
+  <div class="move-card c-haltero"><div class="move-top"><div class="move-name">Snatch (Arraché)</div><div class="move-tag tag-olymp">Olympique</div></div><div class="move-desc">Mouvement complet du sol à bout de bras en une traction — techniquement le plus exigeant</div><div class="move-pills"><span class="pill">Corps entier</span><span class="pill">Explosivité</span><span class="pill">Coordination</span></div><div class="move-ecm ecm-yellow">💡 ECM : Skill CrossFit Mer · benchmark mensuel</div></div>
+  <div class="move-card c-haltero"><div class="move-top"><div class="move-name">Clean & Jerk (Épaulé-Jeté)</div><div class="move-tag tag-olymp">Olympique</div></div><div class="move-desc">Deux phases : Clean (réception épaules) + Jerk (poussée overhead) — roi de la puissance</div><div class="move-pills"><span class="pill">Corps entier</span><span class="pill">Puissance</span><span class="pill">Explosivité</span></div><div class="move-ecm ecm-yellow">💡 ECM : Skill CrossFit · benchmark mensuel</div></div>
+  <div class="move-card c-haltero"><div class="move-top"><div class="move-name">Clean (Épaulé)</div><div class="move-tag tag-olymp">Olympique</div></div><div class="move-desc">Sol à position de réception sur les épaules — puissance + technique</div><div class="move-pills"><span class="pill">Corps entier</span><span class="pill">Puissance</span></div></div>
+  <div class="move-card c-haltero"><div class="move-top"><div class="move-name">Jerk (Jeté)</div><div class="move-tag tag-olymp">Olympique</div></div><div class="move-desc">Poussée de la barre depuis les épaules à bout de bras — vitesse + technique</div><div class="move-pills"><span class="pill">Épaules</span><span class="pill">Jambes</span><span class="pill">Core</span></div></div>
+
+  <div class="subsection">🔧 DÉRIVÉS OLYMPIQUES</div>
+  <div class="move-card c-haltero"><div class="move-top"><div class="move-name">Power Clean</div><div class="move-tag tag-olymp">Dérivé</div></div><div class="move-desc">Clean sans squat complet — réception cuisses au-dessus parallèle</div><div class="move-pills"><span class="pill">Corps entier</span><span class="pill">Puissance</span></div><div class="move-ecm ecm-yellow">💡 ECM : Skill CrossFit standard · plus accessible que Clean complet</div></div>
+  <div class="move-card c-haltero"><div class="move-top"><div class="move-name">Power Snatch</div><div class="move-tag tag-olymp">Dérivé</div></div><div class="move-desc">Arraché sans squat complet — explosivité pure, technique accessible</div><div class="move-pills"><span class="pill">Corps entier</span><span class="pill">Explosivité</span></div></div>
+  <div class="move-card c-haltero"><div class="move-top"><div class="move-name">Hang Clean</div><div class="move-tag tag-olymp">Dérivé</div></div><div class="move-desc">Clean depuis les hanches — focus sur le "triple extension"</div><div class="move-pills"><span class="pill">Corps entier</span></div></div>
+  <div class="move-card c-haltero"><div class="move-top"><div class="move-name">Hang Power Clean</div><div class="move-tag tag-olymp">Dérivé</div></div><div class="move-desc">Power Clean depuis les hanches — le plus utilisé en CrossFit</div><div class="move-pills"><span class="pill">Corps entier</span><span class="pill">Puissance</span></div></div>
+  <div class="move-card c-haltero"><div class="move-top"><div class="move-name">Hang Snatch</div><div class="move-tag tag-olymp">Dérivé</div></div><div class="move-desc">Arraché depuis les hanches — focus extension et vitesse de bras</div><div class="move-pills"><span class="pill">Corps entier</span></div></div>
+  <div class="move-card c-haltero"><div class="move-top"><div class="move-name">Muscle Clean</div><div class="move-tag tag-olymp">Dérivé</div></div><div class="move-desc">Clean sans re-bend des jambes — force pure, technique drilling</div><div class="move-pills"><span class="pill">Épaules</span><span class="pill">Dos</span></div></div>
+  <div class="move-card c-haltero"><div class="move-top"><div class="move-name">Muscle Snatch</div><div class="move-tag tag-olymp">Dérivé</div></div><div class="move-desc">Arraché sans re-bend — drilling technique, force overhead</div><div class="move-pills"><span class="pill">Épaules</span><span class="pill">Dos</span></div></div>
+  <div class="move-card c-haltero"><div class="move-top"><div class="move-name">Push Press</div><div class="move-tag tag-bb">Barbell</div></div><div class="move-desc">Press avec impulsion des jambes — transition OHP → Jerk</div><div class="move-pills"><span class="pill">Épaules</span><span class="pill">Jambes</span><span class="pill">Core</span></div><div class="move-ecm ecm-yellow">💡 ECM : Skill CrossFit · Accessory Push</div></div>
+  <div class="move-card c-haltero"><div class="move-top"><div class="move-name">Push Jerk</div><div class="move-tag tag-bb">Barbell</div></div><div class="move-desc">Poussée avec re-bend — entre Push Press et Split Jerk</div><div class="move-pills"><span class="pill">Épaules</span><span class="pill">Jambes</span></div></div>
+  <div class="move-card c-haltero"><div class="move-top"><div class="move-name">Split Jerk</div><div class="move-tag tag-bb">Barbell</div></div><div class="move-desc">Jerk en fente — technique compétition haltérophilie</div><div class="move-pills"><span class="pill">Épaules</span><span class="pill">Jambes</span><span class="pill">Coordination</span></div></div>
+  <div class="move-card c-haltero"><div class="move-top"><div class="move-name">Thruster</div><div class="move-tag tag-bb">Barbell/DB</div></div><div class="move-desc">Front Squat + Push Press en un mouvement — le plus brutal du CrossFit</div><div class="move-pills"><span class="pill">Corps entier</span><span class="pill">Conditionnement</span></div><div class="move-ecm ecm-yellow">💡 ECM : WOD Fran · Finisher cardio</div></div>
+
+  <div class="subsection">🏆 POWERLIFTING</div>
+  <div class="move-card c-haltero"><div class="move-top"><div class="move-name">Back Squat</div><div class="move-tag tag-bb">Barbell</div></div><div class="move-desc">Le squat compétition — profondeur parallèle obligatoire en PLF</div><div class="move-pills"><span class="pill">Quad</span><span class="pill">Fessiers</span><span class="pill">Ischio</span></div><div class="move-ecm ecm-yellow">💡 ECM : Main Lift Lower · benchmark mensuel</div></div>
+  <div class="move-card c-haltero"><div class="move-top"><div class="move-name">Bench Press Powerlifting</div><div class="move-tag tag-bb">Barbell</div></div><div class="move-desc">Développé couché compétition — arc, prise large, pauses</div><div class="move-pills"><span class="pill">Pec</span><span class="pill">Triceps</span><span class="pill">Deltoïde</span></div></div>
+  <div class="move-card c-haltero"><div class="move-top"><div class="move-name">Deadlift Powerlifting</div><div class="move-tag tag-bb">Barbell</div></div><div class="move-desc">Soulevé de terre compétition — conventionnel ou sumo selon morphologie</div><div class="move-pills"><span class="pill">Corps entier</span><span class="pill">Force brute</span></div></div>
+</div>
+
+<!-- ════════ GYMNASTIQUE ════════ -->
+<div id="tab-gymn" class="section">
+  <div class="section-head" style="border-color:var(--purple);">
+    <div class="section-head-title" style="color:var(--purple);">🤸 Gymnastics & Skills</div>
+    <div class="section-head-sub">Mouvements gymniques · Skills CrossFit · Corps entier</div>
+  </div>
+
+  <div class="subsection">🔄 SKILLS BARRE</div>
+  <div class="move-card c-gymn"><div class="move-top"><div class="move-name">Muscle-Up (Barre)</div><div class="move-tag tag-gymn">Gymnastics</div></div><div class="move-desc">Traction + Dips en un mouvement au-dessus de la barre — skill avancé</div><div class="move-pills"><span class="pill">Corps entier</span><span class="pill">Skill avancé</span></div><div class="move-ecm ecm-purple">💡 ECM : Skill CrossFit Jeu · benchmark trimestriel</div></div>
+  <div class="move-card c-gymn"><div class="move-top"><div class="move-name">Toes to Bar (T2B)</div><div class="move-tag tag-gymn">Gymnastics</div></div><div class="move-desc">Pieds à la barre suspendu — abdos + hip flexors + grip</div><div class="move-pills"><span class="pill">Core</span><span class="pill">Hip flexors</span><span class="pill">Grip</span></div><div class="move-ecm ecm-purple">💡 ECM : Core WOD · Finisher Core</div></div>
+  <div class="move-card c-gymn"><div class="move-top"><div class="move-name">Knees to Elbow (K2E)</div><div class="move-tag tag-gymn">Gymnastics</div></div><div class="move-desc">Genoux aux coudes — version accessible du T2B</div><div class="move-pills"><span class="pill">Core</span><span class="pill">Hip flexors</span></div></div>
+  <div class="move-card c-gymn"><div class="move-top"><div class="move-name">L-Sit</div><div class="move-tag tag-gymn">Gymnastics</div></div><div class="move-desc">Position L suspendu ou au sol — core + hip flexors + triceps isométrique</div><div class="move-pills"><span class="pill">Core</span><span class="pill">Hip flexors</span><span class="pill">Force isométrique</span></div></div>
+  <div class="move-card c-gymn"><div class="move-top"><div class="move-name">Bar Muscle-Up</div><div class="move-tag tag-gymn">Gymnastics</div></div><div class="move-desc">Variante barre droite — plus difficile techniquement que les anneaux</div><div class="move-pills"><span class="pill">Skill avancé</span><span class="pill">Corps entier</span></div></div>
+
+  <div class="subsection">🔄 SKILLS ANNEAUX</div>
+  <div class="move-card c-gymn"><div class="move-top"><div class="move-name">Ring Muscle-Up</div><div class="move-tag tag-gymn">Gymnastics</div></div><div class="move-desc">Muscle-Up aux anneaux — version la plus exigeante, mouvement emblématique CrossFit</div><div class="move-pills"><span class="pill">Corps entier</span><span class="pill">Skill expert</span></div></div>
+  <div class="move-card c-gymn"><div class="move-top"><div class="move-name">Ring Dip</div><div class="move-tag tag-gymn">Gymnastics</div></div><div class="move-desc">Dips aux anneaux — instabilité maximale, triceps + épaules</div><div class="move-pills"><span class="pill">Triceps</span><span class="pill">Épaules</span><span class="pill">Stabilisation</span></div></div>
+  <div class="move-card c-gymn"><div class="move-top"><div class="move-name">Ring Row</div><div class="move-tag tag-gymn">Gymnastics</div></div><div class="move-desc">Inverted row aux anneaux — dos + biceps, accessible</div><div class="move-pills"><span class="pill">Dos</span><span class="pill">Biceps</span></div></div>
+  <div class="move-card c-gymn"><div class="move-top"><div class="move-name">False Grip Pull-Up</div><div class="move-tag tag-gymn">Gymnastics</div></div><div class="move-desc">Traction prise fausse — prérequis Ring Muscle-Up</div><div class="move-pills"><span class="pill">Grip</span><span class="pill">Transition</span></div></div>
+
+  <div class="subsection">🤸 HANDSTAND</div>
+  <div class="move-card c-gymn"><div class="move-top"><div class="move-name">Handstand Push-Up (HSPU)</div><div class="move-tag tag-gymn">Gymnastics</div></div><div class="move-desc">Pompe en équilibre sur les mains — épaules + triceps + core</div><div class="move-pills"><span class="pill">Épaules</span><span class="pill">Triceps</span><span class="pill">Core</span></div><div class="move-ecm ecm-purple">💡 ECM : WOD CrossFit · Skill Push Mer</div></div>
+  <div class="move-card c-gymn"><div class="move-top"><div class="move-name">Strict HSPU</div><div class="move-tag tag-gymn">Gymnastics</div></div><div class="move-desc">HSPU sans kipping — force pure, plus difficile</div><div class="move-pills"><span class="pill">Épaules</span><span class="pill">Triceps</span></div></div>
+  <div class="move-card c-gymn"><div class="move-top"><div class="move-name">Handstand Walk</div><div class="move-tag tag-gymn">Gymnastics</div></div><div class="move-desc">Marche sur les mains — équilibre + épaules + proprioception</div><div class="move-pills"><span class="pill">Épaules</span><span class="pill">Équilibre</span><span class="pill">Core</span></div></div>
+  <div class="move-card c-gymn"><div class="move-top"><div class="move-name">Wall Walk</div><div class="move-tag tag-gymn">Gymnastics</div></div><div class="move-desc">Montée vers la verticale contre le mur — progression HSPU</div><div class="move-pills"><span class="pill">Épaules</span><span class="pill">Core</span></div></div>
+  <div class="move-card c-gymn"><div class="move-top"><div class="move-name">Pike Push-Up</div><div class="move-tag tag-gymn">Gymnastics</div></div><div class="move-desc">Pompe en V — progression vers le HSPU</div><div class="move-pills"><span class="pill">Épaules</span></div></div>
+
+  <div class="subsection">🏃 CARDIO GYMNASTICS</div>
+  <div class="move-card c-gymn"><div class="move-top"><div class="move-name">Double Under</div><div class="move-tag tag-skill">Skill</div></div><div class="move-desc">Corde à sauter passant deux fois sous les pieds — cardio + coordination</div><div class="move-pills"><span class="pill">Cardio</span><span class="pill">Coordination</span></div><div class="move-ecm ecm-purple">💡 ECM : Finisher Cardio · WOD CrossFit standard</div></div>
+  <div class="move-card c-gymn"><div class="move-top"><div class="move-name">Single Under</div><div class="move-tag tag-skill">Skill</div></div><div class="move-desc">Corde simple — version accessible ou warmup</div><div class="move-pills"><span class="pill">Cardio</span></div></div>
+  <div class="move-card c-gymn"><div class="move-top"><div class="move-name">Triple Under</div><div class="move-tag tag-skill">Skill avancé</div></div><div class="move-desc">Corde passant 3 fois — skill d'élite</div><div class="move-pills"><span class="pill">Cardio</span><span class="pill">Coordination elite</span></div></div>
+  <div class="move-card c-gymn"><div class="move-top"><div class="move-name">Box Jump</div><div class="move-tag tag-bw">BW</div></div><div class="move-desc">Saut sur boîte — explosivité + plyométrie</div><div class="move-pills"><span class="pill">Explosivité</span><span class="pill">Quad</span><span class="pill">Fessiers</span></div></div>
+  <div class="move-card c-gymn"><div class="move-top"><div class="move-name">Burpee Box Jump Over</div><div class="move-tag tag-bw">BW</div></div><div class="move-desc">Burpee + saut par-dessus la boîte — condition physique globale</div><div class="move-pills"><span class="pill">Corps entier</span><span class="pill">Cardio</span></div></div>
+  <div class="move-card c-gymn"><div class="move-top"><div class="move-name">Burpee</div><div class="move-tag tag-bw">BW</div></div><div class="move-desc">Le mouvement universel — pompe + squat + saut</div><div class="move-pills"><span class="pill">Corps entier</span><span class="pill">Cardio</span></div></div>
+</div>
+
+<!-- ════════ CROSSFIT ════════ -->
+<div id="tab-cf" class="section">
+  <div class="section-head" style="border-color:var(--orange);">
+    <div class="section-head-title" style="color:var(--orange);">⚡ CrossFit — Mouvements spécifiques</div>
+    <div class="section-head-sub">WOD · Conditioning · Mouvements emblématiques</div>
+  </div>
+
+  <div class="subsection">⚡ CARDIO MACHINES</div>
+  <div class="move-card c-cf"><div class="move-top"><div class="move-name">Rowing (Erg)</div><div class="move-tag tag-cardio">Cardio</div></div><div class="move-desc">Rameur Concept2 — cardio + dos + bras + jambes en chaîne</div><div class="move-pills"><span class="pill">Corps entier</span><span class="pill">Cardio</span></div><div class="move-ecm ecm-orange">💡 ECM : Warm-Up standard · Finisher Cardio · WOD Hyrox</div></div>
+  <div class="move-card c-cf"><div class="move-top"><div class="move-name">Assault Bike / Echo Bike</div><div class="move-tag tag-cardio">Cardio</div></div><div class="move-desc">Vélo air résistance — le plus brutal pour le conditionnement</div><div class="move-pills"><span class="pill">Cardio intense</span><span class="pill">Corps entier</span></div><div class="move-ecm ecm-orange">💡 ECM : Finisher Cardio Lun/Jeu · WOD conditioning</div></div>
+  <div class="move-card c-cf"><div class="move-top"><div class="move-name">Ski Erg</div><div class="move-tag tag-cardio">Cardio</div></div><div class="move-desc">Machine ski — haut du corps + cardio, Hyrox station</div><div class="move-pills"><span class="pill">Haut du corps</span><span class="pill">Cardio</span></div><div class="move-ecm ecm-orange">💡 ECM : Hyrox station 1 · Finisher Upper Cardio</div></div>
+
+  <div class="subsection">⚡ MOUVEMENTS EMBLÉMATIQUES</div>
+  <div class="move-card c-cf"><div class="move-top"><div class="move-name">Wall Ball</div><div class="move-tag tag-bw">Medball</div></div><div class="move-desc">Squat + lancer du medicine ball contre le mur — conditionnement total</div><div class="move-pills"><span class="pill">Quad</span><span class="pill">Épaules</span><span class="pill">Cardio</span></div><div class="move-ecm ecm-orange">💡 ECM : WOD · Hyrox station · Finisher</div></div>
+  <div class="move-card c-cf"><div class="move-top"><div class="move-name">KB Swing</div><div class="move-tag tag-kb">Kettlebell</div></div><div class="move-desc">Balancé Kettlebell — chaîne postérieure + cardio + explosivité</div><div class="move-pills"><span class="pill">Fessiers</span><span class="pill">Ischio</span><span class="pill">Cardio</span></div></div>
+  <div class="move-card c-cf"><div class="move-top"><div class="move-name">KB Turkish Get-Up</div><div class="move-tag tag-kb">Kettlebell</div></div><div class="move-desc">Levée sol à debout KB en main — mobilité + stabilité + force</div><div class="move-pills"><span class="pill">Corps entier</span><span class="pill">Stabilité épaule</span></div></div>
+  <div class="move-card c-cf"><div class="move-top"><div class="move-name">Sled Push</div><div class="move-tag tag-cardio">Sled</div></div><div class="move-desc">Poussée de traîneau — quad + cardio, Hyrox station</div><div class="move-pills"><span class="pill">Quad</span><span class="pill">Cardio</span></div><div class="move-ecm ecm-orange">💡 ECM : Hyrox station · Finisher Cardio</div></div>
+  <div class="move-card c-cf"><div class="move-top"><div class="move-name">Sled Pull</div><div class="move-tag tag-cardio">Sled</div></div><div class="move-desc">Traction de traîneau en reculant — ischio + fessiers + cardio</div><div class="move-pills"><span class="pill">Ischio</span><span class="pill">Fessiers</span></div></div>
+  <div class="move-card c-cf"><div class="move-top"><div class="move-name">Farmer's Carry</div><div class="move-tag tag-db">DB/KB</div></div><div class="move-desc">Marche avec charges lourdes — grip + trapèze + core + cardio</div><div class="move-pills"><span class="pill">Grip</span><span class="pill">Trapèze</span><span class="pill">Core</span></div><div class="move-ecm ecm-orange">💡 ECM : Hyrox station · Finisher</div></div>
+  <div class="move-card c-cf"><div class="move-top"><div class="move-name">Sandbag Lunge</div><div class="move-tag tag-bw">Sandbag</div></div><div class="move-desc">Fentes avec sac de sable — Hyrox station + conditionnement</div><div class="move-pills"><span class="pill">Quad</span><span class="pill">Fessiers</span><span class="pill">Core</span></div><div class="move-ecm ecm-orange">💡 ECM : Hyrox station · WOD conditioning</div></div>
+  <div class="move-card c-cf"><div class="move-top"><div class="move-name">Med Ball Clean</div><div class="move-tag tag-bw">Medball</div></div><div class="move-desc">Clean avec medball — apprentissage du mouvement olympique</div><div class="move-pills"><span class="pill">Corps entier</span><span class="pill">Technique</span></div></div>
+</div>
+
+<!-- ════════ HYROX ════════ -->
+<div id="tab-hyrox" class="section">
+  <div class="section-head" style="border-color:var(--red);">
+    <div class="section-head-title" style="color:var(--red);">🏁 Hyrox — 8 Stations officielles</div>
+    <div class="section-head-sub">Stations compétition · Compromised Running · Préparation spécifique</div>
+  </div>
+
+  <div class="subsection">🏁 LES 8 STATIONS HYROX OFFICIELLES</div>
+  <div class="move-card c-hyrox"><div class="move-top"><div class="move-name">Station 1 — Ski Erg</div><div class="move-tag tag-cardio">1000m</div></div><div class="move-desc">Rameur debout — haut du corps + core + cardio · 1000m en compétition</div><div class="move-pills"><span class="pill">Haut du corps</span><span class="pill">Cardio</span></div><div class="move-ecm ecm-red">💡 ECM Hyrox : Bloc 2 · pace training selon niveau · Débutant 6min · Elite sub-4min</div></div>
+  <div class="move-card c-hyrox"><div class="move-top"><div class="move-name">Station 2 — Sled Push</div><div class="move-tag tag-cardio">50m</div></div><div class="move-desc">Poussée traîneau 50m — ♂ 152kg · ♀ 102kg en compétition</div><div class="move-pills"><span class="pill">Quad</span><span class="pill">Épaules</span><span class="pill">Cardio intense</span></div><div class="move-ecm ecm-red">💡 ECM Hyrox : Bloc 2 · charges progressives en training · pace constant</div></div>
+  <div class="move-card c-hyrox"><div class="move-top"><div class="move-name">Station 3 — Sled Pull</div><div class="move-tag tag-cardio">50m</div></div><div class="move-desc">Traction traîneau en reculant avec corde — ♂ 103kg · ♀ 78kg</div><div class="move-pills"><span class="pill">Ischio</span><span class="pill">Fessiers</span><span class="pill">Dos</span></div><div class="move-ecm ecm-red">💡 ECM Hyrox : Bloc 2 · enchaîner avec Sled Push en entraînement</div></div>
+  <div class="move-card c-hyrox"><div class="move-top"><div class="move-name">Station 4 — Burpee Broad Jump</div><div class="move-tag tag-bw">80m</div></div><div class="move-desc">Burpee avec saut en longueur · 80m à franchir — la plus brutale mentalement</div><div class="move-pills"><span class="pill">Corps entier</span><span class="pill">Explosivité</span><span class="pill">Mental</span></div><div class="move-ecm ecm-red">💡 ECM Hyrox : Bloc 3 · 20 burpees broad jump en training · pace régulier</div></div>
+  <div class="move-card c-hyrox"><div class="move-top"><div class="move-name">Station 5 — Rowing</div><div class="move-tag tag-cardio">1000m</div></div><div class="move-desc">Rameur Concept2 1000m — cardio + chaîne postérieure</div><div class="move-pills"><span class="pill">Corps entier</span><span class="pill">Cardio</span></div><div class="move-ecm ecm-red">💡 ECM Hyrox : Bloc 2 · split/500m training · Débutant 2min · Elite sub-1:40</div></div>
+  <div class="move-card c-hyrox"><div class="move-top"><div class="move-name">Station 6 — Farmer's Carry</div><div class="move-tag tag-db">200m</div></div><div class="move-desc">Marche avec KC/DB 200m — ♂ 2×24kg · ♀ 2×16kg</div><div class="move-pills"><span class="pill">Grip</span><span class="pill">Trapèze</span><span class="pill">Core</span></div><div class="move-ecm ecm-red">💡 ECM Hyrox : Bloc 2 · 4×50m en training · augmenter les charges progressivement</div></div>
+  <div class="move-card c-hyrox"><div class="move-top"><div class="move-name">Station 7 — Sandbag Lunges</div><div class="move-tag tag-bw">100m</div></div><div class="move-desc">Fentes avec sac de sable 100m — ♂ 20kg · ♀ 10kg</div><div class="move-pills"><span class="pill">Quad</span><span class="pill">Fessiers</span><span class="pill">Core</span></div><div class="move-ecm ecm-red">💡 ECM Hyrox : Bloc 2 · 4×25m en training · technique fente stable</div></div>
+  <div class="move-card c-hyrox"><div class="move-top"><div class="move-name">Station 8 — Wall Ball</div><div class="move-tag tag-bw">100 reps</div></div><div class="move-desc">100 Wall Ball — ♂ 9kg/cible 3m · ♀ 6kg/cible 2.5m · la station finale</div><div class="move-pills"><span class="pill">Quad</span><span class="pill">Épaules</span><span class="pill">Cardio</span></div><div class="move-ecm ecm-red">💡 ECM Hyrox : Bloc 3 · sets de 20-25 reps en training · pace régulier crucial</div></div>
+
+  <div class="subsection">🏃 COMPROMISED RUNNING</div>
+  <div class="move-card c-hyrox"><div class="move-top"><div class="move-name">Course 1km entre chaque station</div><div class="move-tag tag-cardio">Running</div></div><div class="move-desc">8 km de course total entre les stations — le coeur du Hyrox · pace géré dès le départ</div><div class="move-pills"><span class="pill">Cardio</span><span class="pill">Gestion effort</span></div><div class="move-ecm ecm-red">💡 ECM Hyrox : entraîner le "compromised running" : run après chaque station sans récup</div></div>
+  <div class="move-card c-hyrox"><div class="move-top"><div class="move-name">Run Post-Sled Push</div><div class="move-tag tag-cardio">Spécifique</div></div><div class="move-desc">Course après poussée traîneau — jambes brûlées, mental + gestion cardio</div><div class="move-pills"><span class="pill">Mental</span><span class="pill">Gestion fatigue</span></div></div>
+  <div class="move-card c-hyrox"><div class="move-top"><div class="move-name">Run Post-Wall Ball</div><div class="move-tag tag-cardio">Spécifique</div></div><div class="move-desc">Course après Wall Ball — finir la course après la station finale</div><div class="move-pills"><span class="pill">Mental</span><span class="pill">Endurance</span></div></div>
+</div>
+
+<!-- ════════ FUNCTIONAL ════════ -->
+<div id="tab-func" class="section">
+  <div class="section-head" style="border-color:var(--teal);">
+    <div class="section-head-title" style="color:var(--teal);">🔥 Functional Training</div>
+    <div class="section-head-sub">Mouvements fonctionnels · KB · Medball · TRX · Bandes</div>
+  </div>
+
+  <div class="subsection">🎯 KETTLEBELL FONDAMENTAUX</div>
+  <div class="move-card c-func"><div class="move-top"><div class="move-name">KB Swing Russe</div><div class="move-tag tag-kb">Kettlebell</div></div><div class="move-desc">Balancé jusqu'aux épaules — technique soviétique, force chaîne post.</div><div class="move-pills"><span class="pill">Fessiers</span><span class="pill">Ischio</span><span class="pill">Core</span></div></div>
+  <div class="move-card c-func"><div class="move-top"><div class="move-name">KB Swing Américain</div><div class="move-tag tag-kb">Kettlebell</div></div><div class="move-desc">Balancé overhead — CrossFit standard, épaules en fin de mouvement</div><div class="move-pills"><span class="pill">Corps entier</span><span class="pill">Épaules</span></div></div>
+  <div class="move-card c-func"><div class="move-top"><div class="move-name">KB Clean</div><div class="move-tag tag-kb">Kettlebell</div></div><div class="move-desc">Épaulé KB — technique rack position, cardio + force</div><div class="move-pills"><span class="pill">Corps entier</span><span class="pill">Technique</span></div></div>
+  <div class="move-card c-func"><div class="move-top"><div class="move-name">KB Press</div><div class="move-tag tag-kb">Kettlebell</div></div><div class="move-desc">Press militaire KB — stabilité épaule supérieure au BB</div><div class="move-pills"><span class="pill">Épaules</span><span class="pill">Core</span></div></div>
+  <div class="move-card c-func"><div class="move-top"><div class="move-name">KB Snatch</div><div class="move-tag tag-kb">Kettlebell</div></div><div class="move-desc">Arraché KB — explosivité + endurance, test RKC</div><div class="move-pills"><span class="pill">Corps entier</span><span class="pill">Explosivité</span></div></div>
+  <div class="move-card c-func"><div class="move-top"><div class="move-name">KB Goblet Squat</div><div class="move-tag tag-kb">Kettlebell</div></div><div class="move-desc">Squat KB devant la poitrine — mobilité + quad + core</div><div class="move-pills"><span class="pill">Quad</span><span class="pill">Mobilité</span></div></div>
+  <div class="move-card c-func"><div class="move-top"><div class="move-name">KB Turkish Get-Up</div><div class="move-tag tag-kb">Kettlebell</div></div><div class="move-desc">Sol à debout KB — mobilité totale + force + coordination</div><div class="move-pills"><span class="pill">Corps entier</span><span class="pill">Mobilité</span></div></div>
+  <div class="move-card c-func"><div class="move-top"><div class="move-name">KB Windmill</div><div class="move-tag tag-kb">Kettlebell</div></div><div class="move-desc">Inclinaison latérale KB overhead — mobilité + force obliques</div><div class="move-pills"><span class="pill">Obliques</span><span class="pill">Mobilité</span><span class="pill">Épaule</span></div></div>
+  <div class="move-card c-func"><div class="move-top"><div class="move-name">KB Halo</div><div class="move-tag tag-kb">Kettlebell</div></div><div class="move-desc">Rotation KB autour de la tête — mobilité épaule + core</div><div class="move-pills"><span class="pill">Mobilité épaule</span><span class="pill">Core</span></div></div>
+
+  <div class="subsection">🎯 TRX & BANDES</div>
+  <div class="move-card c-func"><div class="move-top"><div class="move-name">TRX Row</div><div class="move-tag tag-bw">TRX</div></div><div class="move-desc">Rowing TRX — dos + biceps, angle variable selon difficulté</div><div class="move-pills"><span class="pill">Dos</span><span class="pill">Biceps</span></div></div>
+  <div class="move-card c-func"><div class="move-top"><div class="move-name">TRX Push-Up</div><div class="move-tag tag-bw">TRX</div></div><div class="move-desc">Pompe TRX — instabilité + pec + core</div><div class="move-pills"><span class="pill">Pec</span><span class="pill">Core</span><span class="pill">Stabilisation</span></div></div>
+  <div class="move-card c-func"><div class="move-top"><div class="move-name">TRX Squat</div><div class="move-tag tag-bw">TRX</div></div><div class="move-desc">Squat assisté TRX — mobilité + quad + équilibre</div><div class="move-pills"><span class="pill">Quad</span><span class="pill">Mobilité</span></div></div>
+  <div class="move-card c-func"><div class="move-top"><div class="move-name">Band Pull Apart</div><div class="move-tag tag-bw">Bande</div></div><div class="move-desc">Écartement bande élastique — rhomboïdes + deltoïde post. + prehab</div><div class="move-pills"><span class="pill">Prehab épaule</span><span class="pill">Rhomboïdes</span></div><div class="move-ecm ecm-teal">💡 ECM : Warm-Up épaule · Prehab quotidien</div></div>
+  <div class="move-card c-func"><div class="move-top"><div class="move-name">Band Squat</div><div class="move-tag tag-bw">Bande</div></div><div class="move-desc">Squat avec bande élastique — résistance variable, activation fessiers</div><div class="move-pills"><span class="pill">Fessiers</span><span class="pill">Quad</span></div></div>
+
+  <div class="subsection">🎯 COURS COLLECTIFS</div>
+  <div class="move-card c-func"><div class="move-top"><div class="move-name">Step Aérobic</div><div class="move-tag tag-cardio">Step</div></div><div class="move-desc">Montées/descentes de step en rythme — cardio + jambes + coordination</div><div class="move-pills"><span class="pill">Cardio</span><span class="pill">Jambes</span><span class="pill">Coordination</span></div><div class="move-ecm ecm-teal">💡 ECM : Jour adaptatif Hybrid · cardio doux</div></div>
+  <div class="move-card c-func"><div class="move-top"><div class="move-name">CrossTraining Circuit</div><div class="move-tag tag-cardio">CrossTraining</div></div><div class="move-desc">Circuit polyvalent BW + matériel léger — conditionnement général</div><div class="move-pills"><span class="pill">Corps entier</span><span class="pill">Cardio</span></div></div>
+  <div class="move-card c-func"><div class="move-top"><div class="move-name">CAF — Cuisse Abdo Fessier</div><div class="move-tag tag-bw">BW</div></div><div class="move-desc">Séance ciblée CAF — squat, fente, pont, crunch — tonification globale</div><div class="move-pills"><span class="pill">Quad</span><span class="pill">Fessiers</span><span class="pill">Abdos</span></div></div>
+  <div class="move-card c-func"><div class="move-top"><div class="move-name">HIIT Circuit</div><div class="move-tag tag-cardio">HIIT</div></div><div class="move-desc">Intervalles haute intensité — 20-40sec ON / 10-20sec OFF · fat burn</div><div class="move-pills"><span class="pill">Cardio</span><span class="pill">Corps entier</span></div></div>
+  <div class="move-card c-func"><div class="move-top"><div class="move-name">Cardio Boxe</div><div class="move-tag tag-combat">Cardio</div></div><div class="move-desc">Enchaînements de frappes sur tempo — cardio + coordination + décharge</div><div class="move-pills"><span class="pill">Cardio</span><span class="pill">Coordination</span></div><div class="move-ecm ecm-teal">💡 ECM : Jour adaptatif Hybrid · alternative course</div></div>
+  <div class="move-card c-func"><div class="move-top"><div class="move-name">Pilates</div><div class="move-tag tag-bw">BW</div></div><div class="move-desc">Renforcement profond — transverse, plancher pelvien, stabilisation lombaire</div><div class="move-pills"><span class="pill">Core profond</span><span class="pill">Mobilité</span></div></div>
+  <div class="move-card c-func"><div class="move-top"><div class="move-name">Yoga Power</div><div class="move-tag tag-bw">BW</div></div><div class="move-desc">Yoga actif — mobilité + force isométrique + récupération active</div><div class="move-pills"><span class="pill">Mobilité</span><span class="pill">Force isométrique</span></div><div class="move-ecm ecm-teal">💡 ECM : Cool Down · Jour récupération adaptatif</div></div>
+</div>
+
+<!-- ════════ CALISTÉNIE ════════ -->
+<div id="tab-cali" class="section">
+  <div class="section-head" style="border-color:var(--lime);">
+    <div class="section-head-title" style="color:var(--lime);">🧗 Calisténie — Corps entier sans matériel</div>
+    <div class="section-head-sub">Poids du corps · Progressions · Force relative</div>
+  </div>
+
+  <div class="subsection">💪 PUSH — POUSSÉE</div>
+  <div class="move-card c-cali"><div class="move-top"><div class="move-name">Push-Up variations</div><div class="move-tag tag-bw">BW</div></div><div class="move-desc">Standard · Large · Serré · Incliné · Décliné · Archer · Explosive</div><div class="move-pills"><span class="pill">Pec</span><span class="pill">Triceps</span><span class="pill">Épaules</span></div><div class="move-ecm ecm-lime">💡 ECM At Home : Main Block · toutes variantes</div></div>
+  <div class="move-card c-cali"><div class="move-top"><div class="move-name">Pike Push-Up</div><div class="move-tag tag-bw">BW</div></div><div class="move-desc">Pompe en V — progression vers le HSPU</div><div class="move-pills"><span class="pill">Épaules</span></div></div>
+  <div class="move-card c-cali"><div class="move-top"><div class="move-name">Pseudo Planche Push-Up</div><div class="move-tag tag-bw">BW</div></div><div class="move-desc">Pompe mains vers les hanches — progressivité vers la planche</div><div class="move-pills"><span class="pill">Pec</span><span class="pill">Deltoïde ant.</span></div></div>
+  <div class="move-card c-cali"><div class="move-top"><div class="move-name">Planche</div><div class="move-tag tag-bw">Skill</div></div><div class="move-desc">Corps horizontal bras tendus — le skill ultime du calisthenics</div><div class="move-pills"><span class="pill">Pec</span><span class="pill">Deltoïde</span><span class="pill">Core</span></div></div>
+  <div class="move-card c-cali"><div class="move-top"><div class="move-name">Handstand Push-Up</div><div class="move-tag tag-bw">Skill</div></div><div class="move-desc">Pompe à l'équilibre sur les mains — force épaules + équilibre</div><div class="move-pills"><span class="pill">Épaules</span><span class="pill">Triceps</span></div></div>
+  <div class="move-card c-cali"><div class="move-top"><div class="move-name">Dips</div><div class="move-tag tag-bw">BW</div></div><div class="move-desc">Entre barres ou chaise — pec inférieur + triceps</div><div class="move-pills"><span class="pill">Triceps</span><span class="pill">Pec</span></div></div>
+
+  <div class="subsection">💪 PULL — TRACTION</div>
+  <div class="move-card c-cali"><div class="move-top"><div class="move-name">Pull-Up variations</div><div class="move-tag tag-bw">BW</div></div><div class="move-desc">Strict · Kipping · Butterfly · Wide · Narrow · Explosive · L-sit Pull-Up</div><div class="move-pills"><span class="pill">Grand dorsal</span><span class="pill">Biceps</span></div><div class="move-ecm ecm-lime">💡 ECM At Home avec barre · WOD CrossFit</div></div>
+  <div class="move-card c-cali"><div class="move-top"><div class="move-name">Front Lever</div><div class="move-tag tag-bw">Skill</div></div><div class="move-desc">Corps horizontal suspendu face au sol — force relative exceptionnelle</div><div class="move-pills"><span class="pill">Grand dorsal</span><span class="pill">Core</span></div></div>
+  <div class="move-card c-cali"><div class="move-top"><div class="move-name">Australian Pull-Up</div><div class="move-tag tag-bw">BW</div></div><div class="move-desc">Traction corps incliné — progression pull-up accessible</div><div class="move-pills"><span class="pill">Dos</span><span class="pill">Biceps</span></div></div>
+  <div class="move-card c-cali"><div class="move-top"><div class="move-name">Archer Pull-Up</div><div class="move-tag tag-bw">BW</div></div><div class="move-desc">Traction unilatérale — progression one arm pull-up</div><div class="move-pills"><span class="pill">Grand dorsal</span></div></div>
+  <div class="move-card c-cali"><div class="move-top"><div class="move-name">One Arm Pull-Up</div><div class="move-tag tag-bw">Skill ultime</div></div><div class="move-desc">Traction un bras — le graal du calisthenics</div><div class="move-pills"><span class="pill">Grand dorsal</span><span class="pill">Force relative max</span></div></div>
+
+  <div class="subsection">🦵 LEGS — JAMBES BW</div>
+  <div class="move-card c-cali"><div class="move-top"><div class="move-name">Squat variations BW</div><div class="move-tag tag-bw">BW</div></div><div class="move-desc">Air Squat · Jump Squat · Narrow · Wide · Sumo · Overhead</div><div class="move-pills"><span class="pill">Quad</span><span class="pill">Fessiers</span></div><div class="move-ecm ecm-lime">💡 ECM At Home : Main Block Jambes</div></div>
+  <div class="move-card c-cali"><div class="move-top"><div class="move-name">Pistol Squat</div><div class="move-tag tag-bw">BW</div></div><div class="move-desc">Squat unilatéral complet — quad + équilibre + mobilité</div><div class="move-pills"><span class="pill">Quad</span><span class="pill">Mobilité</span><span class="pill">Équilibre</span></div></div>
+  <div class="move-card c-cali"><div class="move-top"><div class="move-name">Fente variations BW</div><div class="move-tag tag-bw">BW</div></div><div class="move-desc">Avant · Arrière · Latérale · Marchée · Sautée</div><div class="move-pills"><span class="pill">Quad</span><span class="pill">Fessiers</span></div></div>
+  <div class="move-card c-cali"><div class="move-top"><div class="move-name">Nordic Curl</div><div class="move-tag tag-bw">BW</div></div><div class="move-desc">Curl ischio sans machine — préventif + force excentrique</div><div class="move-pills"><span class="pill">Ischio</span><span class="pill">Préventif</span></div></div>
+  <div class="move-card c-cali"><div class="move-top"><div class="move-name">Glute Bridge variations</div><div class="move-tag tag-bw">BW</div></div><div class="move-desc">Standard · Unilatéral · Marching · Feet Elevated</div><div class="move-pills"><span class="pill">Fessiers</span><span class="pill">Core</span></div></div>
+
+  <div class="subsection">🧘 SKILLS CALISTHENICS</div>
+  <div class="move-card c-cali"><div class="move-top"><div class="move-name">Human Flag</div><div class="move-tag tag-bw">Skill</div></div><div class="move-desc">Corps horizontal sur barre verticale — obliques + épaule</div><div class="move-pills"><span class="pill">Obliques</span><span class="pill">Épaules</span></div></div>
+  <div class="move-card c-cali"><div class="move-top"><div class="move-name">Back Lever</div><div class="move-tag tag-bw">Skill</div></div><div class="move-desc">Corps horizontal suspendu dos au sol — biceps + épaule</div><div class="move-pills"><span class="pill">Biceps</span><span class="pill">Épaules</span></div></div>
+  <div class="move-card c-cali"><div class="move-top"><div class="move-name">Hollow Body Hold</div><div class="move-tag tag-bw">BW</div></div><div class="move-desc">Position creuse gainage — fondation du calisthenics + CrossFit</div><div class="move-pills"><span class="pill">Core</span><span class="pill">Position de base</span></div></div>
+  <div class="move-card c-cali"><div class="move-top"><div class="move-name">Superman Hold</div><div class="move-tag tag-bw">BW</div></div><div class="move-desc">Position creuse inversée — chaîne postérieure isométrique</div><div class="move-pills"><span class="pill">Lombaires</span><span class="pill">Fessiers</span></div></div>
+</div>
+
+<!-- ════════ COMBAT ════════ -->
+<div id="tab-combat" class="section">
+  <div class="section-head" style="border-color:var(--pink);">
+    <div class="section-head-title" style="color:var(--pink);">🥊 Sports de Combat</div>
+    <div class="section-head-sub">Boxe · Muay Thai · MMA · Jiu-Jitsu · Mouvements spécifiques</div>
+  </div>
+
+  <div class="subsection">🥊 BOXE ANGLAISE — FRAPPES</div>
+  <div class="move-card c-boxe"><div class="move-top"><div class="move-name">Jab</div><div class="move-tag tag-combat">Boxe</div></div><div class="move-desc">Coup direct main avant — vitesse + distance + placement</div><div class="move-pills"><span class="pill">Vitesse</span><span class="pill">Coordination</span></div><div class="move-ecm ecm-pink">💡 ECM Hybrid : Jour adaptatif · Cardio Boxe</div></div>
+  <div class="move-card c-boxe"><div class="move-top"><div class="move-name">Cross</div><div class="move-tag tag-combat">Boxe</div></div><div class="move-desc">Coup direct main arrière — puissance + rotation du bassin</div><div class="move-pills"><span class="pill">Puissance</span><span class="pill">Rotation</span></div></div>
+  <div class="move-card c-boxe"><div class="move-top"><div class="move-name">Hook</div><div class="move-tag tag-combat">Boxe</div></div><div class="move-desc">Crochet — coup circulaire court, épaule + hanche + transfert de poids</div><div class="move-pills"><span class="pill">Puissance</span><span class="pill">Épaule</span></div></div>
+  <div class="move-card c-boxe"><div class="move-top"><div class="move-name">Uppercut</div><div class="move-tag tag-combat">Boxe</div></div><div class="move-desc">Coup ascendant — jambes + rotation + épaule en montée</div><div class="move-pills"><span class="pill">Jambes</span><span class="pill">Rotation</span></div></div>
+  <div class="move-card c-boxe"><div class="move-top"><div class="move-name">Combinations</div><div class="move-tag tag-combat">Boxe</div></div><div class="move-desc">Enchaînements : 1-2 · 1-2-3 · 1-2-3-2 · 1-6-3-2 — fluidité + tempo</div><div class="move-pills"><span class="pill">Coordination</span><span class="pill">Cardio</span></div></div>
+  <div class="move-card c-boxe"><div class="move-top"><div class="move-name">Footwork</div><div class="move-tag tag-combat">Boxe</div></div><div class="move-desc">Déplacements — avant · arrière · latéral · pivot · step-in step-out</div><div class="move-pills"><span class="pill">Cardio</span><span class="pill">Agilité</span></div></div>
+
+  <div class="subsection">🥋 MUAY THAI — FRAPPES</div>
+  <div class="move-card c-boxe"><div class="move-top"><div class="move-name">Teep (Coup de pied frontal)</div><div class="move-tag tag-combat">Muay Thai</div></div><div class="move-desc">Coup de pied frontal — distance + poussée + jambe avant ou arrière</div><div class="move-pills"><span class="pill">Jambes</span><span class="pill">Distance</span></div></div>
+  <div class="move-card c-boxe"><div class="move-top"><div class="move-name">Roundhouse Kick</div><div class="move-tag tag-combat">Muay Thai</div></div><div class="move-desc">Coup de pied circulaire au tibia — la frappe signature du Muay Thai</div><div class="move-pills"><span class="pill">Rotation hanche</span><span class="pill">Puissance</span></div></div>
+  <div class="move-card c-boxe"><div class="move-top"><div class="move-name">Knee Strike</div><div class="move-tag tag-combat">Muay Thai</div></div><div class="move-desc">Coup de genou — en clinch ou en montée · ischio + fessiers</div><div class="move-pills"><span class="pill">Fessiers</span><span class="pill">Core</span></div></div>
+  <div class="move-card c-boxe"><div class="move-top"><div class="move-name">Elbow Strike</div><div class="move-tag tag-combat">Muay Thai</div></div><div class="move-desc">Coup de coude — courte distance, rotation épaule + core</div><div class="move-pills"><span class="pill">Épaules</span><span class="pill">Core</span></div></div>
+  <div class="move-card c-boxe"><div class="move-top"><div class="move-name">Clinch</div><div class="move-tag tag-combat">Muay Thai</div></div><div class="move-desc">Corps à corps — travail du cou, frappes genoux, contrôle</div><div class="move-pills"><span class="pill">Cou</span><span class="pill">Core</span><span class="pill">Force</span></div></div>
+
+  <div class="subsection">🏃 CONDITIONNEMENT COMBAT</div>
+  <div class="move-card c-boxe"><div class="move-top"><div class="move-name">Shadow Boxing</div><div class="move-tag tag-combat">Conditionning</div></div><div class="move-desc">Boxe dans le vide — cardio + technique + gainage dynamique</div><div class="move-pills"><span class="pill">Cardio</span><span class="pill">Technique</span></div><div class="move-ecm ecm-pink">💡 ECM Hybrid : Jour adaptatif · Finisher Cardio</div></div>
+  <div class="move-card c-boxe"><div class="move-top"><div class="move-name">Sac de frappe</div><div class="move-tag tag-combat">Conditionning</div></div><div class="move-desc">Frappes sur sac lourd — puissance + cardio + technique réelle</div><div class="move-pills"><span class="pill">Cardio</span><span class="pill">Puissance</span></div></div>
+  <div class="move-card c-boxe"><div class="move-top"><div class="move-name">Pattes d'ours</div><div class="move-tag tag-combat">Conditionning</div></div><div class="move-desc">Frappes avec partenaire ou coach — précision + vitesse</div><div class="move-pills"><span class="pill">Précision</span><span class="pill">Réflexes</span></div></div>
+  <div class="move-card c-boxe"><div class="move-top"><div class="move-name">Corde à sauter boxe</div><div class="move-tag tag-combat">Conditionning</div></div><div class="move-desc">Saut corde boxeur — cardio + coordination + footwork</div><div class="move-pills"><span class="pill">Cardio</span><span class="pill">Coordination</span></div></div>
+  <div class="move-card c-boxe"><div class="move-top"><div class="move-name">Sparring</div><div class="move-tag tag-combat">Combat</div></div><div class="move-desc">Combat libre avec partenaire — application technique + cardio maximum</div><div class="move-pills"><span class="pill">Cardio max</span><span class="pill">Technique</span><span class="pill">Mental</span></div></div>
+</div>
+
+<!-- ════════ SPORTS ════════ -->
+<div id="tab-sports" class="section">
+  <div class="section-head" style="border-color:var(--cyan);">
+    <div class="section-head-title" style="color:var(--cyan);">🏃 Sports & Activités</div>
+    <div class="section-head-sub">Endurance · Sports collectifs · Aquatique · Plein air</div>
+  </div>
+
+  <div class="subsection">🏃 COURSE & ENDURANCE</div>
+  <div class="move-card c-sport"><div class="move-top"><div class="move-name">Running</div><div class="move-tag tag-cardio">Course</div></div><div class="move-desc">Course à pied — Zone 2 · Seuil · Intervalles · Long Run · Sprint</div><div class="move-pills"><span class="pill">Cardio</span><span class="pill">Endurance</span></div><div class="move-ecm ecm-cyan">💡 ECM At Home : Option run extérieur · Jour adaptatif Hybrid</div></div>
+  <div class="move-card c-sport"><div class="move-top"><div class="move-name">Marche / Nordic Walking</div><div class="move-tag tag-cardio">Marche</div></div><div class="move-desc">Marche active — récupération active, Zone 1, impact faible</div><div class="move-pills"><span class="pill">Récupération</span><span class="pill">Zone 1</span></div><div class="move-ecm ecm-cyan">💡 ECM Hybrid : Jour adaptatif fatigue élevée</div></div>
+  <div class="move-card c-sport"><div class="move-top"><div class="move-name">Cyclisme / Vélo</div><div class="move-tag tag-cardio">Vélo</div></div><div class="move-desc">Route ou indoor — cardio sans impact, jambes, endurance</div><div class="move-pills"><span class="pill">Cardio</span><span class="pill">Jambes</span></div><div class="move-ecm ecm-cyan">💡 ECM Hybrid : Jour adaptatif · substitut run si blessure genou</div></div>
+  <div class="move-card c-sport"><div class="move-top"><div class="move-name">Trail Running</div><div class="move-tag tag-cardio">Trail</div></div><div class="move-desc">Course en nature — dénivelé + obstacles + proprioception</div><div class="move-pills"><span class="pill">Cardio</span><span class="pill">Proprioception</span></div></div>
+
+  <div class="subsection">🏊 AQUATIQUE</div>
+  <div class="move-card c-sport"><div class="move-top"><div class="move-name">Natation</div><div class="move-tag tag-cardio">Natation</div></div><div class="move-desc">Crawl · Dos · Brasse · Papillon — cardio complet, zéro impact articulaire</div><div class="move-pills"><span class="pill">Cardio complet</span><span class="pill">Récupération active</span></div><div class="move-ecm ecm-cyan">💡 ECM Hybrid : Jour adaptatif · récupération active optimale</div></div>
+  <div class="move-card c-sport"><div class="move-top"><div class="move-name">Aquabike</div><div class="move-tag tag-cardio">Aquatique</div></div><div class="move-desc">Vélo dans l'eau — cardio + résistance + récupération</div><div class="move-pills"><span class="pill">Cardio</span><span class="pill">Récupération</span></div></div>
+
+  <div class="subsection">⚽ SPORTS COLLECTIFS</div>
+  <div class="move-card c-sport"><div class="move-top"><div class="move-name">Football</div><div class="move-tag tag-cardio">Collectif</div></div><div class="move-desc">Sprints + changements de direction + endurance — cardio intermittent</div><div class="move-pills"><span class="pill">Cardio intermittent</span><span class="pill">Agilité</span></div></div>
+  <div class="move-card c-sport"><div class="move-top"><div class="move-name">Basketball</div><div class="move-tag tag-cardio">Collectif</div></div><div class="move-desc">Sauts + sprints + changements direction — explosivité + cardio</div><div class="move-pills"><span class="pill">Explosivité</span><span class="pill">Cardio</span></div></div>
+  <div class="move-card c-sport"><div class="move-top"><div class="move-name">Rugby</div><div class="move-tag tag-cardio">Collectif</div></div><div class="move-desc">Contact + sprints + endurance + force — le sport le plus complet</div><div class="move-pills"><span class="pill">Force</span><span class="pill">Endurance</span><span class="pill">Contact</span></div></div>
+  <div class="move-card c-sport"><div class="move-top"><div class="move-name">Tennis / Padel</div><div class="move-tag tag-cardio">Raquette</div></div><div class="move-desc">Mouvements latéraux + explosivité + coordination — cardio intermittent</div><div class="move-pills"><span class="pill">Agilité</span><span class="pill">Coordination</span></div></div>
+  <div class="move-card c-sport"><div class="move-top"><div class="move-name">Escalade</div><div class="move-tag tag-bw">Escalade</div></div><div class="move-desc">Grip + dos + core + résolution de problèmes — force relative pure</div><div class="move-pills"><span class="pill">Grip</span><span class="pill">Dos</span><span class="pill">Core</span></div></div>
+</div>
+
+<script>
+function switchTab(name) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  document.querySelectorAll('.tab-btn').forEach(b => {
+    b.style.fontWeight = '700';
+    b.style.opacity = '.7';
+  });
+  event.target.style.opacity = '1';
+  event.target.style.fontWeight = '900';
+}
+
+function searchMovements(q) {
+  const query = q.toLowerCase().trim();
+  const activeSection = document.querySelector('.section.active');
+  if (!activeSection) return;
+  const cards = activeSection.querySelectorAll('.move-card');
+  cards.forEach(card => {
+    const text = card.textContent.toLowerCase();
+    card.style.display = (!query || text.includes(query)) ? 'block' : 'none';
+  });
+  const subsections = activeSection.querySelectorAll('.subsection');
+  subsections.forEach(sub => {
+    sub.style.display = !query ? 'block' : 'none';
+  });
+}
+</script>
+</body>
+</html>

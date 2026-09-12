@@ -3,6 +3,7 @@ import { getDemoState, resolveTodaySession } from "@/lib/demo-session";
 import { getUserId } from "@/lib/user-id";
 import { prisma } from "@/lib/prisma";
 import { todayKey } from "@/lib/date-key";
+import type { Day } from "@/lib/programming";
 import { adaptDayForInjuries, detectInjuryAreas, reduceVolume } from "@/lib/session-adapt";
 import { toDisplayBlocks, defaultRuntimeFormat, defaultDurationMinutes } from "@/lib/session-format";
 import { minutesToHM } from "../dashboard/dashboard-helpers";
@@ -23,23 +24,33 @@ export default async function SessionPage({
   if (!demo.programSlug) redirect("/onboarding");
 
   const today = resolveTodaySession(demo.programSlug, demo.fatigueScore);
-  if (!today || today.needsFatigueInput || today.day.blocks.length === 0) {
-    redirect("/dashboard");
-  }
+  if (!today) redirect("/dashboard");
 
   const userId = await getUserId();
-  const [profile, todayCheckin] = userId
+  const [profile, todayCheckin, dbOutput] = userId
     ? await Promise.all([
         prisma.profile.findUnique({ where: { userId } }),
         prisma.checkin.findUnique({ where: { userId_date: { userId, date: todayKey() } } }),
+        prisma.dashboardOutput.findUnique({ where: { userId_date: { userId, date: todayKey() } } }),
       ])
-    : [null, null];
+    : [null, null, null];
+
+  const generatedDay = (dbOutput?.output as { generatedDay?: Day } | null)?.generatedDay;
+
+  // Sans séance générée, on retombe sur le programme fixe hebdomadaire — mêmes
+  // garde-fous qu'avant (jour adaptatif pas encore calibré / jour de repos).
+  if (!generatedDay && (today.needsFatigueInput || today.day.blocks.length === 0)) {
+    redirect("/dashboard");
+  }
+
+  const baseDay = generatedDay ?? today.day;
+  const sessionTitle = generatedDay ? baseDay.focus : `${today.template.name} — ${baseDay.focus}`;
 
   const injuryAreas = detectInjuryAreas(
     profile?.blessures ? profile.blessuresDetail : null,
     todayCheckin?.douleur ? todayCheckin.douleurDetail : null,
   );
-  const { day: safeDay } = adaptDayForInjuries(today.day, injuryAreas);
+  const { day: safeDay } = adaptDayForInjuries(baseDay, injuryAreas);
   const day = variant === "b" ? reduceVolume(safeDay) : safeDay;
 
   const displayBlocks = toDisplayBlocks(day.blocks);
@@ -52,7 +63,7 @@ export default async function SessionPage({
   return (
     <div className={sessionFontVariables}>
       <SessionRunnerV2
-        sessionName={`${today.template.name} — ${today.day.focus}`}
+        sessionName={sessionTitle}
         sessionMeta={`${minutesToHM(day.estimatedMinutes)} · ${displayBlocks.length} blocs`}
         blocks={displayBlocks}
         initial={initial}

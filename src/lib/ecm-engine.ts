@@ -24,6 +24,18 @@ import type {
   Alert,
   SessionVariant,
 } from "./coaching-adaptatif-mock";
+import { movements, type Movement } from "./movements";
+import { WODS } from "./wods";
+import { SOURCE_PROGRAM_EXAMPLES } from "./source-program-examples";
+import type { Block, BlockType, Day, Exercise, WodFormat } from "./programming";
+import { validateGeneratedDay } from "./session-adapt";
+
+function normalizeAccents(s: string): string {
+  return s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
 
 const DAY_LABELS = ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"];
 
@@ -109,6 +121,7 @@ export type EcmAnalysisResult = {
   stack: StackMoment[];
   alerts: Alert[];
   snack: SnackInsight;
+  generatedDay: Day;
 };
 
 const STACK_TOOL = {
@@ -127,6 +140,7 @@ const STACK_TOOL = {
       "stack",
       "alerts",
       "snack",
+      "sessionBlocks",
     ],
     properties: {
       state: { type: "string", enum: ["green", "yellow", "red"] },
@@ -185,9 +199,98 @@ const STACK_TOOL = {
           note: { type: "string" },
         },
       },
+      sessionBlocks: {
+        type: "array",
+        description:
+          "La séance du jour, composée depuis MOUVEMENTS DISPONIBLES et WODS D'INSPIRATION. Exactement 5 blocs dans l'ordre : warmup, strength, wod, accessory (finisher), cooldown.",
+        items: {
+          type: "object",
+          required: ["name", "type", "exercises"],
+          properties: {
+            name: { type: "string" },
+            type: {
+              type: "string",
+              enum: ["warmup", "strength", "skill", "wod", "accessory", "conditioning", "endurance", "cooldown"],
+            },
+            format: {
+              type: "string",
+              enum: ["AMRAP", "EMOM", "E2MOM", "E3MOM", "ForTime", "Tabata", "Chipper", "RFT", "Intervals", "StraightSets", "Superset", "Circuit", "Simulation"],
+            },
+            duration: { type: "string", description: "ex: '10min'" },
+            rounds: { type: "integer" },
+            notes: { type: "string" },
+            exercises: {
+              type: "array",
+              items: {
+                type: "object",
+                required: ["movementId"],
+                properties: {
+                  movementId: { type: "string", description: "DOIT être un id exact de la liste MOUVEMENTS DISPONIBLES — jamais inventé." },
+                  sets: { type: "integer" },
+                  reps: { type: "string", description: "ex: '12', '8-10', 'AMRAP'" },
+                  time: { type: "string" },
+                  distance: { type: "string" },
+                  load: { type: "string" },
+                  notes: { type: "string" },
+                },
+              },
+            },
+          },
+        },
+      },
     },
   },
 };
+
+// ============================================================================
+// Sélection des candidats (mouvements + WODs) — déterministe, avant l'appel Claude.
+// ============================================================================
+
+function equipmentTierFor(profileEquipement: string): Movement["equipment"] | null {
+  const e = normalizeAccents(profileEquipement);
+  if (e.includes("salle complete")) return null; // null = tout le catalogue autorisé
+  if (e.includes("maison")) return ["none", "dumbbell", "kettlebell", "resistance_band", "mat", "jump_rope", "box", "bench"];
+  if (e.includes("exterieur") || e.includes("calisthenie")) return ["none", "outdoor", "pullup_bar", "parallel_bars", "trx"];
+  return null; // "Les deux" ou valeur inconnue → tout autorisé
+}
+
+function levelRankFor(niveau: string): number {
+  const n = normalizeAccents(niveau);
+  if (n.includes("elite")) return 3;
+  if (n.includes("avance")) return 2;
+  if (n.includes("intermediaire")) return 1;
+  return 0;
+}
+
+const LEVEL_RANK: Record<Movement["level"], number> = { beginner: 0, intermediate: 1, advanced: 2, elite: 3 };
+
+/** Mouvements compatibles équipement/niveau — c'est la seule liste dans laquelle Claude a le droit de piocher. */
+export function selectCandidateMovements(profile: Profile): Movement[] {
+  const tier = equipmentTierFor(profile.equipement);
+  const maxRank = Math.max(levelRankFor(profile.niveau), 1); // toujours un minimum de variété
+  return movements.filter((m) => {
+    if (LEVEL_RANK[m.level] > maxRank || m.gamesOnly) return false;
+    if (!tier) return true;
+    return m.equipment.some((e) => tier.includes(e)) || m.tags.includes("home-friendly");
+  });
+}
+
+function formatMovementLine(m: Movement): string {
+  return `${m.id} — ${m.name} [${m.equipment.join("/")}] (${m.level})`;
+}
+
+/** Échantillon de WODs (Girls/Hero/Open/benchmark) donné comme inspiration, jamais servi tel quel. */
+function selectWodInspiration(limit = 16): string {
+  const sample = WODS.filter((w) => w.category !== "open" || Math.random() < 0.6).slice(0, limit);
+  return sample.map((w) => `- ${w.name} (${w.category}) — ${w.scheme} — ${w.description}`).join("\n");
+}
+
+/** movementId du "main lift" (1er exercice du bloc strength) des N derniers jours — évite la répétition. */
+export function extractMainLift(day: Day | null | undefined): string | null {
+  if (!day) return null;
+  const strengthBlock = day.blocks.find((b) => b.type === "strength");
+  return strengthBlock?.exercises[0]?.movementId ?? null;
+}
 
 function omit<T extends object, K extends keyof T>(obj: T, keys: K[]): Omit<T, K> {
   const clone = { ...obj };
@@ -232,8 +335,10 @@ export async function generateEcmAnalysis(input: {
   sleep: SleepInsight;
   weight: WeightInsight;
   recentCheckins: Checkin[];
+  /** movementId du "main lift" des ~14 derniers jours (le plus récent en premier) — évite la répétition. */
+  recentMainLifts?: string[];
 }): Promise<EcmAnalysisResult> {
-  const { profile, checkin, sleep, weight, recentCheckins } = input;
+  const { profile, checkin, sleep, weight, recentCheckins, recentMainLifts = [] } = input;
 
   const dataForDashboard = buildDashboardData(profile, checkin);
 
@@ -250,7 +355,17 @@ export async function generateEcmAnalysis(input: {
 
   const client = getAnthropicClient();
 
-  const prompt = `Tu es le Coaching Adaptatif EL COACH METHOD. Analyse les données de cet athlète (profil fusionné avec le check-in du jour) puis appelle l'outil emit_ecm_analysis avec ton analyse.
+  const candidateMovements = selectCandidateMovements(profile);
+  const movementLines = candidateMovements.map(formatMovementLine).join("\n");
+  const wodInspiration = selectWodInspiration();
+  const allowedMovementIds = new Set(movements.map((m) => m.id));
+
+  const rotationLine =
+    recentMainLifts.length > 0
+      ? `MOUVEMENTS PRINCIPAUX DES 14 DERNIERS JOURS (à éviter en bloc "strength" si possible, pour varier) : ${recentMainLifts.join(", ")}.`
+      : "Aucun historique récent — première génération ou pas de rotation à respecter.";
+
+  const prompt = `Tu es le Coaching Adaptatif EL COACH METHOD. Analyse les données de cet athlète (profil fusionné avec le check-in du jour), compose la séance du jour à partir des MOUVEMENTS DISPONIBLES, puis appelle l'outil emit_ecm_analysis avec ton analyse complète.
 
 DONNÉES ATHLÈTE (profil + check-in du jour déjà fusionnés — les champs du check-in, quand renseignés, ont déjà écrasé ceux du profil : ex. poids, genre) :
 ${JSON.stringify(dataForDashboard, null, 2)}
@@ -258,20 +373,32 @@ ${JSON.stringify(dataForDashboard, null, 2)}
 SOMMEIL CETTE NUIT (déjà calculé, ne pas recalculer) : ${sleep.lastNight.totalMinutes} min total, tendance 7j ${sleep.trendMinutes >= 0 ? "+" : ""}${sleep.trendMinutes} min.
 POIDS : ${weight.today} kg, delta 7j ${weight.deltaWeek} kg.
 NOMBRE DE CHECK-INS RÉCENTS DISPONIBLES : ${recentCheckins.length}.
+${rotationLine}
+
+MOUVEMENTS DISPONIBLES (équipement et niveau déjà filtrés pour cet athlète — ${candidateMovements.length} mouvements ; sessionBlocks.exercises[].movementId DOIT venir exclusivement de cette liste) :
+${movementLines}
+
+WODS D'INSPIRATION (benchmarks connus — inspire-toi du format/de l'intensité, ne les recopie pas nécessairement à l'identique, adapte aux mouvements disponibles) :
+${wodInspiration}
+
+EXEMPLES DE STRUCTURE DE PROGRAMMES SOURCES (styles externes reconnus — inspiration de structure/enchaînement uniquement, jamais servis tels quels) :
+${SOURCE_PROGRAM_EXAMPLES.slice(0, 6000)}
 
 RÈGLES :
-- Les données ci-dessus sont déjà fusionnées avec la bonne priorité (check-in > profil) — utilise-les telles quelles, ne réinterprète pas de conflit.
+- Les données ATHLÈTE ci-dessus sont déjà fusionnées avec la bonne priorité (check-in > profil) — utilise-les telles quelles, ne réinterprète pas de conflit.
 - objectif / objectif2 = les 2 objectifs de l'athlète (objectif2 peut être vide).
-- seance = le sport/la séance prévue par l'athlète CE JOUR (check-in) — peut différer de sportPrincipal (son sport habituel, profil) ; utilise seance en priorité pour orienter la séance du jour.
+- seance = le sport/la séance prévue par l'athlète CE JOUR (check-in) — peut différer de sportPrincipal (son sport habituel, profil) ; utilise seance en priorité pour orienter la séance du jour (programme/discipline à privilégier dans sessionBlocks).
 - Le stack utilise UNIQUEMENT des compléments réalistes cohérents avec la liste "complements" (${profile.complements.join(", ") || "aucun déclaré — stack vide ou générique léger"}).
 - recommendedVariant = "B" si état jaune/rouge ou douleur/blessure signalée, sinon "A".
 - N'invente aucune donnée numérique (poids, sommeil) — utilise uniquement les valeurs fournies ci-dessus.
 - Les alertes de la catégorie "injury" ne doivent apparaître que si blessures ou douleur est vrai.
+- sessionBlocks : exactement 5 blocs dans l'ordre — type "warmup" (échauffement court), "strength" (main lift, 1 mouvement de force principal — varier par rapport aux 14 derniers jours listés ci-dessus si possible), "wod" (metcon/conditioning, inspiré de WODS D'INSPIRATION), "accessory" (finisher court), "cooldown" (mobilité/récupération, optionnel = facultatif). Adapte le volume/l'intensité à l'état du jour (énergie/jambes/mental/stress du check-in) — SANS retirer de mouvement pour cause de blessure : cette adaptation-là est gérée déterministiquement en aval, tu n'as pas à l'anticiper.
+- Ne considère PAS les blessures/douleurs pour composer sessionBlocks (filet de sécurité séparé et déterministe après coup) — compose la séance "pleine forme" adaptée uniquement à l'énergie/l'équipement/le niveau/la séance prévue.
 - Réponds uniquement via l'appel à l'outil, sans texte additionnel.`;
 
   const response = await client.messages.create({
     model: ECM_ANALYSIS_MODEL,
-    max_tokens: 2000,
+    max_tokens: 4000,
     tools: [STACK_TOOL],
     tool_choice: { type: "tool", name: "emit_ecm_analysis" },
     messages: [{ role: "user", content: prompt }],
@@ -281,6 +408,25 @@ RÈGLES :
     (block) => block.type === "tool_use" && block.name === "emit_ecm_analysis",
   ) as Anthropic.ToolUseBlock | undefined;
   if (!toolUse) throw new Error("Claude n'a pas renvoyé d'analyse ECM (pas de tool_use).");
+
+  type RawExercise = {
+    movementId: string;
+    sets?: number;
+    reps?: string;
+    time?: string;
+    distance?: string;
+    load?: string;
+    notes?: string;
+  };
+  type RawBlock = {
+    name: string;
+    type: BlockType;
+    format?: WodFormat;
+    duration?: string;
+    rounds?: number;
+    notes?: string;
+    exercises: RawExercise[];
+  };
 
   const out = toolUse.input as {
     state: "green" | "yellow" | "red";
@@ -293,7 +439,42 @@ RÈGLES :
     stack: StackMoment[];
     alerts: Alert[];
     snack: SnackInsight;
+    sessionBlocks: RawBlock[];
   };
+
+  const blocks: Block[] = (out.sessionBlocks ?? []).map((b) => ({
+    name: b.name,
+    type: b.type,
+    format: b.format,
+    duration: b.duration,
+    rounds: b.rounds,
+    notes: b.notes,
+    exercises: b.exercises.map(
+      (ex): Exercise => ({
+        movementId: ex.movementId,
+        sets: ex.sets,
+        reps: ex.reps,
+        time: ex.time,
+        distance: ex.distance,
+        load: ex.load,
+        notes: ex.notes,
+      }),
+    ),
+  }));
+
+  const estimatedMinutes = blocks.reduce((total, b) => {
+    const m = b.duration?.match(/(\d+)/);
+    return total + (m ? Number(m[1]) : 8);
+  }, 0);
+
+  const rawDay: Day = {
+    day: new Date().getDay() || 7,
+    focus: dataForDashboard.seance || profile.sportPrincipal,
+    estimatedMinutes: estimatedMinutes || 45,
+    blocks,
+  };
+
+  const generatedDay = validateGeneratedDay(rawDay, allowedMovementIds);
 
   return {
     ecm: {
@@ -308,5 +489,6 @@ RÈGLES :
     stack: out.stack,
     alerts: out.alerts ?? [],
     snack: out.snack,
+    generatedDay,
   };
 }

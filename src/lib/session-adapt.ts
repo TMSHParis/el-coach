@@ -138,3 +138,29 @@ export function reduceVolume(day: Day): Day {
     estimatedMinutes: Math.max(10, Math.round(day.estimatedMinutes * LIGHT_FACTOR)),
   };
 }
+
+/**
+ * Filet de sécurité pour la séance générée par Claude (moteur de génération
+ * dynamique) : tout movementId halluciné (absent du vrai catalogue) est
+ * remplacé par un mouvement de repli neutre — jamais laissé tel quel, jamais
+ * affiché brut à l'utilisateur. `allowedIds` doit être l'ensemble complet des
+ * ids réels de movements.ts (pas seulement les candidats proposés à Claude —
+ * il peut légitimement en citer un hors de sa liste suggérée).
+ */
+const FALLBACK_MOVEMENT_ID = "air-squat";
+
+export function validateGeneratedDay(day: Day, allowedIds: ReadonlySet<string>): Day {
+  const blocks: Block[] = day.blocks.map((block) => ({
+    ...block,
+    exercises: block.exercises.map((ex): Exercise => {
+      if (allowedIds.has(ex.movementId)) return ex;
+      const reason = `Mouvement non reconnu ("${ex.movementId}") — remplacé par un mouvement neutre.`;
+      return {
+        ...ex,
+        movementId: FALLBACK_MOVEMENT_ID,
+        notes: ex.notes ? `${ex.notes} · ${reason}` : reason,
+      };
+    }),
+  }));
+  return { ...day, blocks };
+}

@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ECM — Récapitulatif Complet des WODs</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Barlow:wght@400;500;600&display=swap');
+  :root{
+    --bg:#0a0a0a;--card:#141414;--card2:#1c1c1c;--border:#242424;
+    --blue:#3B82F6;--green:#22C55E;--orange:#F97316;--red:#EF4444;
+    --yellow:#EAB308;--purple:#A855F7;--teal:#14B8A6;--text:#fff;--muted:#6b7280;
+    --pink:#EC4899;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:var(--bg);color:var(--text);font-family:'Barlow',sans-serif;}
+
+  .hero{background:linear-gradient(135deg,#0a0a0a,#0f1a0f);border-bottom:1px solid var(--border);padding:32px 20px 24px;text-align:center;}
+  .hero-title{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:40px;letter-spacing:4px;text-transform:uppercase;color:var(--text);line-height:1;margin-bottom:6px;}
+  .hero-title span{color:var(--green);}
+  .hero-sub{font-size:12px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:16px;}
+  .hero-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;max-width:400px;margin:0 auto;}
+  .hero-stat{background:rgba(34,197,94,.07);border:1px solid rgba(34,197,94,.2);border-radius:8px;padding:10px;}
+  .hero-stat-val{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:24px;color:var(--green);}
+  .hero-stat-label{font-size:10px;color:var(--muted);text-transform:uppercase;}
+
+  .container{max-width:480px;margin:0 auto;padding:0 16px 60px;}
+
+  .source-block{margin-top:28px;}
+  .source-header{display:flex;align-items:center;gap:12px;margin-bottom:14px;padding-bottom:10px;border-bottom:2px solid;}
+  .source-avatar{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:16px;flex-shrink:0;}
+  .source-info{flex:1;}
+  .source-name{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:18px;letter-spacing:1px;}
+  .source-slot{font-size:11px;margin-top:2px;}
+  .source-tag{font-size:9px;font-weight:800;padding:3px 8px;border-radius:4px;align-self:flex-start;}
+
+  .wod-card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:10px;}
+  .wod-name{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:15px;margin-bottom:4px;}
+  .wod-format{font-size:11px;color:var(--muted);margin-bottom:10px;padding:4px 8px;background:var(--card2);border-radius:4px;display:inline-block;}
+  .wod-moves{display:flex;flex-direction:column;gap:4px;}
+  .move-item{display:flex;align-items:flex-start;gap:8px;padding:6px 8px;background:rgba(255,255,255,.03);border-radius:6px;font-size:12px;color:#d1d5db;line-height:1.4;}
+  .move-num{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:14px;color:var(--muted);width:18px;flex-shrink:0;}
+  .move-name{flex:1;font-weight:600;}
+  .move-detail{font-size:11px;color:var(--muted);margin-top:1px;}
+  .wod-note{margin-top:8px;padding:8px 10px;border-radius:6px;font-size:11px;line-height:1.5;}
+
+  /* Couleurs par source */
+  .c-deee-kb{--sc:var(--teal);}
+  .c-deee-db{--sc:#14B8A6;}
+  .c-jeremy{--sc:var(--orange);}
+  .c-gorila{--sc:var(--yellow);}
+  .c-fitdad{--sc:var(--blue);}
+  .c-jb23{--sc:var(--red);}
+  .c-azkzak{--sc:var(--purple);}
+
+  .source-header.deee-kb{border-color:var(--teal);}
+  .source-avatar.deee-kb{background:rgba(20,184,166,.2);color:var(--teal);}
+  .source-name.deee-kb{color:var(--teal);}
+  .source-slot.deee-kb{color:#5eead4;}
+  .source-tag.deee-kb{background:rgba(20,184,166,.2);color:var(--teal);}
+
+  .source-header.deee-db{border-color:#2dd4bf;}
+  .source-avatar.deee-db{background:rgba(45,212,191,.2);color:#2dd4bf;}
+  .source-name.deee-db{color:#2dd4bf;}
+  .source-slot.deee-db{color:#5eead4;}
+  .source-tag.deee-db{background:rgba(45,212,191,.2);color:#2dd4bf;}
+
+  .source-header.jeremy{border-color:var(--orange);}
+  .source-avatar.jeremy{background:rgba(249,115,22,.2);color:var(--orange);}
+  .source-name.jeremy{color:var(--orange);}
+  .source-slot.jeremy{color:#fdba74;}
+  .source-tag.jeremy{background:rgba(249,115,22,.2);color:var(--orange);}
+
+  .source-header.gorila{border-color:var(--yellow);}
+  .source-avatar.gorila{background:rgba(234,179,8,.2);color:var(--yellow);}
+  .source-name.gorila{color:var(--yellow);}
+  .source-slot.gorila{color:#fde047;}
+  .source-tag.gorila{background:rgba(234,179,8,.2);color:var(--yellow);}
+
+  .source-header.fitdad{border-color:var(--blue);}
+  .source-avatar.fitdad{background:rgba(59,130,246,.2);color:var(--blue);}
+  .source-name.fitdad{color:var(--blue);}
+  .source-slot.fitdad{color:#93c5fd;}
+  .source-tag.fitdad{background:rgba(59,130,246,.2);color:var(--blue);}
+
+  .source-header.jb23{border-color:var(--red);}
+  .source-avatar.jb23{background:rgba(239,68,68,.2);color:var(--red);}
+  .source-name.jb23{color:var(--red);}
+  .source-slot.jb23{color:#fca5a5;}
+  .source-tag.jb23{background:rgba(239,68,68,.2);color:var(--red);}
+
+  .source-header.azkzak{border-color:var(--purple);}
+  .source-avatar.azkzak{background:rgba(168,85,247,.2);color:var(--purple);}
+  .source-name.azkzak{color:var(--purple);}
+  .source-slot.azkzak{color:#c084fc;}
+  .source-tag.azkzak{background:rgba(168,85,247,.2);color:var(--purple);}
+
+  .equip-grid{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px;}
+  .equip-pill{font-size:10px;padding:2px 8px;border-radius:4px;background:rgba(255,255,255,.06);color:var(--muted);border:1px solid var(--border);}
+
+  .strength-block{margin-bottom:6px;}
+  .strength-label{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:10px;letter-spacing:2px;text-transform:uppercase;margin-bottom:4px;}
+
+  .footer{text-align:center;padding:20px;font-size:11px;color:var(--muted);letter-spacing:1px;}
+</style>
+</head>
+<body>
+
+<div class="hero">
+  <div class="hero-title">ECM — <span>WOD BASE</span></div>
+  <div class="hero-sub">Récapitulatif complet des sources transmises · Août 2026</div>
+  <div class="hero-stats">
+    <div class="hero-stat"><div class="hero-stat-val">8</div><div class="hero-stat-label">Sources actives</div></div>
+    <div class="hero-stat"><div class="hero-stat-val">9</div><div class="hero-stat-label">WODs additionnels</div></div>
+    <div class="hero-stat"><div class="hero-stat-val">∞</div><div class="hero-stat-label">Combinaisons</div></div>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- ══════════════════════════════════════ -->
+  <!-- ══════════════════════════════════════ -->
+  <div class="source-block">
+    <!-- WOD 1 -->
+    <div class="wod-card">
+      <div class="wod-name" style="color:var(--teal);">KB FLOW — WOD 1</div>
+      <div class="wod-format">5 Rounds · 30sec ON / 30sec OFF · KB 20-24kg</div>
+      <div class="wod-moves">
+        <div class="move-item"><div class="move-num">1</div><div><div class="move-name">Hand to Hand Gorilla Squat</div><div class="move-detail">Squat profond · passage KB entre les jambes · contrôle de la KB</div></div></div>
+        <div class="move-item"><div class="move-num">2</div><div><div class="move-name">Rotational Thruster</div><div class="move-detail">Squat + rotation du buste en press · explosivité</div></div></div>
+        <div class="move-item"><div class="move-num">3</div><div><div class="move-name">Lunge Halo</div><div class="move-detail">Fente avant + halo KB autour de la tête · coordination</div></div></div>
+        <div class="move-item"><div class="move-num">4</div><div><div class="move-name">Rotation Pullover</div><div class="move-detail">KB au-dessus · rotation buste + pullover · gainage</div></div></div>
+        <div class="move-item"><div class="move-num">5</div><div><div class="move-name">Hand to Hand Curl</div><div class="move-detail">Curl en passant la KB d'une main à l'autre · biceps</div></div></div>
+      </div>
+      <div class="wod-note" style="background:rgba(20,184,166,.06);color:#5eead4;">📅 Inauguré Dim 26 Juil 2026</div>
+    </div>
+
+    <!-- WOD 2 -->
+    <div class="wod-card">
+      <div class="wod-name" style="color:var(--teal);">KB FLOW — WOD 2</div>
+      <div class="wod-format">5 Rounds · 30sec ON / 30sec OFF · KB 20-24kg</div>
+      <div class="wod-moves">
+        <div class="move-item"><div class="move-num">1</div><div><div class="move-name">Hand to Hand Gorilla Squat</div><div class="move-detail">Même que WOD 1 · charge possible différente</div></div></div>
+        <div class="move-item"><div class="move-num">2</div><div><div class="move-name">Side to Side Over Shoulder</div><div class="move-detail">KB d'une épaule à l'autre en passant derrière la tête</div></div></div>
+        <div class="move-item"><div class="move-num">3</div><div><div class="move-name">Squat Press Out</div><div class="move-detail">Squat · à la remontée pousser la KB devant soi bras tendus</div></div></div>
+        <div class="move-item"><div class="move-num">4</div><div><div class="move-name">RDL Front Raise</div><div class="move-detail">RDL + lever la KB devant soi bras tendus à la montée</div></div></div>
+        <div class="move-item"><div class="move-num">5</div><div><div class="move-name">Overhead Triceps Extension</div><div class="move-detail">KB bilatéral · extension triceps au-dessus de la tête</div></div></div>
+      </div>
+      <div class="wod-note" style="background:rgba(20,184,166,.06);color:#5eead4;">📅 Inauguré Dim 2 Août 2026</div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════ -->
+  <!-- ══════════════════════════════════════ -->
+  <div class="source-block">
+    <div class="wod-card">
+      <div class="wod-name" style="color:#2dd4bf;">15 MIN FULL BODY WORKOUT WITH DB</div>
+      <div class="wod-format">3-5 Rounds · 30sec ON / 30sec OFF · DB 15-22.5kg</div>
+      <div class="wod-moves">
+        <div class="move-item"><div class="move-num">1</div><div><div class="move-name">Dumbbell Thruster</div><div class="move-detail">Squat + press overhead · full body explosif</div></div></div>
+        <div class="move-item"><div class="move-num">2</div><div><div class="move-name">Bent-Over Row DB</div><div class="move-detail">Dos plat · traction bilatérale · rhomboïdes</div></div></div>
+        <div class="move-item"><div class="move-num">3</div><div><div class="move-name">Zottman Curl</div><div class="move-detail">Curl en supination · redescente en pronation · brachial + biceps</div></div></div>
+        <div class="move-item"><div class="move-num">4</div><div><div class="move-name">Reverse Lunge Lateral Raise</div><div class="move-detail">Fente arrière + élévation latérale simultanée · équilibre + épaule</div></div></div>
+        <div class="move-item"><div class="move-num">5</div><div><div class="move-name">Single Arm Triceps Extension</div><div class="move-detail">Extension unilatérale au-dessus · triceps long</div></div></div>
+        <div class="move-item"><div class="move-num">6</div><div><div class="move-name">Chest Fly Squeeze Press</div><div class="move-detail">Fly → squeeze au centre → press · pectoraux complet</div></div></div>
+      </div>
+      <div class="wod-note" style="background:rgba(45,212,191,.06);color:#5eead4;">📅 Inauguré Lun 3 Août 2026 · ECM = 5 rounds</div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════ -->
+  <!-- ══════════════════════════════════════ -->
+  <div class="source-block">
+    <div class="wod-card">
+      <div class="wod-name" style="color:var(--orange);">BUILD MUSCLE WITH ONE KETTLEBELL</div>
+      <div class="wod-format">2-3 Rounds · Repos 60-90sec entre rounds · KB 16-24kg</div>
+      <div class="wod-moves">
+        <div class="move-item"><div class="move-num">1</div><div><div class="move-name">Squat Pullover</div><div class="move-detail">× 10 · squat + pullover KB · full body · mobilité thoracique</div></div></div>
+        <div class="move-item"><div class="move-num">2</div><div><div class="move-name">Lunge Press KB</div><div class="move-detail">× 8/côté · fente avant + press KB ipsilatéral · équilibre + épaule</div></div></div>
+        <div class="move-item"><div class="move-num">3</div><div><div class="move-name">Single-Leg Deadlift Row</div><div class="move-detail">× 8/côté · RDL unilatéral + row au bas · chaîne post + dos</div></div></div>
+        <div class="move-item"><div class="move-num">4</div><div><div class="move-name">Curl Halo</div><div class="move-detail">× 5/côté · curl + halo autour de la tête · biceps + épaule</div></div></div>
+        <div class="move-item"><div class="move-num">5</div><div><div class="move-name">Push-Up to Side Plank</div><div class="move-detail">× 10/côté · push-up + rotation side plank · gainage complet</div></div></div>
+      </div>
+      <div class="wod-note" style="background:rgba(249,115,22,.06);color:#fdba74;">📝 Repos au besoin entre mouvements · choisir un poids contrôlable sur toutes les reps</div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════ -->
+  <!-- ══════════════════════════════════════ -->
+  <div class="source-block">
+    <!-- MONDAY -->
+    <div class="wod-card">
+      <div class="wod-name" style="color:var(--yellow);">MONDAY · UPPER STRENGTH + AEROBIC POWER</div>
+      <div class="wod-format">55-65 min · Barbell · Dumbbells · Pull-up Bar · Row/Bike</div>
+
+      <div class="strength-block">
+        <div class="strength-label" style="color:var(--muted);">WARM-UP 10-12 min</div>
+        <div class="wod-moves">
+          <div class="move-item"><div class="move-num">•</div><div><div class="move-name">4' Row / Bike · Dynamic shoulder mobility · Band activation</div></div></div>
+          <div class="move-item"><div class="move-num">•</div><div><div class="move-name">2 rounds : 8 Push Ups · 8 Ring Rows · 10 Air Squats</div></div></div>
+        </div>
+      </div>
+
+      <div class="strength-block" style="margin-top:10px;">
+        <div class="strength-label" style="color:var(--yellow);">STRENGTH 28-30 min</div>
+        <div class="wod-moves">
+          <div class="move-item"><div class="move-num">A1</div><div><div class="move-name">Bench Press</div><div class="move-detail">5×5 · RPE 7-8</div></div></div>
+          <div class="move-item"><div class="move-num">A2</div><div><div class="move-name">Weighted Pull Up</div><div class="move-detail">5×5 · RPE 7-8</div></div></div>
+          <div class="move-item"><div class="move-num">B1</div><div><div class="move-name">Incline DB Press</div><div class="move-detail">3×8 · RPE 8</div></div></div>
+          <div class="move-item"><div class="move-num">B2</div><div><div class="move-name">Chest Supported Row</div><div class="move-detail">3×10 · RPE 8 · nuque neutre</div></div></div>
+          <div class="move-item"><div class="move-num">C</div><div><div class="move-name">Farmer Carry</div><div class="move-detail">3×40m · lourd</div></div></div>
+        </div>
+      </div>
+
+      <div class="strength-block" style="margin-top:10px;">
+        <div class="strength-label" style="color:var(--orange);">CONDITIONING AMRAP 12'</div>
+        <div class="wod-moves">
+          <div class="move-item"><div class="move-num">→</div><div><div class="move-name">300m Run + 12 DB Push Press (22.5/15kg) + 10 Box Step Ups</div></div></div>
+        </div>
+      </div>
+
+      <div class="strength-block" style="margin-top:10px;">
+        <div class="strength-label" style="color:var(--teal);">ACCESSORY / CORE 8 min</div>
+        <div class="wod-moves">
+          <div class="move-item"><div class="move-num">•</div><div><div class="move-name">Copenhagen Plank 3×30"/côté · Dead Bug 3×12 · KB Farmer Carry 20m · Side Plank with Rotation 10/côté</div></div></div>
+        </div>
+      </div>
+
+      <div class="strength-block" style="margin-top:10px;">
+        <div class="strength-label" style="color:var(--purple);">MOBILITY</div>
+        <div class="wod-moves">
+          <div class="move-item"><div class="move-num">•</div><div><div class="move-name">Couch Stretch 60" · Wall Shoulder Stretch 60" · 3 rounds</div></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TUESDAY -->
+    <div class="wod-card">
+      <div class="wod-name" style="color:var(--yellow);">TUESDAY · LOWER STRENGTH + THRESHOLD</div>
+      <div class="wod-format">55-65 min · Barbell · Dumbbells · KB · Row/Bike</div>
+
+      <div class="strength-block">
+        <div class="strength-label" style="color:var(--muted);">WARM-UP 10-12 min</div>
+        <div class="wod-moves">
+          <div class="move-item"><div class="move-num">•</div><div><div class="move-name">4' Row/Bike · Movilidad dinámica hip/ankillo · Activación glúteos</div></div></div>
+          <div class="move-item"><div class="move-num">•</div><div><div class="move-name">2 rounds : 10 Air Squats · 10 Walking Lunges · 20" Hollow Hold</div></div></div>
+        </div>
+      </div>
+
+      <div class="strength-block" style="margin-top:10px;">
+        <div class="strength-label" style="color:var(--yellow);">STRENGTH 30-35 min</div>
+        <div class="wod-moves">
+          <div class="move-item"><div class="move-num">A1</div><div><div class="move-name">Back Squat</div><div class="move-detail">5×4 · RPE 7-8</div></div></div>
+          <div class="move-item"><div class="move-num">A2</div><div><div class="move-name">Romanian Deadlift</div><div class="move-detail">4×6 · RPE 7-8</div></div></div>
+          <div class="move-item"><div class="move-num">B1</div><div><div class="move-name">Bulgarian Split Squat</div><div class="move-detail">3×8/jambe · RPE 8</div></div></div>
+          <div class="move-item"><div class="move-num">B2</div><div><div class="move-name">Hip Thrust</div><div class="move-detail">3×10 · RPE 8</div></div></div>
+          <div class="move-item"><div class="move-num">C</div><div><div class="move-name">Calf Raises</div><div class="move-detail">4×12-15 · RPE 8</div></div></div>
+        </div>
+      </div>
+
+      <div class="strength-block" style="margin-top:10px;">
+        <div class="strength-label" style="color:var(--orange);">CONDITIONING FOR TIME</div>
+        <div class="wod-moves">
+          <div class="move-item"><div class="move-num">→</div><div><div class="move-name">1km Run → 20 DB Thrusters (22.5/15kg) → 16 Box Step-Ups → 12 Toes to Bar</div></div></div>
+        </div>
+      </div>
+
+      <div class="strength-block" style="margin-top:10px;">
+        <div class="strength-label" style="color:var(--teal);">ACCESSORY / CORE 8-10 min</div>
+        <div class="wod-moves">
+          <div class="move-item"><div class="move-num">•</div><div><div class="move-name">Hanging Leg Raises 3×12-15 · Pallof Press 3×12/côté</div></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- WEDNESDAY -->
+    <div class="wod-card">
+      <div class="wod-name" style="color:var(--yellow);">WEDNESDAY · POWER + SPEED</div>
+      <div class="wod-format">55-65 min · Barbell · KB · Med Ball · Box · Sled · Row</div>
+
+      <div class="strength-block">
+        <div class="strength-label" style="color:var(--muted);">WARM-UP 10-12 min</div>
+        <div class="wod-moves">
+          <div class="move-item"><div class="move-num">•</div><div><div class="move-name">5 rounds : 10 Box Step Ups · 5 Kang Squats Tempo 4441 · 10/Side Pigeon Box Reach · 5/Side Cossack Squat Shifts</div></div></div>
+        </div>
+      </div>
+
+      <div class="strength-block" style="margin-top:10px;">
+        <div class="strength-label" style="color:var(--yellow);">STRENGTH 20-25 min</div>
+        <div class="wod-moves">
+          <div class="move-item"><div class="move-num">A1</div><div><div class="move-name">Push Press</div><div class="move-detail">5×3 · RPE 7-8</div></div></div>
+          <div class="move-item"><div class="move-num">A2</div><div><div class="move-name">Pull Up Explosive</div><div class="move-detail">5×3 · RPE 7-8</div></div></div>
+          <div class="move-item"><div class="move-num">B1</div><div><div class="move-name">Box Jump</div><div class="move-detail">4×5 · RPE 7</div></div></div>
+          <div class="move-item"><div class="move-num">B2</div><div><div class="move-name">Med Ball Slam</div><div class="move-detail">4×6 · RPE 7</div></div></div>
+          <div class="move-item"><div class="move-num">C</div><div><div class="move-name">Sled Push (Potencia)</div><div class="move-detail">4×20m · RPE 8</div></div></div>
+        </div>
+      </div>
+
+      <div class="strength-block" style="margin-top:10px;">
+        <div class="strength-label" style="color:var(--orange);">CONDITIONING EMOM 18' · 6 ROUNDS</div>
+        <div class="wod-moves">
+          <div class="move-item"><div class="move-num">1</div><div><div class="move-name">250m Row</div></div></div>
+          <div class="move-item"><div class="move-num">2</div><div><div class="move-name">12 KB Swings (24/16kg)</div></div></div>
+          <div class="move-item"><div class="move-num">3</div><div><div class="move-name">8 Burpee Broad Jump</div></div></div>
+        </div>
+      </div>
+
+      <div class="strength-block" style="margin-top:10px;">
+        <div class="strength-label" style="color:var(--teal);">ACCESSORY / CORE 8-10 min</div>
+        <div class="wod-moves">
+          <div class="move-item"><div class="move-num">•</div><div><div class="move-name">Pallof Press 3×12/côté · Ab Wheel 3×8-10 · Side Plank 3×30"/côté</div></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════ -->
+  <!-- ══════════════════════════════════════ -->
+  <div class="source-block">
+    <div class="wod-card">
+      <div class="wod-name" style="color:var(--blue);">STRONG HEART · STRONG LUNGS · STRONG BACK</div>
+      <div class="wod-format">4 Rounds · RX : DB 22/16kg · Scoring : reps par round</div>
+      <div class="wod-moves">
+        <div class="move-item"><div class="move-num">1</div><div><div class="move-name">3' Max Run</div><div class="move-detail">Objectif : maintenir le même distance chaque round</div></div></div>
+        <div class="move-item"><div class="move-num">2</div><div><div class="move-name">2' Max Burpees</div><div class="move-detail">Scaled : Down Ups (sans saut)</div></div></div>
+        <div class="move-item"><div class="move-num">3</div><div><div class="move-name">1' Max DB Power Snatch</div><div class="move-detail">RX 22/16kg · Scaled 16/12kg · alterné</div></div></div>
+      </div>
+      <div class="wod-note" style="background:rgba(59,130,246,.06);color:#93c5fd;">
+        🎯 FOCUS : consistance sur les 4 rounds · ne pas partir trop vite · score ref coach Phil = 30 Cal Run + 25 Burpees + 20 Snatches/round
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════ -->
+  <!-- ══════════════════════════════════════ -->
+  <div class="source-block">
+    <div class="wod-card">
+      <div class="wod-name" style="color:var(--red);">6 FULL BODY EXERCISES — DB SUPERSETS</div>
+      <div class="wod-format">3×10 chaque superset · repos entre supersets · DB 15-22.5kg</div>
+      <div class="wod-moves">
+        <div class="move-item"><div class="move-num">S1</div><div><div class="move-name">Lunge Knee Drive + Front Raise</div><div class="move-detail">2×10/côté · fente avant + lever genou + élévation frontale simultanée</div></div></div>
+        <div class="move-item"><div class="move-num">S2</div><div><div class="move-name">Side Squat Press Out</div><div class="move-detail">3×10 · squat latéral + pousser les DB devant soi en bas du squat</div></div></div>
+        <div class="move-item"><div class="move-num">S3</div><div><div class="move-name">Reverse Grip Press + Single Side Press</div><div class="move-detail">3×10 · press prise inversée + alternance unilatérale</div></div></div>
+        <div class="move-item"><div class="move-num">S4</div><div><div class="move-name">Rotating Press + Chest Press</div><div class="move-detail">3×10 · press avec rotation des poignets + press pec plat</div></div></div>
+        <div class="move-item"><div class="move-num">S5</div><div><div class="move-name">Back Squeeze Overhead Press</div><div class="move-detail">3×10 · serrer omoplates + press overhead · posture + épaule</div></div></div>
+        <div class="move-item"><div class="move-num">S6</div><div><div class="move-name">Cross Body Curl + Arnold Press</div><div class="move-detail">3×10 · curl croisé + Arnold Press · biceps + épaule complète</div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════ -->
+  <!-- ══════════════════════════════════════ -->
+  <div class="source-block">
+    <div class="wod-card">
+      <div class="wod-name" style="color:var(--purple);">PROGRAMME GENOU — RENFORCEMENT FONCTIONNEL</div>
+      <div class="wod-format">3-4 séries · focus genou + chaîne postérieure</div>
+      <div class="wod-moves">
+        <div class="move-item"><div class="move-num">1</div><div><div class="move-name">Box Knee Tuck Hold</div><div class="move-detail">3×30 sec · genou plié posé sur box · isométrique quad + hip flexor</div></div></div>
+        <div class="move-item"><div class="move-num">2</div><div><div class="move-name">Copenhagen Plank</div><div class="move-detail">3×30 sec/côté · cheville sur box · gainage adducteurs + obliques</div></div></div>
+        <div class="move-item"><div class="move-num">3</div><div><div class="move-name">Band TKE (Terminal Knee Extension)</div><div class="move-detail">3×20/jambe · band derrière genou · verrouillage terminal quads</div></div></div>
+        <div class="move-item"><div class="move-num">4</div><div><div class="move-name">Poliquin Step Down</div><div class="move-detail">3×15/jambe · descente unilatérale lente sur step · VMO + équilibre</div></div></div>
+        <div class="move-item"><div class="move-num">5</div><div><div class="move-name">Elephant Walk</div><div class="move-detail">3×20 reps · marche avec jambes tendues · ischio + mobilité</div></div></div>
+        <div class="move-item"><div class="move-num">6</div><div><div class="move-name">Reverse Sled Drag</div><div class="move-detail">4×20m · traîner le sled en marchant en arrière · genou + quad</div></div></div>
+      </div>
+      <div class="wod-note" style="background:rgba(168,85,247,.06);color:#c084fc;">📝 Programme orienté santé du genou · intégré en Accessoire Jeudi Lower ou Warm-up Lower</div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════ -->
+  <!-- WODS ADDITIONNELS — SANS ATTRIBUTION SOURCE -->
+  <!-- ══════════════════════════════════════ -->
+  <div class="source-block">
+    <div style="font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:18px;letter-spacing:1px;color:var(--muted);margin-bottom:14px;padding-bottom:10px;border-bottom:2px solid var(--border);">WODS ADDITIONNELS</div>
+
+    <div class="wod-card">
+      <div class="wod-name">FULL DUMBBELL ARM WORKOUT</div>
+      <div class="wod-format">3 sets · DB uniquement · 3×12,10,8 (dégressif)</div>
+      <div class="wod-moves">
+        <div class="move-item"><div class="move-num">1</div><div><div class="move-name">Arnold Press</div><div class="move-detail">3×12,10,8</div></div></div>
+        <div class="move-item"><div class="move-num">2</div><div><div class="move-name">Alternating Hammer Curl</div><div class="move-detail">3×12,10,8</div></div></div>
+        <div class="move-item"><div class="move-num">3</div><div><div class="move-name">Overhead Triceps Extension</div><div class="move-detail">3×12,10,8</div></div></div>
+        <div class="move-item"><div class="move-num">4</div><div><div class="move-name">Iso-Hold Lateral Raise</div><div class="move-detail">3×10</div></div></div>
+        <div class="move-item"><div class="move-num">5</div><div><div class="move-name">Front Raise</div><div class="move-detail">3×12,10,8</div></div></div>
+        <div class="move-item"><div class="move-num">6</div><div><div class="move-name">Concentration Curl</div><div class="move-detail">3×12,10,8</div></div></div>
+        <div class="move-item"><div class="move-num">7</div><div><div class="move-name">Close-Grip DB Press</div><div class="move-detail">3×12,10,8</div></div></div>
+        <div class="move-item"><div class="move-num">8</div><div><div class="move-name">Supinated Biceps Curl</div><div class="move-detail">3×12,10,8</div></div></div>
+        <div class="move-item"><div class="move-num">9</div><div><div class="move-name">Dumbbell Skull Crusher</div><div class="move-detail">3×12,10,8</div></div></div>
+      </div>
+    </div>
+
+    <div class="wod-card">
+      <div class="wod-name">ATHLETIC UPPER BODY</div>
+      <div class="wod-format">3-4 Rounds · 60sec repos entre rounds</div>
+      <div class="wod-moves">
+        <div class="move-item"><div class="move-num">1</div><div><div class="move-name">Low ISO Lunge Press</div><div class="move-detail">×10</div></div></div>
+        <div class="move-item"><div class="move-num">2</div><div><div class="move-name">Renegade Row</div><div class="move-detail">×10</div></div></div>
+        <div class="move-item"><div class="move-num">3</div><div><div class="move-name">Push-Up to Pull Through</div><div class="move-detail">×20</div></div></div>
+        <div class="move-item"><div class="move-num">4</div><div><div class="move-name">Hang High Pull</div><div class="move-detail">×15</div></div></div>
+      </div>
+    </div>
+
+    <div class="wod-card">
+      <div class="wod-name">SUMO SQUAT COMPLEX</div>
+      <div class="wod-format">6 Rounds · 90sec repos</div>
+      <div class="wod-moves">
+        <div class="move-item"><div class="move-num">1</div><div><div class="move-name">Sumo Squat à arracher</div><div class="move-detail">×6</div></div></div>
+        <div class="move-item"><div class="move-num">2</div><div><div class="move-name">RDL/Row</div><div class="move-detail">×6</div></div></div>
+        <div class="move-item"><div class="move-num">3</div><div><div class="move-name">Burpee</div><div class="move-detail">×6</div></div></div>
+        <div class="move-item"><div class="move-num">4</div><div><div class="move-name">Tyson Push Up</div><div class="move-detail">×6</div></div></div>
+      </div>
+    </div>
+
+    <div class="wod-card">
+      <div class="wod-name">LOWER STRENGTH + THRESHOLD</div>
+      <div class="wod-format">55-65min · Warm-up 10-12min + Strength 30-35min + Conditioning 12-15min + Accessory 8-10min</div>
+      <div class="strength-block">
+        <div class="strength-label" style="color:var(--muted);">STRENGTH</div>
+      </div>
+      <div class="wod-moves">
+        <div class="move-item"><div class="move-num">A1</div><div><div class="move-name">Front Squat</div><div class="move-detail">5×4 · RPE 7-8</div></div></div>
+        <div class="move-item"><div class="move-num">A2</div><div><div class="move-name">Barbell RDL</div><div class="move-detail">4×6 · RPE 7-8</div></div></div>
+        <div class="move-item"><div class="move-num">B1</div><div><div class="move-name">Reverse Lunge</div><div class="move-detail">3×8/jambe · RPE 8</div></div></div>
+        <div class="move-item"><div class="move-num">B2</div><div><div class="move-name">Hip Thrust</div><div class="move-detail">3×10 · RPE 8</div></div></div>
+        <div class="move-item"><div class="move-num">C</div><div><div class="move-name">Standing Calf Raises</div><div class="move-detail">3×15 · RPE 8</div></div></div>
+      </div>
+      <div class="strength-block" style="margin-top:8px;">
+        <div class="strength-label" style="color:var(--muted);">CONDITIONING · 4 ROUNDS FOR TIME</div>
+      </div>
+      <div class="wod-moves">
+        <div class="move-item"><div class="move-num">1</div><div><div class="move-name">300m Run</div></div></div>
+        <div class="move-item"><div class="move-num">2</div><div><div class="move-name">DB Front Squats</div><div class="move-detail">12 · 22.5/15kg</div></div></div>
+        <div class="move-item"><div class="move-num">3</div><div><div class="move-name">Box Step Overs</div><div class="move-detail">×10</div></div></div>
+        <div class="move-item"><div class="move-num">4</div><div><div class="move-name">Toes to Bar</div><div class="move-detail">×8</div></div></div>
+      </div>
+      <div class="strength-block" style="margin-top:8px;">
+        <div class="strength-label" style="color:var(--muted);">ACCESSORY/CORE</div>
+      </div>
+      <div class="wod-moves">
+        <div class="move-item"><div class="move-num">1</div><div><div class="move-name">Hanging Leg Raises</div><div class="move-detail">3×12-15</div></div></div>
+        <div class="move-item"><div class="move-num">2</div><div><div class="move-name">Pallof Press</div><div class="move-detail">3×12/côté</div></div></div>
+      </div>
+    </div>
+
+    <div class="wod-card">
+      <div class="wod-name">BRUTAL & EFFECTIVE COMPLEX WITH KETTLEBELL</div>
+      <div class="wod-format">3 Rounds · 30sec work / 30sec rest</div>
+      <div class="wod-moves">
+        <div class="move-item"><div class="move-num">1</div><div><div class="move-name">Rotational Thruster</div></div></div>
+        <div class="move-item"><div class="move-num">2</div><div><div class="move-name">Gorilla Swing Squat</div></div></div>
+        <div class="move-item"><div class="move-num">3</div><div><div class="move-name">KB Curl Over Shoulder Toss</div></div></div>
+        <div class="move-item"><div class="move-num">4</div><div><div class="move-name">Cross-Body Lunge</div></div></div>
+        <div class="move-item"><div class="move-num">5</div><div><div class="move-name">Seated Side to Side Halo</div></div></div>
+      </div>
+    </div>
+
+    <div class="wod-card">
+      <div class="wod-name">EMOM INTENSE — SNATCH/BURPEE/JUMP/BIKE</div>
+      <div class="wod-format">Every 7min × 5 rounds</div>
+      <div class="wod-moves">
+        <div class="move-item"><div class="move-num">1</div><div><div class="move-name">DB Alternate Snatch</div><div class="move-detail">×20 · 25kg</div></div></div>
+        <div class="move-item"><div class="move-num">2</div><div><div class="move-name">Burpee Over Bar</div><div class="move-detail">×20</div></div></div>
+        <div class="move-item"><div class="move-num">3</div><div><div class="move-name">Box Jump Overs</div><div class="move-detail">×20 · 30"</div></div></div>
+        <div class="move-item"><div class="move-num">4</div><div><div class="move-name">Cal Assault Bike</div><div class="move-detail">×20</div></div></div>
+      </div>
+    </div>
+
+    <div class="wod-card">
+      <div class="wod-name">HYBRID FRIDAY — ENGINE + DURABILITY</div>
+      <div class="wod-format">Est. 25-30min · For Time</div>
+      <div class="strength-block">
+        <div class="strength-label" style="color:var(--muted);">A · STRENGTH + POWER · 5 ROUNDS · 90sec repos</div>
+      </div>
+      <div class="wod-moves">
+        <div class="move-item"><div class="move-num">1</div><div><div class="move-name">Bench Press</div><div class="move-detail">×4 · 80%</div></div></div>
+        <div class="move-item"><div class="move-num">2</div><div><div class="move-name">Pull Ups</div><div class="move-detail">×6</div></div></div>
+      </div>
+      <div class="strength-block" style="margin-top:8px;">
+        <div class="strength-label" style="color:var(--muted);">B · HYBRID WOD · 6 ROUNDS FOR TIME</div>
+      </div>
+      <div class="wod-moves">
+        <div class="move-item"><div class="move-num">1</div><div><div class="move-name">Bike ou Row</div><div class="move-detail">500m</div></div></div>
+        <div class="move-item"><div class="move-num">2</div><div><div class="move-name">Push Ups</div><div class="move-detail">×15</div></div></div>
+        <div class="move-item"><div class="move-num">3</div><div><div class="move-name">Wall Ball</div><div class="move-detail">×12</div></div></div>
+        <div class="move-item"><div class="move-num">4</div><div><div class="move-name">Sit Ups</div><div class="move-detail">×9</div></div></div>
+        <div class="move-item"><div class="move-num">5</div><div><div class="move-name">Farmer Carry</div><div class="move-detail">50m</div></div></div>
+      </div>
+    </div>
+
+    <div class="wod-card">
+      <div class="wod-name">JIREN</div>
+      <div class="wod-format">40min AMRAP</div>
+      <div class="wod-moves">
+        <div class="move-item"><div class="move-num">1</div><div><div class="move-name">Cal Ski Erg</div><div class="move-detail">×30</div></div></div>
+        <div class="move-item"><div class="move-num">2</div><div><div class="move-name">DB Push Press</div><div class="move-detail">×20</div></div></div>
+        <div class="move-item"><div class="move-num">3</div><div><div class="move-name">Burpee Shuttle Run</div><div class="move-detail">×10</div></div></div>
+      </div>
+    </div>
+
+    <div class="wod-card">
+      <div class="wod-name">ONE KETTLEBELL — BURN FAT</div>
+      <div class="wod-format">3 Rounds · 30sec work / 30sec rest</div>
+      <div class="wod-moves">
+        <div class="move-item"><div class="move-num">1</div><div><div class="move-name">KB Lunge Halo</div></div></div>
+        <div class="move-item"><div class="move-num">2</div><div><div class="move-name">Gorilla Squat Swing</div></div></div>
+        <div class="move-item"><div class="move-num">3</div><div><div class="move-name">Halo Press Out</div></div></div>
+        <div class="move-item"><div class="move-num">4</div><div><div class="move-name">KB Pop Squat</div></div></div>
+        <div class="move-item"><div class="move-num">5</div><div><div class="move-name">Close Grip Push-Up</div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- INDEX NOUVEAUX MOUVEMENTS -->
+  <div style="margin-top:28px;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;">
+    <div style="font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:16px;color:var(--green);margin-bottom:12px;">📋 MOUVEMENTS INTÉGRÉS À LA BASE ECM</div>
+    <div class="equip-grid">
+      <span class="equip-pill">H2H Gorilla Squat</span><span class="equip-pill">Rotational Thruster</span><span class="equip-pill">Lunge Halo</span><span class="equip-pill">Rotation Pullover</span><span class="equip-pill">H2H Curl</span><span class="equip-pill">Side to Side Over Shoulder</span><span class="equip-pill">Squat Press Out</span><span class="equip-pill">RDL Front Raise</span><span class="equip-pill">OT Extension</span><span class="equip-pill">Zottman Curl</span><span class="equip-pill">Chest Fly Squeeze Press</span><span class="equip-pill">Reverse Lunge Lateral Raise</span><span class="equip-pill">SA Triceps Extension</span><span class="equip-pill">Squat Pullover</span><span class="equip-pill">Lunge Press KB</span><span class="equip-pill">Single-Leg DL Row</span><span class="equip-pill">Curl Halo</span><span class="equip-pill">Push-Up to Side Plank</span><span class="equip-pill">Chest Supported Row</span><span class="equip-pill">Copenhagen Plank</span><span class="equip-pill">Box Step-Ups</span><span class="equip-pill">Toes to Bar</span><span class="equip-pill">Burpee Broad Jump</span><span class="equip-pill">Med Ball Slam</span><span class="equip-pill">Sled Push</span><span class="equip-pill">Pull Up Explosif</span><span class="equip-pill">Hollow Rocks</span><span class="equip-pill">Side Plank w/ Rotation</span><span class="equip-pill">Kang Squat</span><span class="equip-pill">GHD Hip Extension</span><span class="equip-pill">Lunge Knee Drive</span><span class="equip-pill">Side Squat Press Out</span><span class="equip-pill">Reverse Grip Press</span><span class="equip-pill">Rotating Press</span><span class="equip-pill">Back Squeeze OH Press</span><span class="equip-pill">Cross Body Curl</span><span class="equip-pill">Box Knee Tuck Hold</span><span class="equip-pill">Band TKE</span><span class="equip-pill">Poliquin Step Down</span><span class="equip-pill">Elephant Walk</span><span class="equip-pill">Reverse Sled Drag</span>
+    </div>
+  </div>
+
+</div>
+
+<div class="footer">ECM · Récapitulatif WOD Sources · Mis à jour 9 Sept 2026</div>
+
+</body>
+</html>

@@ -4,6 +4,9 @@
 // Référencent les movementId existants dans movements.ts.
 
 import type { Block, Exercise } from "./programming";
+// WODs Girls/Hero/Open supplémentaires générés depuis ecm_crossfit_wods.html
+// (scripts/parse-content-library.ts) — déjà dédupliqués contre coreWods.
+import { EXTENDED_WODS } from "./wods-extended";
 
 export type WodCategory = "girls" | "heroes" | "open" | "benchmark";
 
@@ -670,7 +673,7 @@ const DANIEL: WodTemplate = {
 // Index
 // ============================================================================
 
-export const WODS: WodTemplate[] = [
+const coreWods: WodTemplate[] = [
   // Girls
   FRAN, HELEN, GRACE, ISABEL, ANNIE, CINDY, KAREN, MARY, DIANE, JACKIE,
   ELIZABETH, NANCY, KELLY, BARBARA, CHELSEA, ANGIE,
@@ -679,6 +682,8 @@ export const WODS: WodTemplate[] = [
   // Benchmarks
   FILTHY_FIFTY, FIGHT_GONE_BAD, DEATH_BY_TEN_METERS, TABATA_SOMETHING,
 ];
+
+export const WODS: WodTemplate[] = [...coreWods, ...EXTENDED_WODS];
 
 export function getWod(slug: string): WodTemplate | undefined {
   return WODS.find((w) => w.slug === slug);

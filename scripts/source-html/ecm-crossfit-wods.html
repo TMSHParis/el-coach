@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ECM — Benchmark CrossFit WODs</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Barlow:wght@400;500;600&display=swap');
+  :root{
+    --bg:#0a0a0a;--card:#141414;--card2:#1c1c1c;--border:#242424;
+    --blue:#3B82F6;--green:#22C55E;--orange:#F97316;--red:#EF4444;
+    --yellow:#EAB308;--purple:#A855F7;--teal:#14B8A6;--text:#fff;--muted:#6b7280;
+    --pink:#EC4899;--girls:#EC4899;--hero:#F97316;--open:#3B82F6;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:var(--bg);color:var(--text);font-family:'Barlow',sans-serif;}
+
+  /* NAV TABS */
+  .tab-nav{position:sticky;top:0;z-index:100;background:rgba(10,10,10,.97);backdrop-filter:blur(8px);padding:12px 16px;display:flex;gap:8px;border-bottom:1px solid var(--border);}
+  .tab-btn{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:13px;letter-spacing:1px;text-transform:uppercase;padding:8px 14px;border-radius:8px;border:1px solid;cursor:pointer;flex:1;text-align:center;transition:all .2s;}
+  .tab-btn.girls{border-color:var(--pink);color:var(--pink);background:rgba(236,72,153,.08);}
+  .tab-btn.hero{border-color:var(--orange);color:var(--orange);background:rgba(249,115,22,.08);}
+  .tab-btn.open{border-color:var(--blue);color:var(--blue);background:rgba(59,130,246,.08);}
+  .tab-btn.active-girls{background:var(--pink);color:#000;}
+  .tab-btn.active-hero{background:var(--orange);color:#000;}
+  .tab-btn.active-open{background:var(--blue);color:#fff;}
+
+  /* SECTIONS */
+  .section{display:none;padding:0 16px 80px;}
+  .section.active{display:block;}
+
+  /* HERO BANNER */
+  .hero-banner{padding:24px 16px 16px;text-align:center;border-bottom:1px solid var(--border);}
+  .hero-title{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:36px;letter-spacing:4px;text-transform:uppercase;line-height:1;margin-bottom:4px;}
+  .hero-sub{font-size:11px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:14px;}
+  .hero-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;max-width:380px;margin:0 auto;}
+  .hs{border-radius:8px;padding:8px;text-align:center;}
+  .hs-val{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:26px;line-height:1;}
+  .hs-label{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;}
+
+  .section-head{padding:20px 0 12px;border-bottom:2px solid;margin-bottom:16px;}
+  .section-head-title{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:28px;letter-spacing:3px;text-transform:uppercase;margin-bottom:4px;}
+  .section-head-sub{font-size:12px;color:var(--muted);}
+
+  /* WOD CARD */
+  .wod{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:10px;border-left-width:3px;}
+  .wod.girls{border-left-color:var(--pink);}
+  .wod.hero{border-left-color:var(--orange);}
+  .wod.open{border-left-color:var(--blue);}
+  .wod-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px;}
+  .wod-name{font-family:'Barlow Condensed',sans-serif;font-weight:900;font-size:20px;letter-spacing:1px;}
+  .wod-name.girls{color:var(--pink);}
+  .wod-name.hero{color:var(--orange);}
+  .wod-name.open{color:var(--blue);}
+  .wod-format{font-size:10px;padding:3px 8px;border-radius:4px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;white-space:nowrap;margin-top:2px;}
+  .fmt-time{background:rgba(234,179,8,.15);color:var(--yellow);}
+  .fmt-amrap{background:rgba(34,197,94,.15);color:var(--green);}
+  .fmt-emom{background:rgba(59,130,246,.15);color:var(--blue);}
+  .fmt-rft{background:rgba(249,115,22,.15);color:var(--orange);}
+  .fmt-chipper{background:rgba(168,85,247,.15);color:var(--purple);}
+  .fmt-max{background:rgba(20,184,166,.15);color:var(--teal);}
+  .wod-moves{font-size:12px;color:#d1d5db;line-height:2;margin-bottom:8px;}
+  .wod-moves strong{color:#fff;font-weight:700;}
+  .wod-rx{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px;}
+  .rx-pill{font-size:10px;padding:2px 8px;border-radius:4px;background:rgba(255,255,255,.06);color:var(--muted);border:1px solid var(--border);}
+  .wod-ecm{padding:6px 10px;border-radius:6px;font-size:11px;display:flex;align-items:center;gap:6px;}
+  .ecm-girls{background:rgba(236,72,153,.06);color:#f9a8d4;border:1px solid rgba(236,72,153,.2);}
+  .ecm-hero{background:rgba(249,115,22,.06);color:#fdba74;border:1px solid rgba(249,115,22,.2);}
+  .ecm-open{background:rgba(59,130,246,.06);color:#93c5fd;border:1px solid rgba(59,130,246,.2);}
+  .wod-note{margin-top:6px;padding:5px 8px;border-radius:5px;font-size:10px;color:var(--muted);background:rgba(255,255,255,.03);font-style:italic;}
+
+  .subsection{font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin:20px 0 8px;padding:4px 0;border-bottom:1px solid var(--border);}
+</style>
+</head>
+<body>
+
+<div class="hero-banner">
+  <div class="hero-title">ECM · <span style="color:var(--green);">CrossFit</span> WODs</div>
+  <div class="hero-sub">Benchmark complet · Girls · Hero · Open · Slots ECM</div>
+  <div class="hero-stats">
+    <div class="hs" style="background:rgba(236,72,153,.08);border:1px solid rgba(236,72,153,.2);">
+      <div class="hs-val" style="color:var(--pink);">22</div>
+      <div class="hs-label">The Girls</div>
+    </div>
+    <div class="hs" style="background:rgba(249,115,22,.08);border:1px solid rgba(249,115,22,.2);">
+      <div class="hs-val" style="color:var(--orange);">25</div>
+      <div class="hs-label">Hero WODs</div>
+    </div>
+    <div class="hs" style="background:rgba(59,130,246,.08);border:1px solid rgba(59,130,246,.2);">
+      <div class="hs-val" style="color:var(--blue);">20</div>
+      <div class="hs-label">Open WODs</div>
+    </div>
+  </div>
+</div>
+
+<div class="tab-nav">
+  <button class="tab-btn girls active-girls" onclick="switchTab('girls')">👧 Girls</button>
+  <button class="tab-btn hero" onclick="switchTab('hero')">🦸 Hero</button>
+  <button class="tab-btn open" onclick="switchTab('open')">🏆 Open</button>
+</div>
+
+<!-- ════════════════════════ GIRLS ════════════════════════ -->
+<div id="tab-girls" class="section active" style="padding-top:16px;">
+  <div class="section-head" style="border-color:var(--pink);">
+    <div class="section-head-title" style="color:var(--pink);">The Girls · 22 WODs</div>
+    <div class="section-head-sub">Benchmarks fondamentaux CrossFit · mesure de la progression</div>
+  </div>
+
+  <!-- FRAN -->
+  <div class="wod girls">
+    <div class="wod-top">
+      <div class="wod-name girls">FRAN</div>
+      <div class="wod-format fmt-time">For Time</div>
+    </div>
+    <div class="wod-moves"><strong>21-15-9 reps :</strong><br>Thrusters · Pull-ups</div>
+    <div class="wod-rx"><span class="rx-pill">♂ 43kg</span><span class="rx-pill">♀ 29kg</span><span class="rx-pill">Scaled : bande</span></div>
+    <div class="wod-ecm ecm-girls">💡 ECM : WOD Lundi Upper · remplace Strength B si temps court · benchmark mensuel</div>
+  </div>
+
+  <!-- HELEN -->
+  <div class="wod girls">
+    <div class="wod-top">
+      <div class="wod-name girls">HELEN</div>
+      <div class="wod-format fmt-rft">3 RFT</div>
+    </div>
+    <div class="wod-moves"><strong>3 rounds :</strong><br>400m Run · 21 KB Swings · 12 Pull-ups</div>
+    <div class="wod-rx"><span class="rx-pill">♂ 24kg KB</span><span class="rx-pill">♀ 16kg KB</span></div>
+    <div class="wod-ecm ecm-girls">💡 ECM : WOD Mercredi (veille Boxe Zone 2+) · ou Finisher Dimanche Full Body</div>
+  </div>
+
+  <!-- GRACE -->
+  <div class="wod girls">
+    <div class="wod-top">
+      <div class="wod-name girls">GRACE</div>
+      <div class="wod-format fmt-time">For Time</div>
+    </div>
+    <div class="wod-moves"><strong>30 Clean & Jerk</strong></div>
+    <div class="wod-rx"><span class="rx-pill">♂ 61kg</span><span class="rx-pill">♀ 43kg</span></div>
+    <div class="wod-ecm ecm-girls">💡 ECM : Finisher Dimanche après Power Clean · ou Benchmark mensuel isolé</div>
+  </div>
+
+  <!-- DIANE -->
+  <div class="wod girls">
+    <div class="wod-top">
+      <div class="wod-name girls">DIANE</div>
+      <div class="wod-format fmt-time">For Time</div>
+    </div>
+    <div class="wod-moves"><strong>21-15-9 reps :</strong><br>Deadlift · Handstand Push-ups</div>
+    <div class="wod-rx"><span class="rx-pill">♂ 102kg</span><span class="rx-pill">♀ 70kg</span><span class="rx-pill">Scaled : DB HSPU</span></div>
+    <div class="wod-ecm ecm-girls">💡 ECM : WOD Jeudi Lower (Deadlift) + Finisher Upper · 2 blocs combinés</div>
+  </div>
+
+  <!-- ELIZABETH -->
+  <div class="wod girls">
+    <div class="wod-top">
+      <div class="wod-name girls">ELIZABETH</div>
+      <div class="wod-format fmt-time">For Time</div>
+    </div>
+    <div class="wod-moves"><strong>21-15-9 reps :</strong><br>Clean · Ring Dips</div>
+    <div class="wod-rx"><span class="rx-pill">♂ 61kg</span><span class="rx-pill">♀ 43kg</span><span class="rx-pill">Scaled : Dips parallèles</span></div>
+    <div class="wod-ecm ecm-girls">💡 ECM : WOD Dimanche Full Body · transfert explosivité Boxe direct</div>
+  </div>
+
+  <!-- ISABEL -->
+  <div class="wod girls">
+    <div class="wod-top">
+      <div class="wod-name girls">ISABEL</div>
+      <div class="wod-format fmt-time">For Time</div>
+    </div>
+    <div class="wod-moves"><strong>30 Snatch</strong></div>
+    <div class="wod-rx"><span class="rx-pill">♂ 61kg</span><span class="rx-pill">♀ 43kg</span></div>
+    <div class="wod-ecm ecm-girls">💡 ECM : Dimanche HPS (rotation) · benchmark explosivité pure · viser sub-3min</div>
+  </div>
+
+  <!-- CINDY -->
+  <div class="wod girls">
+    <div class="wod-top">
+      <div class="wod-name girls">CINDY</div>
+      <div class="wod-format fmt-amrap">AMRAP 20min</div>
+    </div>
+    <div class="wod-moves"><strong>Répéter le max de rounds :</strong><br>5 Pull-ups · 10 Push-ups · 15 Air Squats</div>
+    <div class="wod-rx"><span class="rx-pill">BW</span><span class="rx-pill">Objectif ≥ 20 rounds</span></div>
+    <div class="wod-ecm ecm-girls">💡 ECM : Mardi Zone 2+ (rythme constant) · ou test récupération Lundi fin Upper</div>
+  </div>
+
+  <!-- MARY -->
+  <div class="wod girls">
+    <div class="wod-top">
+      <div class="wod-name girls">MARY</div>
+      <div class="wod-format fmt-amrap">AMRAP 20min</div>
+    </div>
+    <div class="wod-moves"><strong>Répéter le max de rounds :</strong><br>5 HSPU · 10 Pistol Squats · 15 Pull-ups</div>
+    <div class="wod-rx"><span class="rx-pill">BW</span><span class="rx-pill">Scaled : DB Press + Air Squats</span></div>
+    <div class="wod-ecm ecm-girls">💡 ECM : Dimanche Full Body · force + équilibre + gainage · benchmark mensuel</div>
+  </div>
+
+  <!-- ANNIE -->
+  <div class="wod girls">
+    <div class="wod-top">
+      <div class="wod-name girls">ANNIE</div>
+      <div class="wod-format fmt-time">For Time</div>
+    </div>
+    <div class="wod-moves"><strong>50-40-30-20-10 reps :</strong><br>Double Unders · Sit-ups</div>
+    <div class="wod-rx"><span class="rx-pill">Scaled : Simple Unders ×3</span></div>
+    <div class="wod-ecm ecm-girls">💡 ECM : Finisher Mardi Zone 2+ · cardio léger + core · parfait récupération active</div>
+  </div>
+
+  <!-- BARBARA -->
+  <div class="wod girls">
+    <div class="wod-top">
+      <div class="wod-name girls">BARBARA</div>
+      <div class="wod-format fmt-rft">5 RFT</div>
+    </div>
+    <div class="wod-moves"><strong>5 rounds (3min repos entre chaque) :</strong><br>20 Pull-ups · 30 Push-ups · 40 Sit-ups · 50 Air Squats</div>
+    <div class="wod-rx"><span class="rx-pill">BW</span><span class="rx-pill">Durée : ~30-40min</span></div>
+    <div class="wod-ecm ecm-girls">💡 ECM : WOD Lundi Upper · volume corps entier · remplace AMRAP habituel</div>
+  </div>
+
+  <!-- CHELSEA -->
+  <div class="wod girls">
+    <div class="wod-top">
+      <div class="wod-name girls">CHELSEA</div>
+      <div class="wod-format fmt-emom">EMOM 30min</div>
+    </div>
+    <div class="wod-moves"><strong>Chaque minute :</strong><br>5 Pull-ups · 10 Push-ups · 15 Air Squats</div>
+    <div class="wod-rx"><span class="rx-pill">BW</span><span class="rx-pill">Doit finir avant la minute suivante</span></div>
+    <div class="wod-ecm ecm-girls">💡 ECM : Mardi Zone 2+ ou Finisher Lundi Upper · gestion du rythme</div>
+  </div>
+
+  <!-- EVA -->
+  <div class="wod girls">
+    <div class="wod-top">
+      <div class="wod-name girls">EVA</div>
+      <div class="wod-format fmt-rft">5 RFT</div>
+    </div>
+    <div class="wod-moves"><strong>5 rounds :</strong><br>800m Run · 30 KB Swings · 30 Pull-ups</div>
+    <div class="wod-rx"><span class="rx-pill">♂ 32kg KB</span><span class="rx-pill">♀ 24kg KB</span><span class="rx-pill">Durée : 45-60min</span></div>
+    <div class="wod-ecm ecm-girls">💡 ECM : WOD long Dimanche Full Body · semaine de décharge · cardio + pull</div>
+  </div>
+
+  <!-- KELLY -->
+  <div class="wod girls">
+    <div class="wod-top">
+      <div class="wod-name girls">KELLY</div>
+      <div class="wod-format fmt-rft">5 RFT</div>
+    </div>
+    <div class="wod-moves"><strong>5 rounds :</strong><br>400m Run · 30 Box Jumps · 30 Wall Balls</div>
+    <div class="wod-rx"><span class="rx-pill">Box 24"/20"</span><span class="rx-pill">♂ 9kg Ball</span><span class="rx-pill">♀ 6kg Ball</span></div>
+    <div class="wod-ecm ecm-girls">💡 ECM : WOD Jeudi Lower · explosivité jambes · cardio respiratoire</div>
+  </div>
+
+  <!-- NICOLE -->
+  <div class="wod girls">
+    <div class="wod-top">
+      <div class="wod-name girls">NICOLE</div>
+      <div class="wod-format fmt-amrap">AMRAP 20min</div>
+    </div>
+    <div class="wod-moves"><strong>Répéter le max de rounds :</strong><br>400m Run · Max Pull-ups unbroken</div>
+    <div class="wod-rx"><span class="rx-pill">BW</span><span class="rx-pill">Noté : total Pull-ups</span></div>
+    <div class="wod-ecm ecm-girls">💡 ECM : Vendredi Zone 2+ (état VERT) · benchmark Pull-ups + cardio</div>
+  </div>
+
+  <!-- KAREN -->
+  <div class="wod girls">
+    <div class="wod-top">
+      <div class="wod-name girls">KAREN</div>
+      <div class="wod-format fmt-time">For Time</div>
+    </div>
+    <div class="wod-moves"><strong>150 Wall Balls</strong></div>
+    <div class="wod-rx"><span class="rx-pill">♂ 9kg / cible 3m</span><span class="rx-pill">♀ 6kg / cible 2.7m</span></div>
+    <div class="wod-ecm ecm-girls">💡 ECM : Finisher Jeudi Lower · cardio + quadriceps · viser sub-10min</div>
+  </div>
+
+  <!-- LINDA -->
+  <div class="wod girls">
+    <div class="wod-top">
+      <div class="wod-name girls">LINDA</div>
+      <div class="wod-format fmt-time">For Time</div>
+    </div>
+    <div class="wod-moves"><strong>10-9-8-7-6-5-4-3-2-1 reps :</strong><br>Bench Press (BW) · Clean (3/4 BW) · Deadlift (1.5 BW)</div>
+    <div class="wod-rx"><span class="rx-pill">Charges = % poids de corps</span><span class="rx-pill">Durée : 30-45min</span></div>
+    <div class="wod-ecm ecm-girls">💡 ECM : WOD Lundi Upper (Bench = horizontal) · combo force trimodalité</div>
+  </div>
+
+  <!-- JACKIE -->
+  <div class="wod girls">
+    <div class="wod-top">
+      <div class="wod-name girls">JACKIE</div>
+      <div class="wod-format fmt-time">For Time</div>
+    </div>
+    <div class="wod-moves"><strong>1000m Row · 50 Thrusters · 30 Pull-ups</strong></div>
+    <div class="wod-rx"><span class="rx-pill">♂ 20kg</span><span class="rx-pill">♀ 15kg</span><span class="rx-pill">Viser sub-10min</span></div>
+    <div class="wod-ecm ecm-girls">💡 ECM : Finisher Lundi Upper · ergomètre + press + pull · classique</div>
+  </div>
+
+  <!-- AMANDA -->
+  <div class="wod girls">
+    <div class="wod-top">
+      <div class="wod-name girls">AMANDA</div>
+      <div class="wod-format fmt-time">For Time</div>
+    </div>
+    <div class="wod-moves"><strong>9-7-5 reps :</strong><br>Muscle-ups · Squat Snatches</div>
+    <div class="wod-rx"><span class="rx-pill">♂ 61kg</span><span class="rx-pill">♀ 43kg</span><span class="rx-pill">Scaled : Pull-ups + Power Snatch</span></div>
+    <div class="wod-ecm ecm-girls">💡 ECM : WOD Dimanche HPS (rotation) · gymnastics + Olympic lift pur</div>
+  </div>
+
+  <!-- LYNNE -->
+  <div class="wod girls">
+    <div class="wod-top">
+      <div class="wod-name girls">LYNNE</div>
+      <div class="wod-format fmt-max">5 Rounds Max Reps</div>
+    </div>
+    <div class="wod-moves"><strong>5 rounds (pas de timer) :</strong><br>Bench Press max reps (BW) · Pull-ups max reps unbroken</div>
+    <div class="wod-rx"><span class="rx-pill">BW sur Bench Press</span><span class="rx-pill">Noté : total reps</span></div>
+    <div class="wod-ecm ecm-girls">💡 ECM : Bloc Accessoire Lundi Upper · ou Benchmark mensuel force horizontale</div>
+  </div>
+
+  <!-- NANCY -->
+  <div class="wod girls">
+    <div class="wod-top">
+      <div class="wod-name girls">NANCY</div>
+      <div class="wod-format fmt-rft">5 RFT</div>
+    </div>
+    <div class="wod-moves"><strong>5 rounds :</strong><br>400m Run · 15 Overhead Squats</div>
+    <div class="wod-rx"><span class="rx-pill">♂ 43kg</span><span class="rx-pill">♀ 29kg</span></div>
+    <div class="wod-ecm ecm-girls">💡 ECM : WOD Jeudi Lower (Squat) · mobilité épaules + cardio · 20min</div>
+  </div>
+
+  <!-- ANGIE -->
+  <div class="wod girls">
+    <div class="wod-top">
+      <div class="wod-name girls">ANGIE</div>
+      <div class="wod-format fmt-chipper">Chipper</div>
+    </div>
+    <div class="wod-moves"><strong>For Time (dans l'ordre) :</strong><br>100 Pull-ups · 100 Push-ups · 100 Sit-ups · 100 Air Squats</div>
+    <div class="wod-rx"><span class="rx-pill">BW</span><span class="rx-pill">Durée : 20-40min</span></div>
+    <div class="wod-ecm ecm-girls">💡 ECM : WOD Lundi Upper · volume corps entier · Benchmark endurance musculaire</div>
+  </div>
+
+  <!-- NASTY GIRLS -->
+  <div class="wod girls">
+    <div class="wod-top">
+      <div class="wod-name girls">NASTY GIRLS</div>
+      <div class="wod-format fmt-rft">3 RFT</div>
+    </div>
+    <div class="wod-moves"><strong>3 rounds :</strong><br>50 Air Squats · 7 Muscle-ups · 10 Hang Power Cleans</div>
+    <div class="wod-rx"><span class="rx-pill">♂ 61kg</span><span class="rx-pill">♀ 43kg</span><span class="rx-pill">Scaled : Pull-ups + Dips</span></div>
+    <div class="wod-ecm ecm-girls">💡 ECM : WOD Dimanche Full Body · gymnastics + Olympic + cardio</div>
+  </div>
+</div>
+
+<!-- ════════════════════════ HERO ════════════════════════ -->
+<div id="tab-hero" class="section" style="padding-top:16px;">
+  <div class="section-head" style="border-color:var(--orange);">
+    <div class="section-head-title" style="color:var(--orange);">Hero WODs · 25 WODs</div>
+    <div class="section-head-sub">En hommage aux militaires, pompiers, policiers · souvent longs et intenses</div>
+  </div>
+
+  <!-- MURPH -->
+  <div class="wod hero">
+    <div class="wod-top">
+      <div class="wod-name hero">MURPH</div>
+      <div class="wod-format fmt-time">For Time</div>
+    </div>
+    <div class="wod-moves"><strong>1 mile Run · 100 Pull-ups · 200 Push-ups · 300 Squats · 1 mile Run</strong><br>(partition libre : ex. 20 rounds de 5+10+15)</div>
+    <div class="wod-rx"><span class="rx-pill">Vest 9kg</span><span class="rx-pill">Scaled : sans vest</span><span class="rx-pill">Durée : 45-90min</span></div>
+    <div class="wod-ecm ecm-hero">💡 ECM : Dimanche Full Body spécial · remplace tout · 1×/cycle 6 semaines</div>
+  </div>
+
+  <!-- DT -->
+  <div class="wod hero">
+    <div class="wod-top">
+      <div class="wod-name hero">DT</div>
+      <div class="wod-format fmt-rft">5 RFT</div>
+    </div>
+    <div class="wod-moves"><strong>5 rounds :</strong><br>12 Deadlifts · 9 Hang Power Cleans · 6 Push Jerks</div>
+    <div class="wod-rx"><span class="rx-pill">♂ 70kg</span><span class="rx-pill">♀ 47kg</span><span class="rx-pill">1 barre · ne pas poser</span></div>
+    <div class="wod-ecm ecm-hero">💡 ECM : WOD Dimanche Full Body ou Jeudi Lower · barre complexe · viser sub-10min</div>
+  </div>
+
+  <!-- THE SEVEN -->
+  <div class="wod hero">
+    <div class="wod-top">
+      <div class="wod-name hero">THE SEVEN</div>
+      <div class="wod-format fmt-rft">7 RFT</div>
+    </div>
+    <div class="wod-moves"><strong>7 rounds :</strong><br>7 HSPU · 7 KB Swings · 7 Pull-ups · 7 Burpees · 7 KB Swings · 7 K2E · 7 Deadlifts</div>
+    <div class="wod-rx"><span class="rx-pill">KB 32kg</span><span class="rx-pill">DL 102kg</span><span class="rx-pill">Cap 35min</span></div>
+    <div class="wod-ecm ecm-hero">💡 ECM : WOD long Dimanche · ou remplace séance complète semaine de volume</div>
+  </div>
+
+  <!-- DANIEL -->
+  <div class="wod hero">
+    <div class="wod-top">
+      <div class="wod-name hero">DANIEL</div>
+      <div class="wod-format fmt-time">For Time</div>
+    </div>
+    <div class="wod-moves"><strong>50 Pull-ups · 400m Run · 21 Thrusters · 800m Run · 21 Thrusters · 400m Run · 50 Pull-ups</strong></div>
+    <div class="wod-rx"><span class="rx-pill">♂ 43kg</span><span class="rx-pill">♀ 29kg</span></div>
+    <div class="wod-ecm ecm-hero">💡 ECM : Dimanche Full Body ou Vendredi Zone 2+ (état VERT)</div>
+  </div>
+
+  <!-- MICHAEL -->
+  <div class="wod hero">
+    <div class="wod-top">
+      <div class="wod-name hero">MICHAEL</div>
+      <div class="wod-format fmt-rft">3 RFT</div>
+    </div>
+    <div class="wod-moves"><strong>3 rounds :</strong><br>800m Run · 50 Back Extensions (GHD) · 50 Sit-ups</div>
+    <div class="wod-rx"><span class="rx-pill">BW</span><span class="rx-pill">Scaled : Superman holds</span></div>
+    <div class="wod-ecm ecm-hero">💡 ECM : Jeudi Lower (chaîne postérieure) · ou Mardi Zone 2+ long</div>
+  </div>
+
+  <!-- RANDY -->
+  <div class="wod hero">
+    <div class="wod-top">
+      <div class="wod-name hero">RANDY</div>
+      <div class="wod-format fmt-time">For Time</div>
+    </div>
+    <div class="wod-moves"><strong>75 Power Snatches</strong></div>
+    <div class="wod-rx"><span class="rx-pill">♂ 34kg</span><span class="rx-pill">♀ 24kg</span><span class="rx-pill">Viser sub-5min</span></div>
+    <div class="wod-ecm ecm-hero">💡 ECM : Finisher Dimanche HPS · snatch de vitesse · ou Benchmark mensuel</div>
+  </div>
+
+  <!-- JACK -->
+  <div class="wod hero">
+    <div class="wod-top">
+      <div class="wod-name hero">JACK</div>
+      <div class="wod-format fmt-amrap">AMRAP 20min</div>
+    </div>
+    <div class="wod-moves"><strong>Répéter le max de rounds :</strong><br>10 Push Press · 10 KB Swings · 10 Box Jumps</div>
+    <div class="wod-rx"><span class="rx-pill">♂ Push Press 52kg</span><span class="rx-pill">♂ KB 32kg</span><span class="rx-pill">Box 24"</span></div>
+    <div class="wod-ecm ecm-hero">💡 ECM : WOD Lundi Upper ou Jeudi Lower · mix press + KB + saut</div>
+  </div>
+
+  <!-- NATE -->
+  <div class="wod hero">
+    <div class="wod-top">
+      <div class="wod-name hero">NATE</div>
+      <div class="wod-format fmt-amrap">AMRAP 20min</div>
+    </div>
+    <div class="wod-moves"><strong>Répéter le max de rounds :</strong><br>2 Muscle-ups · 4 HSPU · 8 KB Swings</div>
+    <div class="wod-rx"><span class="rx-pill">♂ 32kg</span><span class="rx-pill">♀ 24kg</span><span class="rx-pill">Scaled : Pull-ups + Dips + KB Swings</span></div>
+    <div class="wod-ecm ecm-hero">💡 ECM : WOD Lundi Upper · gymnastics + KB · transfert Boxe (épaules)</div>
+  </div>
+
+  <!-- JT -->
+  <div class="wod hero">
+    <div class="wod-top">
+      <div class="wod-name hero">JT</div>
+      <div class="wod-format fmt-time">For Time</div>
+    </div>
+    <div class="wod-moves"><strong>21-15-9 reps :</strong><br>HSPU · Ring Dips · Push-ups</div>
+    <div class="wod-rx"><span class="rx-pill">BW</span><span class="rx-pill">Scaled : DB Press + Dips parallèles + Push-ups</span></div>
+    <div class="wod-ecm ecm-hero">💡 ECM : Finisher Lundi Upper Horizontal · volume push pur · épaules</div>
+  </div>
+
+  <!-- HOLLEYMAN -->
+  <div class="wod hero">
+    <div class="wod-top">
+      <div class="wod-name hero">HOLLEYMAN</div>
+      <div class="wod-format fmt-rft">30 Rounds</div>
+    </div>
+    <div class="wod-moves"><strong>30 rounds :</strong><br>5 Wall Balls · 3 HSPU · 1 Power Clean</div>
+    <div class="wod-rx"><span class="rx-pill">♂ 102kg Clean</span><span class="rx-pill">♀ 70kg Clean</span><span class="rx-pill">Durée : 30-45min</span></div>
+    <div class="wod-ecm ecm-hero">💡 ECM : WOD Dimanche Full Body · volume + force · 1×/mois max</div>
+  </div>
+
+  <!-- KALSU -->
+  <div class="wod hero">
+    <div class="wod-top">
+      <div class="wod-name hero">KALSU</div>
+      <div class="wod-format fmt-time">For Time</div>
+    </div>
+    <div class="wod-moves"><strong>100 Thrusters</strong> · + 5 Burpees au début de chaque minute</div>
+    <div class="wod-rx"><span class="rx-pill">♂ 61kg</span><span class="rx-pill">♀ 43kg</span><span class="rx-pill">Durée : 20-45min</span></div>
+    <div class="wod-ecm ecm-hero">💡 ECM : WOD extrême · semaine de décharge · Full Body Dimanche 1×/6sem</div>
+  </div>
+
+  <!-- HANSEN -->
+  <div class="wod hero">
+    <div class="wod-top">
+      <div class="wod-name hero">HANSEN</div>
+      <div class="wod-format fmt-rft">5 RFT</div>
+    </div>
+    <div class="wod-moves"><strong>5 rounds :</strong><br>30 KB Swings · 30 Burpees · 30 GHD Sit-ups</div>
+    <div class="wod-rx"><span class="rx-pill">♂ 32kg</span><span class="rx-pill">♀ 24kg</span><span class="rx-pill">Durée : 45-60min</span></div>
+    <div class="wod-ecm ecm-hero">💡 ECM : Long WOD Dimanche Full Body · ou Jeudi Lower (KB Swings)</div>
+  </div>
+
+  <!-- LOREDO -->
+  <div class="wod hero">
+    <div class="wod-top">
+      <div class="wod-name hero">LOREDO</div>
+      <div class="wod-format fmt-rft">6 RFT</div>
+    </div>
+    <div class="wod-moves"><strong>6 rounds :</strong><br>24 Air Squats · 24 Push-ups · 24 Walking Lunges · 400m Run</div>
+    <div class="wod-rx"><span class="rx-pill">BW</span><span class="rx-pill">Durée : 35-50min</span></div>
+    <div class="wod-ecm ecm-hero">💡 ECM : WOD Jeudi Lower · ou Mardi Zone 2+ actif · volume bas du corps</div>
+  </div>
+
+  <!-- RYAN -->
+  <div class="wod hero">
+    <div class="wod-top">
+      <div class="wod-name hero">RYAN</div>
+      <div class="wod-format fmt-rft">5 RFT</div>
+    </div>
+    <div class="wod-moves"><strong>5 rounds :</strong><br>7 Muscle-ups · 21 Burpees</div>
+    <div class="wod-rx"><span class="rx-pill">Scaled : Pull-ups + Dips</span><span class="rx-pill">Durée : 25-40min</span></div>
+    <div class="wod-ecm ecm-hero">💡 ECM : Finisher Dimanche Full Body · ou WOD Lundi Upper (gymnastics)</div>
+  </div>
+
+  <!-- JASON -->
+  <div class="wod hero">
+    <div class="wod-top">
+      <div class="wod-name hero">JASON</div>
+      <div class="wod-format fmt-time">For Time</div>
+    </div>
+    <div class="wod-moves"><strong>100 Air Squats · 5 Muscle-ups · 75 Squats · 10 Muscle-ups · 50 Squats · 15 Muscle-ups · 25 Squats · 20 Muscle-ups</strong></div>
+    <div class="wod-rx"><span class="rx-pill">BW</span><span class="rx-pill">Scaled : Pull-ups + Dips</span></div>
+    <div class="wod-ecm ecm-hero">💡 ECM : Dimanche Full Body · volume squats + gymnastics · endurance mentale</div>
+  </div>
+
+  <!-- JOSH -->
+  <div class="wod hero">
+    <div class="wod-top">
+      <div class="wod-name hero">JOSH</div>
+      <div class="wod-format fmt-time">For Time</div>
+    </div>
+    <div class="wod-moves"><strong>21-15-9 reps :</strong><br>Overhead Squats · Pull-ups</div>
+    <div class="wod-rx"><span class="rx-pill">♂ 61kg</span><span class="rx-pill">♀ 43kg</span></div>
+    <div class="wod-ecm ecm-hero">💡 ECM : WOD Jeudi Lower (OHS) + Pull-ups · mobilité + force</div>
+  </div>
+
+  <!-- BADGER -->
+  <div class="wod hero">
+    <div class="wod-top">
+      <div class="wod-name hero">BADGER</div>
+      <div class="wod-format fmt-rft">3 RFT</div>
+    </div>
+    <div class="wod-moves"><strong>3 rounds :</strong><br>30 Squat Cleans · 30 Pull-ups · 800m Run</div>
+    <div class="wod-rx"><span class="rx-pill">♂ 43kg</span><span class="rx-pill">♀ 29kg</span><span class="rx-pill">Durée : 40-60min</span></div>
+    <div class="wod-ecm ecm-hero">💡 ECM : Long WOD Dimanche Power Clean · Olympic + Pull + Cardio</div>
+  </div>
+
+  <!-- WHITTEN -->
+  <div class="wod hero">
+    <div class="wod-top">
+      <div class="wod-name hero">WHITTEN</div>
+      <div class="wod-format fmt-rft">5 RFT</div>
+    </div>
+    <div class="wod-moves"><strong>5 rounds :</strong><br>22 KB Swings · 22 Box Jumps · 400m Run · 22 Burpees · 22 Wall Balls</div>
+    <div class="wod-rx"><span class="rx-pill">♂ 32kg KB</span><span class="rx-pill">Box 24"</span><span class="rx-pill">Ball 9kg</span><span class="rx-pill">Durée : 60-90min</span></div>
+    <div class="wod-ecm ecm-hero">💡 ECM : WOD extrême Dimanche · 1×/6 semaines max · remplace tout</div>
+  </div>
+
+  <!-- LUMBERJACK 20 -->
+  <div class="wod hero">
+    <div class="wod-top">
+      <div class="wod-name hero">LUMBERJACK 20</div>
+      <div class="wod-format fmt-time">For Time</div>
+    </div>
+    <div class="wod-moves"><strong>20 reps de chaque :</strong><br>DL 102kg · KB Swings 32kg · OH Squats 43kg · HSPU · Box Jumps 24" · DB Hang Squat Cleans 22.5kg · Burpees</div>
+    <div class="wod-rx"><span class="rx-pill">Chipper lourd</span><span class="rx-pill">Durée : 30-45min</span></div>
+    <div class="wod-ecm ecm-hero">💡 ECM : WOD Dimanche Full Body · tout en un · benchmark trimestriel</div>
+  </div>
+
+  <!-- GRIFF -->
+  <div class="wod hero">
+    <div class="wod-top">
+      <div class="wod-name hero">GRIFF</div>
+      <div class="wod-format fmt-time">For Time</div>
+    </div>
+    <div class="wod-moves"><strong>800m Run · 400m Run à reculons · 800m Run · 400m Run à reculons</strong></div>
+    <div class="wod-rx"><span class="rx-pill">BW</span><span class="rx-pill">Coordination + cardio</span></div>
+    <div class="wod-ecm ecm-girls">💡 ECM : Mardi Zone 2+ (cardio inhabituel) · renforce équilibre proprioception</div>
+  </div>
+
+  <!-- MCGHEE -->
+  <div class="wod hero">
+    <div class="wod-top">
+      <div class="wod-name hero">McGHEE</div>
+      <div class="wod-format fmt-amrap">AMRAP 30min</div>
+    </div>
+    <div class="wod-moves"><strong>Répéter le max de rounds :</strong><br>5 Deadlifts · 13 Push-ups · 9 Box Jumps</div>
+    <div class="wod-rx"><span class="rx-pill">♂ 155kg DL</span><span class="rx-pill">Box 24"</span></div>
+    <div class="wod-note">⚠️ Charge DL à vérifier selon niveau — très lourd</div>
+    <div class="wod-ecm ecm-hero">💡 ECM : WOD Jeudi Lower · DL lourd + explosivité · 20-25min version ECM</div>
+  </div>
+
+  <!-- ERIN -->
+  <div class="wod hero">
+    <div class="wod-top">
+      <div class="wod-name hero">ERIN</div>
+      <div class="wod-format fmt-rft">5 RFT</div>
+    </div>
+    <div class="wod-moves"><strong>5 rounds :</strong><br>15 DB Split Cleans · 21 Pull-ups</div>
+    <div class="wod-rx"><span class="rx-pill">♂ 22.5kg/main</span><span class="rx-pill">♀ 15kg/main</span></div>
+    <div class="wod-ecm ecm-hero">💡 ECM : WOD Lundi Upper · DB split cleans = transfert direct Boxe coordination</div>
+  </div>
+
+  <!-- BLAKE -->
+  <div class="wod hero">
+    <div class="wod-top">
+      <div class="wod-name hero">BLAKE</div>
+      <div class="wod-format fmt-rft">4 RFT</div>
+    </div>
+    <div class="wod-moves"><strong>4 rounds :</strong><br>100ft Shuttle Run · 16 KB Swings · 16 Box Jumps · 8 Muscle-ups</div>
+    <div class="wod-rx"><span class="rx-pill">♂ 32kg KB</span><span class="rx-pill">Box 24"</span><span class="rx-pill">Scaled : Pull-ups + Dips</span></div>
+    <div class="wod-ecm ecm-hero">💡 ECM : WOD Dimanche Full Body · cardio + KB + gymnastics</div>
+  </div>
+
+  <!-- FILTHY FIFTY -->
+  <div class="wod hero">
+    <div class="wod-top">
+      <div class="wod-name hero">FILTHY FIFTY</div>
+      <div class="wod-format fmt-chipper">Chipper</div>
+    </div>
+    <div class="wod-moves"><strong>50 reps de chaque For Time :</strong><br>Box Jumps 24" · Jumping Pull-ups · KB Swings 16kg · Walking Lunges · K2E · Push Press 20kg · Back Ext · Wall Balls 9kg · Burpees · Double Unders</div>
+    <div class="wod-rx"><span class="rx-pill">Durée : 30-50min</span></div>
+    <div class="wod-ecm ecm-hero">💡 ECM : WOD Full Body Dimanche · chipper long · 1×/mois maximum</div>
+  </div>
+</div>
+
+<!-- ════════════════════════ OPEN ════════════════════════ -->
+<div id="tab-open" class="section" style="padding-top:16px;">
+  <div class="section-head" style="border-color:var(--blue);">
+    <div class="section-head-title" style="color:var(--blue);">Open WODs · 20 Classiques</div>
+    <div class="section-head-sub">Les plus utilisés en reprogrammation quotidienne · 2011→2023</div>
+  </div>
+
+  <div class="subsection">2011–2013 · Les fondamentaux</div>
+
+  <div class="wod open">
+    <div class="wod-top">
+      <div class="wod-name open">11.1 / 14.1</div>
+      <div class="wod-format fmt-amrap">AMRAP 10min</div>
+    </div>
+    <div class="wod-moves"><strong>30 Double Unders · 15 Power Snatches</strong></div>
+    <div class="wod-rx"><span class="rx-pill">♂ 35kg</span><span class="rx-pill">♀ 24kg</span><span class="rx-pill">Scaled : Simple Unders ×3</span></div>
+    <div class="wod-ecm ecm-open">💡 ECM : Finisher Dimanche HPS · cardio + snatch · 10min parfait</div>
+  </div>
+
+  <div class="wod open">
+    <div class="wod-top">
+      <div class="wod-name open">11.6 / 12.5 / 13.5 / 18.5</div>
+      <div class="wod-format fmt-amrap">AMRAP 7min</div>
+    </div>
+    <div class="wod-moves"><strong>3-6-9-12... Thrusters + Chest-to-Bar Pull-ups</strong><br>(ajout de 3 reps à chaque tranche quand le 21 est complété)</div>
+    <div class="wod-rx"><span class="rx-pill">♂ 43kg</span><span class="rx-pill">♀ 29kg</span><span class="rx-pill">Scaled : Pull-ups classiques</span></div>
+    <div class="wod-ecm ecm-open">💡 ECM : Finisher Lundi Upper · ou Benchmark mensuel intensity · 7min max</div>
+  </div>
+
+  <div class="wod open">
+    <div class="wod-top">
+      <div class="wod-name open">12.1</div>
+      <div class="wod-format fmt-amrap">AMRAP 7min</div>
+    </div>
+    <div class="wod-moves"><strong>Burpees au maximum</strong></div>
+    <div class="wod-rx"><span class="rx-pill">BW</span><span class="rx-pill">Viser 90+ reps</span></div>
+    <div class="wod-ecm ecm-open">💡 ECM : Finisher simple · Mardi Zone 2+ · ou warm-up mental avant Boxe</div>
+  </div>
+
+  <div class="subsection">2014–2016 · L'ère classique</div>
+
+  <div class="wod open">
+    <div class="wod-top">
+      <div class="wod-name open">14.5 / 15.5</div>
+      <div class="wod-format fmt-time">For Time</div>
+    </div>
+    <div class="wod-moves"><strong>21-18-15-12-9-6-3 reps :</strong><br>Thrusters · Burpees (14.5) ou Row Calories (15.5)</div>
+    <div class="wod-rx"><span class="rx-pill">♂ 43kg</span><span class="rx-pill">♀ 29kg</span></div>
+    <div class="wod-ecm ecm-open">💡 ECM : WOD Dimanche Full Body ou Jeudi Lower · descente pyramidale</div>
+  </div>
+
+  <div class="wod open">
+    <div class="wod-top">
+      <div class="wod-name open">15.1</div>
+      <div class="wod-format fmt-amrap">AMRAP 9min</div>
+    </div>
+    <div class="wod-moves"><strong>15 Toes to Bar · 10 DB Snatch · 5 Clean & Jerk</strong></div>
+    <div class="wod-rx"><span class="rx-pill">DB ♂ 22.5kg</span><span class="rx-pill">C&J ♂ 61kg</span></div>
+    <div class="wod-ecm ecm-open">💡 ECM : WOD Lundi Upper · core + snatch + barbell · mix parfait</div>
+  </div>
+
+  <div class="wod open">
+    <div class="wod-top">
+      <div class="wod-name open">16.1</div>
+      <div class="wod-format fmt-amrap">AMRAP 20min</div>
+    </div>
+    <div class="wod-moves"><strong>25ft Walking Lunges · 8 Bar Muscle-ups · 25ft Walking Lunges · 8 Power Cleans</strong></div>
+    <div class="wod-rx"><span class="rx-pill">♂ 61kg Clean</span><span class="rx-pill">Scaled : Pull-ups</span></div>
+    <div class="wod-ecm ecm-open">💡 ECM : WOD Dimanche Power Clean · lunges + bar MU + clean · 20min</div>
+  </div>
+
+  <div class="wod open">
+    <div class="wod-top">
+      <div class="wod-name open">16.4</div>
+      <div class="wod-format fmt-amrap">AMRAP 13min</div>
+    </div>
+    <div class="wod-moves"><strong>55 DL · 55 Cal Row · 55 Wall Balls · puis HSPU ladder</strong></div>
+    <div class="wod-rx"><span class="rx-pill">♂ 102kg DL</span><span class="rx-pill">Ball 9kg</span></div>
+    <div class="wod-ecm ecm-open">💡 ECM : WOD Jeudi Lower · DL + row + WB · 13min cap · endurance</div>
+  </div>
+
+  <div class="subsection">2017–2019 · L'ère DB</div>
+
+  <div class="wod open">
+    <div class="wod-top">
+      <div class="wod-name open">17.1</div>
+      <div class="wod-format fmt-amrap">AMRAP 20min</div>
+    </div>
+    <div class="wod-moves"><strong>10 DB Snatch · 15 Box Jump Overs</strong></div>
+    <div class="wod-rx"><span class="rx-pill">♂ 22.5kg DB</span><span class="rx-pill">Box 24"</span><span class="rx-pill">Alterner les bras chaque round</span></div>
+    <div class="wod-ecm ecm-open">💡 ECM : WOD Dimanche HPS (variante DB) ou Jeudi Lower · snatch + sauts</div>
+  </div>
+
+  <div class="wod open">
+    <div class="wod-top">
+      <div class="wod-name open">17.5</div>
+      <div class="wod-format fmt-rft">10 RFT</div>
+    </div>
+    <div class="wod-moves"><strong>10 rounds :</strong><br>9 Thrusters · 35 Double Unders</div>
+    <div class="wod-rx"><span class="rx-pill">♂ 43kg</span><span class="rx-pill">♀ 29kg</span><span class="rx-pill">Scaled : Simple Unders</span></div>
+    <div class="wod-ecm ecm-open">💡 ECM : WOD Lundi Upper · Thrusters + cardio · rythme constant 10 rounds</div>
+  </div>
+
+  <div class="wod open">
+    <div class="wod-top">
+      <div class="wod-name open">18.1</div>
+      <div class="wod-format fmt-amrap">AMRAP 20min</div>
+    </div>
+    <div class="wod-moves"><strong>8 Toes to Bar · 10 DB Hang Clean & Jerk · 14 Cal Row</strong></div>
+    <div class="wod-rx"><span class="rx-pill">DB ♂ 22.5kg/main</span><span class="rx-pill">Alterner C&J</span></div>
+    <div class="wod-ecm ecm-open">💡 ECM : WOD Lundi Upper ou Dimanche · T2B + DB + row · core complet</div>
+  </div>
+
+  <div class="wod open">
+    <div class="wod-top">
+      <div class="wod-name open">18.4</div>
+      <div class="wod-format fmt-time">For Time · 9min cap</div>
+    </div>
+    <div class="wod-moves"><strong>21 DL · 21 HSPU · 15 DL · 15 HSPU · 9 DL · 9 HSPU<br>puis : 1-2-3-... DL + Strict HSPU</strong></div>
+    <div class="wod-rx"><span class="rx-pill">♂ 102kg DL</span><span class="rx-pill">Strict HSPU</span></div>
+    <div class="wod-ecm ecm-open">💡 ECM : WOD Lundi Upper (HSPU Vertical) + chaîne post · combo Diane avancé</div>
+  </div>
+
+  <div class="wod open">
+    <div class="wod-top">
+      <div class="wod-name open">19.1</div>
+      <div class="wod-format fmt-amrap">AMRAP 15min</div>
+    </div>
+    <div class="wod-moves"><strong>19 Wall Balls · 19 Cal Row</strong></div>
+    <div class="wod-rx"><span class="rx-pill">♂ 9kg / cible 3m</span><span class="rx-pill">Simple et brutal</span></div>
+    <div class="wod-ecm ecm-open">💡 ECM : Finisher Jeudi Lower · ou Mardi Zone 2+ (rythme soutenable)</div>
+  </div>
+
+  <div class="subsection">2020–2023 · L'ère moderne</div>
+
+  <div class="wod open">
+    <div class="wod-top">
+      <div class="wod-name open">20.1</div>
+      <div class="wod-format fmt-rft">10 RFT</div>
+    </div>
+    <div class="wod-moves"><strong>10 rounds :</strong><br>8 Ground-to-OH · 10 Bar-facing Burpees</div>
+    <div class="wod-rx"><span class="rx-pill">♂ 43kg</span><span class="rx-pill">♀ 29kg</span><span class="rx-pill">G2OH = snatch ou C&J</span></div>
+    <div class="wod-ecm ecm-open">💡 ECM : WOD Dimanche Full Body · explosivité + cardio · 10min max</div>
+  </div>
+
+  <div class="wod open">
+    <div class="wod-top">
+      <div class="wod-name open">21.1</div>
+      <div class="wod-format fmt-amrap">AMRAP 15min</div>
+    </div>
+    <div class="wod-moves"><strong>1 Wall Walk · 10 DB Snatch · 1 Wall Walk · 50 DU<br>2 Wall Walks · 10 DB Snatch · 2 Wall Walks · 50 DU · ...</strong></div>
+    <div class="wod-rx"><span class="rx-pill">DB ♂ 22.5kg</span><span class="rx-pill">Scaled : Inchworms + SU</span></div>
+    <div class="wod-ecm ecm-open">💡 ECM : WOD Lundi Upper · wall walks = gainage + épaules · format progressif</div>
+  </div>
+
+  <div class="wod open">
+    <div class="wod-top">
+      <div class="wod-name open">22.1</div>
+      <div class="wod-format fmt-amrap">AMRAP 15min</div>
+    </div>
+    <div class="wod-moves"><strong>3 Wall Walks · 12 DB Snatch · 15 Box Jump Overs</strong></div>
+    <div class="wod-rx"><span class="rx-pill">DB ♂ 22.5kg</span><span class="rx-pill">Box 24"</span><span class="rx-pill">Scaled : Inchworms</span></div>
+    <div class="wod-ecm ecm-open">💡 ECM : WOD Dimanche Full Body · mélange gymnastic + snatch + saut</div>
+  </div>
+
+  <div class="wod open">
+    <div class="wod-top">
+      <div class="wod-name open">23.1</div>
+      <div class="wod-format fmt-amrap">AMRAP 14min</div>
+    </div>
+    <div class="wod-moves"><strong>60 Cal Row · 50 Toes to Bar · 40 Wall Balls · 30 Cleans · 20 Muscle-ups</strong></div>
+    <div class="wod-rx"><span class="rx-pill">♂ 61kg Clean</span><span class="rx-pill">Ball 9kg</span><span class="rx-pill">Scaled : K2E + Pull-ups</span></div>
+    <div class="wod-ecm ecm-open">💡 ECM : WOD Dimanche Full Body · chipper Open · 14min cap strict</div>
+  </div>
+
+  <div class="wod open">
+    <div class="wod-top">
+      <div class="wod-name open">23.2</div>
+      <div class="wod-format fmt-amrap">AMRAP 4min × 3 sets</div>
+    </div>
+    <div class="wod-moves"><strong>5 rounds × AMRAP 4min (1min repos) :</strong><br>Squat Clean ladder : 1 rep · 2 reps · 3 reps... poids augmente</div>
+    <div class="wod-rx"><span class="rx-pill">Débute 61kg · monte chaque round</span></div>
+    <div class="wod-ecm ecm-open">💡 ECM : WOD Dimanche Power Clean · format force-endurance original</div>
+  </div>
+
+  <div class="wod open">
+    <div class="wod-top">
+      <div class="wod-name open">23.3</div>
+      <div class="wod-format fmt-time">For Time · 23min cap</div>
+    </div>
+    <div class="wod-moves"><strong>200 DU · 1 Squat Snatch 61kg · 200 DU · 2 Snatch · 200 DU · 3 Snatch<br>puis : 100 Burpee Pull-ups</strong></div>
+    <div class="wod-rx"><span class="rx-pill">♂ 61kg Snatch</span><span class="rx-pill">Scaled : Single Unders + Power Snatch</span></div>
+    <div class="wod-ecm ecm-open">💡 ECM : WOD Dimanche HPS · DU + snatch lourd + burpees · format rare</div>
+  </div>
+</div>
+
+<script>
+function switchTab(tab){
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>{
+    b.classList.remove('active-girls','active-hero','active-open');
+  });
+  document.getElementById('tab-'+tab).classList.add('active');
+  const btn = document.querySelector('.tab-btn.'+tab);
+  btn.classList.add('active-'+tab);
+  window.scrollTo(0,0);
+}
+</script>
+</body>
+</html>

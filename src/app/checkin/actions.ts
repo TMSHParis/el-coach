@@ -5,7 +5,7 @@ import { COOKIE_KEYS } from "@/lib/demo-session";
 import { todayKey } from "@/lib/date-key";
 import { prisma } from "@/lib/prisma";
 import { ensureUserId } from "@/lib/user-id";
-import { buildSleepFromCheckins, buildWeightFromCheckins, generateEcmAnalysis } from "@/lib/ecm-engine";
+import { buildSleepFromCheckins, buildWeightFromCheckins, generateEcmAnalysis, extractMainLift } from "@/lib/ecm-engine";
 import {
   computeEcmScore,
   buildStack4Moments,
@@ -14,6 +14,7 @@ import {
   recommendVariant,
 } from "@/lib/coaching-adaptatif-mock";
 import type { Prisma } from "@prisma/client";
+import type { Day } from "@/lib/programming";
 
 const YEAR = 60 * 60 * 24 * 365;
 const COOKIE_CHECKIN_DATE = "el_coach_checkin_date";
@@ -176,9 +177,24 @@ async function persistCheckinAndGenerateDashboard(payload: CheckinPayload, fatig
   const sleep = buildSleepFromCheckins(recentCheckins);
   const weight = buildWeightFromCheckins(recentCheckins);
 
-  let analysis;
+  // Rotation 14 jours : movementId du "main lift" (bloc strength) des dashboardOutputs
+  // récents — passé au générateur pour éviter de répéter le même mouvement principal.
+  const since = new Date();
+  since.setDate(since.getDate() - 14);
+  const recentOutputs = await prisma.dashboardOutput.findMany({
+    where: { userId, date: { gte: since.toISOString().slice(0, 10) } },
+    orderBy: { date: "desc" },
+    take: 14,
+  });
+  const recentMainLifts = recentOutputs
+    .map((o) => extractMainLift((o.output as { generatedDay?: Day })?.generatedDay))
+    .filter((id): id is string => Boolean(id));
+
+  let analysis: Omit<Awaited<ReturnType<typeof generateEcmAnalysis>>, "generatedDay"> & {
+    generatedDay?: Awaited<ReturnType<typeof generateEcmAnalysis>>["generatedDay"];
+  };
   try {
-    analysis = await generateEcmAnalysis({ profile, checkin, sleep, weight, recentCheckins });
+    analysis = await generateEcmAnalysis({ profile, checkin, sleep, weight, recentCheckins, recentMainLifts });
   } catch (err) {
     console.error("generateEcmAnalysis a échoué, repli sur l'analyse déterministe:", err);
     const ecm = computeEcmScore(fatigueScore);
@@ -190,6 +206,7 @@ async function persistCheckinAndGenerateDashboard(payload: CheckinPayload, fatig
       stack: buildStack4Moments(fatigueScore),
       alerts: buildAlerts(fatigueScore, sleep).filter((a) => a.category !== "sleep"),
       snack: buildSnack(fatigueScore),
+      // Pas de generatedDay : le dashboard retombe sur resolveTodaySession (programme fixe).
     };
   }
 
@@ -209,6 +226,7 @@ async function persistCheckinAndGenerateDashboard(payload: CheckinPayload, fatig
     snack: analysis.snack,
     sleep,
     weight,
+    generatedDay: analysis.generatedDay,
     generatedAt: new Date().toISOString(),
   };
 

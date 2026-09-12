@@ -2,6 +2,10 @@
 // + complémentaires), accessoires force & home.
 // Sert de source unique pour les programmations (voir programming.ts).
 
+// Bibliothèque étendue générée depuis ecm_movements_db.html (scripts/parse-content-library.ts)
+// — musculation/hypertrophie, gymnastique, combat, sports... déjà dédupliquée contre coreMovements.
+import { EXTENDED_MOVEMENTS } from "./movements-extended";
+
 export type MovementCategory =
   | "monostructural"
   | "barbell"
@@ -67,7 +71,9 @@ export type Equipment =
   | "peg_board"
   | "trx"
   | "pool"
-  | "outdoor";
+  | "outdoor"
+  | "machine"
+  | "cable";
 
 export type Level = "beginner" | "intermediate" | "advanced" | "elite";
 
@@ -82,6 +88,9 @@ export type Movement = {
   hyroxStation?: boolean; // station officielle Hyrox
   gamesOnly?: boolean; // réservé compétition avancée
   videoUrl?: string; // démonstration officielle (YouTube)
+  muscles?: string[]; // muscles ciblés (bibliothèque étendue — ecm_movements_db)
+  description?: string; // courte description technique (bibliothèque étendue)
+  ecmSlot?: string; // placement recommandé dans une séance (ex: "Main Lift Lower · Build to Heavy")
 };
 
 // Extrait l'ID vidéo YouTube depuis une URL (watch, youtu.be, embed, shorts).
@@ -116,7 +125,7 @@ export function youtubeEmbedSrc(opts: {
   return `https://www.youtube-nocookie.com/embed?listType=search&list=${encodeURIComponent(opts.searchQuery + " demo")}${auto}`;
 }
 
-export const movements: Movement[] = [
+const coreMovements: Movement[] = [
   // ========================================================================
   // MONOSTRUCTURAL — cardio / mono-articulaire
   // ========================================================================
@@ -359,6 +368,8 @@ export const movements: Movement[] = [
   { id: "shadow-boxing", name: "Shadow Boxing", category: "bodyweight", subcategory: "cardio", equipment: ["none"], level: "beginner", tags: ["cooldown", "home-friendly"] },
   { id: "boxing-bag", name: "Travail au sac (boxe)", category: "bodyweight", subcategory: "cardio", equipment: ["none"], level: "intermediate", tags: ["cooldown", "skill"] },
 ];
+
+export const movements: Movement[] = [...coreMovements, ...EXTENDED_MOVEMENTS];
 
 // ============================================================================
 // Helpers
