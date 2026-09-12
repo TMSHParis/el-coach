@@ -7,6 +7,7 @@
 // ============================================================================
 
 import type { EcmProfileCookie, EcmSport } from "./actions";
+import { BackHomeButton } from "@/components/back-home-button";
 import styles from "./ecm-signup.module.css";
 
 export const cx = (...classes: (string | false | undefined)[]) => classes.filter(Boolean).join(" ");
@@ -137,9 +138,22 @@ export function emptyEcmProfile(preselectedSport = ""): EcmProfileCookie {
 }
 
 /** Header partagé "Bienvenue." / "Content de te revoir." / "Je mets à jour mon profil". */
-export function EcmPageHeader({ title, subtitle }: { title: string; subtitle?: string }) {
+export function EcmPageHeader({
+  title,
+  subtitle,
+  backHref,
+  backLabel = "← Accueil",
+}: {
+  title: string;
+  subtitle?: string;
+  backHref?: string;
+  backLabel?: string;
+}) {
   return (
     <div className={styles.pageHeader}>
+      {backHref && (
+        <BackHomeButton href={backHref} label={backLabel} style={{ position: "absolute", top: 16, left: 16 }} />
+      )}
       <div className={styles.pageHeaderLogo}>
         EL <span>COACH</span>
       </div>

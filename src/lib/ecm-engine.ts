@@ -337,8 +337,10 @@ export async function generateEcmAnalysis(input: {
   recentCheckins: Checkin[];
   /** movementId du "main lift" des ~14 derniers jours (le plus récent en premier) — évite la répétition. */
   recentMainLifts?: string[];
+  /** Focus du jour dans la programmation fixe (ex. "Squat lourd + couplet court") — référence par défaut si le check-in ne dit rien de spécifique. */
+  weekTypeFocus?: string | null;
 }): Promise<EcmAnalysisResult> {
-  const { profile, checkin, sleep, weight, recentCheckins, recentMainLifts = [] } = input;
+  const { profile, checkin, sleep, weight, recentCheckins, recentMainLifts = [], weekTypeFocus = null } = input;
 
   const dataForDashboard = buildDashboardData(profile, checkin);
 
@@ -365,6 +367,16 @@ export async function generateEcmAnalysis(input: {
       ? `MOUVEMENTS PRINCIPAUX DES 14 DERNIERS JOURS (à éviter en bloc "strength" si possible, pour varier) : ${recentMainLifts.join(", ")}.`
       : "Aucun historique récent — première génération ou pas de rotation à respecter.";
 
+  const followsHabitualSport = normalizeAccents(checkin.seance ?? "").includes(normalizeAccents(profile.sportPrincipal ?? "___"));
+  const hasCheckinOverride = !followsHabitualSport || Boolean(checkin.notes?.trim());
+  const weekTypeLine = weekTypeFocus
+    ? `SEMAINE TYPE DE RÉFÉRENCE (programme ${profile.programme}, focus habituel du jour) : ${weekTypeFocus}.${
+        hasCheckinOverride
+          ? " Le check-in du jour diffère (autre sport et/ou note renseignée) → IGNORE cette référence, le check-in fait foi."
+          : " Rien de particulier dans le check-in → suis cette référence pour orienter le focus du jour."
+      }`
+    : "Pas de semaine type disponible (mode démo ou programme non résolu) — base-toi uniquement sur le check-in.";
+
   const prompt = `Tu es le Coaching Adaptatif EL COACH METHOD. Analyse les données de cet athlète (profil fusionné avec le check-in du jour), compose la séance du jour à partir des MOUVEMENTS DISPONIBLES, puis appelle l'outil emit_ecm_analysis avec ton analyse complète.
 
 DONNÉES ATHLÈTE (profil + check-in du jour déjà fusionnés — les champs du check-in, quand renseignés, ont déjà écrasé ceux du profil : ex. poids, genre) :
@@ -374,6 +386,7 @@ SOMMEIL CETTE NUIT (déjà calculé, ne pas recalculer) : ${sleep.lastNight.tota
 POIDS : ${weight.today} kg, delta 7j ${weight.deltaWeek} kg.
 NOMBRE DE CHECK-INS RÉCENTS DISPONIBLES : ${recentCheckins.length}.
 ${rotationLine}
+${weekTypeLine}
 
 MOUVEMENTS DISPONIBLES (équipement et niveau déjà filtrés pour cet athlète — ${candidateMovements.length} mouvements ; sessionBlocks.exercises[].movementId DOIT venir exclusivement de cette liste) :
 ${movementLines}
@@ -388,6 +401,7 @@ RÈGLES :
 - Les données ATHLÈTE ci-dessus sont déjà fusionnées avec la bonne priorité (check-in > profil) — utilise-les telles quelles, ne réinterprète pas de conflit.
 - objectif / objectif2 = les 2 objectifs de l'athlète (objectif2 peut être vide).
 - seance = le sport/la séance prévue par l'athlète CE JOUR (check-in) — peut différer de sportPrincipal (son sport habituel, profil) ; utilise seance en priorité pour orienter la séance du jour (programme/discipline à privilégier dans sessionBlocks).
+- Priorité entre semaine type et check-in : suis la règle donnée par SEMAINE TYPE DE RÉFÉRENCE ci-dessus (elle indique déjà si le check-in l'emporte ou non pour aujourd'hui).
 - Le stack utilise UNIQUEMENT des compléments réalistes cohérents avec la liste "complements" (${profile.complements.join(", ") || "aucun déclaré — stack vide ou générique léger"}).
 - recommendedVariant = "B" si état jaune/rouge ou douleur/blessure signalée, sinon "A".
 - N'invente aucune donnée numérique (poids, sommeil) — utilise uniquement les valeurs fournies ci-dessus.
@@ -396,13 +410,18 @@ RÈGLES :
 - Ne considère PAS les blessures/douleurs pour composer sessionBlocks (filet de sécurité séparé et déterministe après coup) — compose la séance "pleine forme" adaptée uniquement à l'énergie/l'équipement/le niveau/la séance prévue.
 - Réponds uniquement via l'appel à l'outil, sans texte additionnel.`;
 
-  const response = await client.messages.create({
-    model: ECM_ANALYSIS_MODEL,
-    max_tokens: 4000,
-    tools: [STACK_TOOL],
-    tool_choice: { type: "tool", name: "emit_ecm_analysis" },
-    messages: [{ role: "user", content: prompt }],
-  });
+  // Timeout explicite — évite qu'un appel qui pend bloque indéfiniment le
+  // check-in ; le repli déterministe existant (checkin/actions.ts) prend le relais.
+  const response = await client.messages.create(
+    {
+      model: ECM_ANALYSIS_MODEL,
+      max_tokens: 4000,
+      tools: [STACK_TOOL],
+      tool_choice: { type: "tool", name: "emit_ecm_analysis" },
+      messages: [{ role: "user", content: prompt }],
+    },
+    { timeout: 25_000 },
+  );
 
   const toolUse = response.content.find(
     (block) => block.type === "tool_use" && block.name === "emit_ecm_analysis",

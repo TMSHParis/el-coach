@@ -1,7 +1,7 @@
 "use server";
 
 import { cookies } from "next/headers";
-import { COOKIE_KEYS } from "@/lib/demo-session";
+import { COOKIE_KEYS, getDemoState, resolveTodaySession } from "@/lib/demo-session";
 import { todayKey } from "@/lib/date-key";
 import { prisma } from "@/lib/prisma";
 import { ensureUserId } from "@/lib/user-id";
@@ -168,6 +168,14 @@ async function persistCheckinAndGenerateDashboard(payload: CheckinPayload, fatig
     profile.genre = payload.genre;
   }
 
+  // Le poids du jour (check-in) devient la référence du profil — l'historique
+  // des pesées reste dans checkins.poids, seule la valeur "actuelle" est synchro.
+  const poidsDuJour = parseFloat(payload.poids);
+  if (payload.poids && Number.isFinite(poidsDuJour) && poidsDuJour > 0) {
+    await prisma.profile.update({ where: { userId }, data: { poids: poidsDuJour } });
+    profile.poids = poidsDuJour;
+  }
+
   const recentCheckins = await prisma.checkin.findMany({
     where: { userId },
     orderBy: { date: "desc" },
@@ -190,11 +198,18 @@ async function persistCheckinAndGenerateDashboard(payload: CheckinPayload, fatig
     .map((o) => extractMainLift((o.output as { generatedDay?: Day })?.generatedDay))
     .filter((id): id is string => Boolean(id));
 
+  // Semaine type de référence (programme fixe) — le check-in la remplace pour
+  // le jour si le sport diffère de l'habituel ou qu'une note est renseignée.
+  const demo = await getDemoState();
+  const weekTypeFocus = demo.programSlug
+    ? (resolveTodaySession(demo.programSlug, demo.fatigueScore)?.day.focus ?? null)
+    : null;
+
   let analysis: Omit<Awaited<ReturnType<typeof generateEcmAnalysis>>, "generatedDay"> & {
     generatedDay?: Awaited<ReturnType<typeof generateEcmAnalysis>>["generatedDay"];
   };
   try {
-    analysis = await generateEcmAnalysis({ profile, checkin, sleep, weight, recentCheckins, recentMainLifts });
+    analysis = await generateEcmAnalysis({ profile, checkin, sleep, weight, recentCheckins, recentMainLifts, weekTypeFocus });
   } catch (err) {
     console.error("generateEcmAnalysis a échoué, repli sur l'analyse déterministe:", err);
     const ecm = computeEcmScore(fatigueScore);

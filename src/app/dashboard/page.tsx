@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { isCheckinDoneToday } from "../checkin/actions";
 import { getEcmProfileState, getSignupState } from "../signup/actions";
@@ -68,8 +67,11 @@ export default async function DashboardPage() {
     return <EmptyState />;
   }
 
+  const userId = await getUserId();
+
   if (!(await isCheckinDoneToday())) {
-    redirect("/checkin");
+    const everCheckedIn = userId ? (await prisma.checkin.count({ where: { userId } })) > 0 : false;
+    return <CheckinPendingState userFirstName={userFirstName} everCheckedIn={everCheckedIn} />;
   }
 
   const today = resolveTodaySession(demo.programSlug, demo.fatigueScore);
@@ -77,7 +79,6 @@ export default async function DashboardPage() {
 
   const fatigueScore = demo.fatigueScore ?? 3;
 
-  const userId = await getUserId();
   const [dbOutput, profile, todayCheckin] = userId
     ? await Promise.all([
         prisma.dashboardOutput.findUnique({ where: { userId_date: { userId, date: todayKey() } } }),
@@ -372,6 +373,32 @@ function EmptyState() {
       </p>
       <Link href="/onboarding" className="btn-primary mt-8 inline-flex">
         Choisir mon programme
+      </Link>
+    </section>
+  );
+}
+
+function CheckinPendingState({
+  userFirstName,
+  everCheckedIn,
+}: {
+  userFirstName: string | null;
+  everCheckedIn: boolean;
+}) {
+  const salut = userFirstName ? `Salut ${userFirstName}.` : "Salut.";
+  return (
+    <section className="mx-auto max-w-3xl px-6 py-24 text-center">
+      <div className="label">[ DASHBOARD ]</div>
+      <h1 className="mt-4 text-4xl font-semibold">{salut}</h1>
+      {everCheckedIn ? (
+        <p className="mt-4 text-[color:var(--color-mute)]">Ton plan du jour n&apos;est pas encore généré.</p>
+      ) : (
+        <p className="mt-4 text-[color:var(--color-mute)]">
+          Un check-in chaque matin suffit à générer ton plan sur mesure — séance, stack, récupération.
+        </p>
+      )}
+      <Link href="/checkin" className="btn-gold mt-8 inline-flex">
+        {everCheckedIn ? "Faire mon check-in maintenant" : "Commencer mon premier check-in"}
       </Link>
     </section>
   );

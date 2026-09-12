@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { submitCheckin, type CheckinGender, type SleepPhotoAnalysis } from "./actions";
 import { BackHomeButton } from "@/components/back-home-button";
@@ -102,7 +102,17 @@ export function CheckinForm() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [d, setD] = useState<FormState>(INITIAL_STATE);
   const [submitting, setSubmitting] = useState(false);
+  const [slowSubmit, setSlowSubmit] = useState(false);
   const [missing, setMissing] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!submitting) {
+      setSlowSubmit(false);
+      return;
+    }
+    const id = setTimeout(() => setSlowSubmit(true), 10_000);
+    return () => clearTimeout(id);
+  }, [submitting]);
   const set = (patch: Partial<FormState>) => setD((prev) => ({ ...prev, ...patch }));
   const g = d.gender;
   const isH = g === "h";
@@ -202,7 +212,9 @@ export function CheckinForm() {
       {submitting && (
         <div className={styles.loadingOverlay}>
           <div className={styles.spinner} />
-          <div className={styles.loadingText}>Génération de ton plan...</div>
+          <div className={styles.loadingText}>
+            {slowSubmit ? "La génération prend un peu plus de temps que prévu…" : "Génération de ton plan..."}
+          </div>
         </div>
       )}
 

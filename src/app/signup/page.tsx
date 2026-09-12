@@ -18,6 +18,7 @@ export default async function SignupPage({
       <EcmPageHeader
         title="Bienvenue."
         subtitle={`Ton Coaching Adaptatif à ${formatPrice(PROGRAM_BASE_PRICE_CENTS)} / mois`}
+        backHref="/"
       />
       <EcmSignupForm defaultProgramSlug={program ?? ""} />
     </div>
