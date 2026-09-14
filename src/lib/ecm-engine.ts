@@ -246,9 +246,10 @@ const STACK_TOOL = {
 // Sélection des candidats (mouvements + WODs) — déterministe, avant l'appel Claude.
 // ============================================================================
 
-function equipmentTierFor(profileEquipement: string): Movement["equipment"] | null {
-  const e = normalizeAccents(profileEquipement);
+function equipmentTierFor(equipementLabel: string): Movement["equipment"] | null {
+  const e = normalizeAccents(equipementLabel);
   if (e.includes("salle complete")) return null; // null = tout le catalogue autorisé
+  if (e.includes("salle limitee")) return ["none", "dumbbell", "kettlebell", "machine", "cable", "resistance_band", "mat", "jump_rope", "box", "bench", "pullup_bar"];
   if (e.includes("maison")) return ["none", "dumbbell", "kettlebell", "resistance_band", "mat", "jump_rope", "box", "bench"];
   if (e.includes("exterieur") || e.includes("calisthenie")) return ["none", "outdoor", "pullup_bar", "parallel_bars", "trx"];
   return null; // "Les deux" ou valeur inconnue → tout autorisé
@@ -264,9 +265,13 @@ function levelRankFor(niveau: string): number {
 
 const LEVEL_RANK: Record<Movement["level"], number> = { beginner: 0, intermediate: 1, advanced: 2, elite: 3 };
 
-/** Mouvements compatibles équipement/niveau — c'est la seule liste dans laquelle Claude a le droit de piocher. */
-export function selectCandidateMovements(profile: Profile): Movement[] {
-  const tier = equipmentTierFor(profile.equipement);
+/**
+ * Mouvements compatibles équipement/niveau — c'est la seule liste dans laquelle Claude
+ * a le droit de piocher. `equipementOverride` (checkin.seanceEquipement du jour, si
+ * renseigné) prime sur `profile.equipement`.
+ */
+export function selectCandidateMovements(profile: Profile, equipementOverride?: string | null): Movement[] {
+  const tier = equipmentTierFor(equipementOverride || profile.equipement);
   const maxRank = Math.max(levelRankFor(profile.niveau), 1); // toujours un minimum de variété
   return movements.filter((m) => {
     if (LEVEL_RANK[m.level] > maxRank || m.gamesOnly) return false;
@@ -357,7 +362,7 @@ export async function generateEcmAnalysis(input: {
 
   const client = getAnthropicClient();
 
-  const candidateMovements = selectCandidateMovements(profile);
+  const candidateMovements = selectCandidateMovements(profile, checkin.seanceEquipement);
   const movementLines = candidateMovements.map(formatMovementLine).join("\n");
   const wodInspiration = selectWodInspiration();
   const allowedMovementIds = new Set(movements.map((m) => m.id));
@@ -402,6 +407,7 @@ RÈGLES :
 - objectif / objectif2 = les 2 objectifs de l'athlète (objectif2 peut être vide).
 - seance = le sport/la séance prévue par l'athlète CE JOUR (check-in) — peut différer de sportPrincipal (son sport habituel, profil) ; utilise seance en priorité pour orienter la séance du jour (programme/discipline à privilégier dans sessionBlocks).
 - Priorité entre semaine type et check-in : suis la règle donnée par SEMAINE TYPE DE RÉFÉRENCE ci-dessus (elle indique déjà si le check-in l'emporte ou non pour aujourd'hui).
+- Personnalisation du jour (seanceFocus/seanceDuree/seanceEquipement/seanceIntensite/seanceNote) : quand ces champs sont renseignés (non vides), ils priment SUR TOUT le reste (semaine type, profil.equipement — déjà appliqué dans MOUVEMENTS DISPONIBLES ci-dessus) pour composer sessionBlocks. seanceFocus oriente le choix des blocs (ex. "Mobilité" → réduit le bloc strength/wod, renforce cooldown) ; seanceDuree ajuste le nombre/la durée des blocs (30 min → 3 blocs courts, 2h+ → 5 blocs complets voire allongés) ; seanceIntensite ajuste charges/volume (Légère → StraightSets légers, Maximum → charges proches du max) ; seanceNote est une instruction directe à respecter littéralement (ex. "pas de deadlift aujourd'hui" → ne choisis aucun mouvement deadlift). Champs vides = ignore, comportement inchangé.
 - Le stack utilise UNIQUEMENT des compléments réalistes cohérents avec la liste "complements" (${profile.complements.join(", ") || "aucun déclaré — stack vide ou générique léger"}).
 - recommendedVariant = "B" si état jaune/rouge ou douleur/blessure signalée, sinon "A".
 - N'invente aucune donnée numérique (poids, sommeil) — utilise uniquement les valeurs fournies ci-dessus.

@@ -67,6 +67,12 @@ export type CheckinPayload = {
   soirPerformance: boolean | null;
   // Notes
   notes: string;
+  // Personnalisation facultative de la séance du jour
+  seanceFocus: string[];
+  seanceDuree: string;
+  seanceEquipement: string;
+  seanceIntensite: string;
+  seanceNote: string;
 };
 
 // todayKey() vit dans lib/date-key.ts (pas ici) : un fichier "use server" ne
@@ -155,6 +161,11 @@ async function persistCheckinAndGenerateDashboard(payload: CheckinPayload, fatig
     cycleDouleur: payload.cycleDouleur || null,
     cycleJour: payload.cycleJour || null,
     notes: payload.notes || null,
+    seanceFocus: payload.seanceFocus,
+    seanceDuree: payload.seanceDuree || null,
+    seanceEquipement: payload.seanceEquipement || null,
+    seanceIntensite: payload.seanceIntensite || null,
+    seanceNote: payload.seanceNote || null,
   };
 
   const checkin = await prisma.checkin.upsert({

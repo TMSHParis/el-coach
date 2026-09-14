@@ -30,6 +30,11 @@ const SEANCE_GROUPS: { label: string; options: string[] }[] = [
   { label: "🧘 MOBILITÉ", options: ["🧘 Yoga / Pilates", "🤸 Calisthénie", "🧗 Escalade"] },
 ];
 
+const FOCUS_OPTIONS = ["Force", "Cardio", "Technique", "Mobilité", "Récupération active"];
+const DUREE_OPTIONS = ["30 min", "45 min", "1h", "1h30", "2h+"];
+const EQUIPEMENT_OPTIONS = ["Salle complète", "Maison", "Extérieur", "Salle limitée"];
+const INTENSITE_OPTIONS = ["Légère", "Modérée", "Intense", "Maximum"];
+
 type FormState = {
   gender: CheckinGender;
   sleepPhotoPreview: string | null;
@@ -58,6 +63,11 @@ type FormState = {
   travail: boolean | null;
   soirPerformance: boolean | null;
   notes: string;
+  seanceFocus: string[];
+  seanceDuree: string;
+  seanceEquipement: string;
+  seanceIntensite: string;
+  seanceNote: string;
 };
 
 const INITIAL_STATE: FormState = {
@@ -88,6 +98,11 @@ const INITIAL_STATE: FormState = {
   travail: null,
   soirPerformance: null,
   notes: "",
+  seanceFocus: [],
+  seanceDuree: "",
+  seanceEquipement: "",
+  seanceIntensite: "",
+  seanceNote: "",
 };
 
 const DATE_STR = new Date().toLocaleDateString("fr-FR", {
@@ -198,6 +213,11 @@ export function CheckinForm() {
       travail: d.travail,
       soirPerformance: isH ? d.soirPerformance : null,
       notes: d.notes,
+      seanceFocus: d.seanceFocus,
+      seanceDuree: d.seanceDuree,
+      seanceEquipement: d.seanceEquipement,
+      seanceIntensite: d.seanceIntensite,
+      seanceNote: d.seanceNote,
     });
     if (!result.ok) {
       setSubmitting(false);
@@ -480,6 +500,34 @@ export function CheckinForm() {
           </select>
         </div>
 
+        <div className={cx(styles.qc, styles.opt)}>
+          <div className={styles.ql}>
+            <i>🎛️</i> Personnaliser ma séance <span className={styles.bo}>Facultatif</span>
+          </div>
+
+          <div className={styles.dl}>Focus du jour</div>
+          <MultiOptRow gender={g} options={FOCUS_OPTIONS} values={d.seanceFocus} onToggle={(v) => set({
+            seanceFocus: d.seanceFocus.includes(v) ? d.seanceFocus.filter((x) => x !== v) : [...d.seanceFocus, v],
+          })} />
+
+          <div className={styles.dl} style={{ marginTop: 10 }}>Durée disponible</div>
+          <OptRow gender={g} options={DUREE_OPTIONS} value={d.seanceDuree} onChange={(v) => set({ seanceDuree: v })} />
+
+          <div className={styles.dl} style={{ marginTop: 10 }}>Équipement disponible aujourd&apos;hui</div>
+          <OptRow gender={g} options={EQUIPEMENT_OPTIONS} value={d.seanceEquipement} onChange={(v) => set({ seanceEquipement: v })} />
+
+          <div className={styles.dl} style={{ marginTop: 10 }}>Intensité souhaitée</div>
+          <OptRow gender={g} options={INTENSITE_OPTIONS} value={d.seanceIntensite} onChange={(v) => set({ seanceIntensite: v })} />
+
+          <div className={styles.dl} style={{ marginTop: 10 }}>Note libre sur la séance</div>
+          <textarea
+            className={styles.ta}
+            placeholder="ex : Je veux travailler les épaules · Pas de deadlift aujourd'hui"
+            value={d.seanceNote}
+            onChange={(e) => set({ seanceNote: e.target.value })}
+          />
+        </div>
+
         <div className={cx(styles.qc, d.travail !== null && (isH ? styles.onH : styles.onF))}>
           <div className={styles.ql}>
             <i>💼</i> Journée de travail <span className={isH ? styles.bh : styles.bf}>Requis</span>
@@ -530,6 +578,32 @@ function OptRow({
           key={o}
           className={cx(styles.optBtn, value === o && (gender === "h" ? styles.selH : styles.selF))}
           onClick={() => onChange(o)}
+        >
+          {o}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function MultiOptRow({
+  gender,
+  options,
+  values,
+  onToggle,
+}: {
+  gender: CheckinGender;
+  options: string[];
+  values: string[];
+  onToggle: (v: string) => void;
+}) {
+  return (
+    <div className={styles.opts}>
+      {options.map((o) => (
+        <div
+          key={o}
+          className={cx(styles.optBtn, values.includes(o) && (gender === "h" ? styles.selH : styles.selF))}
+          onClick={() => onToggle(o)}
         >
           {o}
         </div>

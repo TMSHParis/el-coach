@@ -167,3 +167,8 @@
 .sub:hover { transform: translateY(-1px); }
 .sub:active { transform: translateY(0); }
 .sub:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+
+/* SÉANCE PERSO (sous-labels + note libre) */
+.dl { font-size: 11px; font-weight: 600; color: var(--m); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px; }
+.ta { width: 100%; min-height: 60px; background: var(--s2); border: 1px solid var(--bd); border-radius: 10px; padding: 10px 12px; color: var(--t); font-family: inherit; font-size: 13px; resize: vertical; outline: none; }
+.ta:focus { border-color: var(--g); }

@@ -25,16 +25,16 @@ function Hero({ signedIn }: { signedIn: boolean }) {
   return (
     <section className="hairline-b relative overflow-hidden">
       <div className="scan pointer-events-none absolute inset-0 opacity-60" />
-      <div className="grain relative mx-auto max-w-7xl px-6 pt-24 pb-28">
+      <div className="grain relative mx-auto max-w-7xl px-6 pt-10 pb-28">
         <div className="mono inline-flex items-center gap-2 border border-[color:var(--color-line)] bg-[color:var(--color-ash)] px-3 py-1.5 text-[10px] tracking-[0.3em] text-[color:var(--color-accent)]">
           ◆ COACHING ADAPTATIF · PAR EL COACH METHOD
         </div>
-        <h1 className="gold-shimmer mt-6 text-5xl font-semibold leading-[0.95] tracking-tight md:text-7xl lg:text-8xl">
+        <h1 className="gold-shimmer mt-3 text-5xl font-semibold leading-[0.95] tracking-tight md:text-7xl lg:text-8xl">
           Ton Coaching
           <br />
           Adaptatif personnel.
         </h1>
-        <p className="mt-8 max-w-xl text-base text-[#8a8a8a] md:text-lg">
+        <p className="mt-5 max-w-xl text-base text-[#8a8a8a] md:text-lg">
           Un check-in chaque matin.
           <br />
           Un plan sur mesure chaque jour.
@@ -42,7 +42,7 @@ function Hero({ signedIn }: { signedIn: boolean }) {
           Séance adaptée, stack compléments, récupération ciblée — tout généré en moins de
           5 secondes.
         </p>
-        <div className="mt-10 flex flex-wrap items-center gap-4">
+        <div className="mt-6 flex flex-wrap items-center gap-4">
           <HomeCTAButtons signedIn={signedIn} />
           <Link href="#bases-coaching-adaptatif" className="btn-ghost">
             Voir comment ça marche

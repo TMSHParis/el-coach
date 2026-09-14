@@ -40,6 +40,9 @@ export async function Nav() {
               ) : (
                 <Link href="/checkin" className="btn-ghost">Mon check-in du jour</Link>
               )}
+              <Link href="/settings" className="label hover:text-white" aria-label="Réglages">
+                ⚙️
+              </Link>
               <UserButton
                 appearance={{
                   elements: { userButtonAvatarBox: "h-9 w-9 rounded-none border border-white/20" },

@@ -79,14 +79,16 @@ export default async function DashboardPage() {
 
   const fatigueScore = demo.fatigueScore ?? 3;
 
-  const [dbOutput, profile, todayCheckin] = userId
+  const [dbOutput, profile, todayCheckin, recentCheckinRows] = userId
     ? await Promise.all([
         prisma.dashboardOutput.findUnique({ where: { userId_date: { userId, date: todayKey() } } }),
         prisma.profile.findUnique({ where: { userId } }),
         prisma.checkin.findUnique({ where: { userId_date: { userId, date: todayKey() } } }),
+        prisma.checkin.findMany({ where: { userId }, select: { date: true }, orderBy: { date: "desc" }, take: 60 }),
       ])
-    : [null, null, null];
+    : [null, null, null, []];
   const real = dbOutput ? (dbOutput.output as unknown as DashboardOutputJson) : null;
+  const checkinDates = recentCheckinRows.map((c) => c.date);
 
   const injuryAreas = detectInjuryAreas(
     profile?.blessures ? profile.blessuresDetail : null,
@@ -133,7 +135,21 @@ export default async function DashboardPage() {
         </div>
 
         <div className={styles.wrap}>
-          <CalendarWeek />
+          <CalendarWeek checkinDates={checkinDates} />
+          <Link
+            href="/progress"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              fontSize: 11,
+              letterSpacing: 1,
+              color: "var(--m)",
+              margin: "8px 0 20px",
+            }}
+          >
+            📈 Voir ma progression →
+          </Link>
 
           {/* SCORE ECM */}
           <div className={cx(styles.ecmCard, styles[etat.cls])}>

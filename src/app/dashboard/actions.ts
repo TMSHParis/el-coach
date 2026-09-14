@@ -3,8 +3,33 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { COOKIE_KEYS } from "@/lib/demo-session";
+import { getUserId } from "@/lib/user-id";
+import { prisma } from "@/lib/prisma";
+import type { EcmScore } from "@/lib/coaching-adaptatif-mock";
 
 const YEAR = 60 * 60 * 24 * 365;
+
+export type DayDetail = {
+  date: string;
+  hasCheckin: boolean;
+  ecm: EcmScore | null;
+  seance: string | null;
+};
+
+/** Détail d'un jour passé pour le calendrier du dashboard — clic sur un dot. */
+export async function getDayDetail(date: string): Promise<DayDetail | null> {
+  const userId = await getUserId();
+  if (!userId) return null;
+
+  const [checkin, dbOutput] = await Promise.all([
+    prisma.checkin.findUnique({ where: { userId_date: { userId, date } } }),
+    prisma.dashboardOutput.findUnique({ where: { userId_date: { userId, date } } }),
+  ]);
+  if (!checkin) return { date, hasCheckin: false, ecm: null, seance: null };
+
+  const output = dbOutput?.output as { ecm?: EcmScore } | null;
+  return { date, hasCheckin: true, ecm: output?.ecm ?? null, seance: checkin.seance };
+}
 
 export async function selectProgram(formData: FormData): Promise<void> {
   const slug = String(formData.get("slug") ?? "").trim();

@@ -1,13 +1,10 @@
 "use client";
 
 import { useState, type Dispatch, type SetStateAction } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSignUp } from "@clerk/nextjs";
 import { clerkEnabledClient } from "@/lib/clerk";
 import { submitEcmSignup, type EcmProfileCookie, type EcmSport } from "./actions";
-import { PROGRAM_BASE_PRICE_CENTS } from "@/lib/data";
-import { formatPrice } from "@/lib/utils";
 import {
   cx,
   LEFT_PROGRAMS,
@@ -58,6 +55,7 @@ type FormState = {
 // ============================================================================
 
 export function EcmSignupForm({ defaultProgramSlug }: { defaultProgramSlug: string }) {
+  const router = useRouter();
   const preselectedSport = SLUG_TO_SPORT_LABEL[defaultProgramSlug] ?? "";
 
   const [phase, setPhase] = useState<"landing" | "form">("landing");
@@ -84,7 +82,6 @@ export function EcmSignupForm({ defaultProgramSlug }: { defaultProgramSlug: stri
   const [objError, setObjError] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
 
   const profile = data.profile;
   const setProfile = (patch: Partial<EcmProfileCookie>) =>
@@ -188,47 +185,14 @@ export function EcmSignupForm({ defaultProgramSlug }: { defaultProgramSlug: stri
       setSubmitError(result.error);
       return;
     }
-    setSuccess(result.firstName || data.firstName || "Athlète");
-  }
-
-  if (success) {
-    return (
-      <div className={cx(styles.ecmRoot, styles.page)}>
-        <LeftPanel />
-        <div className={styles.right}>
-          <div className={styles.successScreen + " " + styles.active}>
-            <div className={styles.successCheck}>✓</div>
-            <h2 className={styles.successTitle}>
-              Bienvenue, <span className={styles.successName}>{success}.</span>
-            </h2>
-            <p className={styles.successSub}>
-              Ton <strong>Free Trial de 7 jours</strong> démarre maintenant.
-              <br />
-              Aucun débit avant la fin de l&apos;essai.
-            </p>
-            <Link href="/checkin" className={styles.btnDashboard}>
-              Commencer mon check-in →
-            </Link>
-          </div>
-        </div>
-      </div>
-    );
+    const firstName = result.firstName || data.firstName || "Athlète";
+    router.push(`/welcome?firstName=${encodeURIComponent(firstName)}&programme=${encodeURIComponent(matchedSlug)}`);
   }
 
   if (phase === "landing") {
     return (
       <div className={cx(styles.ecmRoot, styles.landing)}>
-        <div className={styles.landingLogo}>
-          EL <span>COACH</span>
-        </div>
         <div className={styles.landingBadge}>Free Trial — 7 jours offerts</div>
-        <h1 className={styles.landingTitle}>
-          Inscription Free Trial
-          <br />7 jours offerts
-        </h1>
-        <p className={styles.landingPrice}>
-          Ton Coaching Adaptatif à <strong>{formatPrice(PROGRAM_BASE_PRICE_CENTS)} / mois</strong>
-        </p>
 
         <div className={cx(styles.accordion, accordionOpen && styles.open)}>
           <button className={styles.accordionToggle} type="button" onClick={() => setAccordionOpen((v) => !v)}>

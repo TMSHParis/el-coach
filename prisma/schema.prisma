@@ -45,6 +45,16 @@ model Profile {
   // Pas collecté au signup ECM actuel — rempli au premier check-in.
   genre             String?
 
+  // Onboarding, réglages & préférences (page /settings).
+  onboardingDone   Boolean  @default(false) @map("onboarding_done")
+  recordsRm        Json?    @map("records_rm")
+  notifCheckinOn   Boolean  @default(true) @map("notif_checkin_on")
+  notifCheckinTime String?  @default("07:30") @map("notif_checkin_time")
+  notifSeance      Boolean  @default(true) @map("notif_seance")
+  notifBlessure    Boolean  @default(true) @map("notif_blessure")
+  notifRecap       Boolean  @default(false) @map("notif_recap")
+  langue           String   @default("fr")
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
@@ -86,6 +96,13 @@ model Checkin {
   cycleDouleur    String?  @map("cycle_douleur")
   cycleJour       String?  @map("cycle_jour")
   notes           String?
+
+  // Personnalisation facultative de la séance du jour.
+  seanceFocus       String[] @map("seance_focus")
+  seanceDuree       String?  @map("seance_duree")
+  seanceEquipement  String?  @map("seance_equipement")
+  seanceIntensite   String?  @map("seance_intensite")
+  seanceNote        String?  @map("seance_note")
 
   createdAt DateTime @default(now()) @map("created_at")
 

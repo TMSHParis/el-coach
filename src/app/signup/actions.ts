@@ -413,3 +413,11 @@ export async function updateEcmProfile(
   await persistEcmProfile(profile);
   return { ok: true };
 }
+
+/** Marque l'onboarding guidé comme terminé — ne s'affiche plus jamais après. */
+export async function markOnboardingDone(): Promise<void> {
+  const userId = await ensureUserId();
+  await prisma.profile.update({ where: { userId }, data: { onboardingDone: true } }).catch(() => {
+    // Pas encore de profil ECM en base (cas rare) — rien à marquer, sans bloquer l'utilisateur.
+  });
+}

@@ -10,7 +10,14 @@ const clerkEnabled = Boolean(
 // créé par le signup ECM (AccountStepClerk dans ecm-signup-form.tsx), donc on
 // peut les protéger sans casser ce flux. Le reste du site (marketing, /signin,
 // /signup lui-même) reste public.
-const isProtected = createRouteMatcher(["/dashboard(.*)", "/checkin(.*)", "/profile/edit(.*)"]);
+const isProtected = createRouteMatcher([
+  "/dashboard(.*)",
+  "/checkin(.*)",
+  "/profile/edit(.*)",
+  "/settings(.*)",
+  "/progress(.*)",
+  "/history(.*)",
+]);
 
 // Redirection maison vers /signin?redirect=<page demandée> (page ECM, pas la
 // page Clerk hébergée /sign-in) — cf. note "Signup & Connexion" du produit.
