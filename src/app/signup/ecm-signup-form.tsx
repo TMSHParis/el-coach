@@ -10,7 +10,6 @@ import {
   LEFT_PROGRAMS,
   SPORT_LABEL_TO_SLUG,
   SLUG_TO_SPORT_LABEL,
-  OBJECTIFS,
   EQUIPEMENTS,
   RESTRICTIONS,
   COMPLEMENTS,
@@ -19,7 +18,7 @@ import {
   validatePassword,
   MoSolo,
   MoMulti,
-  MoMultiCapped,
+  ObjectifsPicker,
   YesNo,
   SportBlock,
 } from "./ecm-shared";
@@ -133,11 +132,6 @@ export function EcmSignupForm({ defaultProgramSlug }: { defaultProgramSlug: stri
     const arr = profile[key];
     const next = arr.includes(value) ? arr.filter((v) => v !== value) : [...arr, value];
     setProfile({ [key]: next } as Partial<EcmProfileCookie>);
-  }
-
-  function toggleObjectif(value: string) {
-    const next = profile.obj.includes(value) ? profile.obj.filter((v) => v !== value) : [...profile.obj, value];
-    setProfile({ obj: next });
   }
 
   function onObjectifExceed() {
@@ -350,21 +344,14 @@ export function EcmSignupForm({ defaultProgramSlug }: { defaultProgramSlug: stri
                 <span className={styles.nu}>kg</span>
               </div>
             </div>
-            <div className={styles.qc}>
-              <div className={styles.ql}>
-                <i>🎯</i> Objectifs <span className={styles.hint}>(2 maximum)</span>
-              </div>
-              <MoMultiCapped
-                options={OBJECTIFS}
-                values={profile.obj}
-                max={2}
-                onToggle={toggleObjectif}
-                onExceed={onObjectifExceed}
-              />
-              {objError && (
-                <div style={{ marginTop: 6, fontSize: "0.8rem", color: "var(--error)" }}>2 objectifs maximum</div>
-              )}
-            </div>
+            <ObjectifsPicker
+              values={profile.objectifs}
+              onChange={(next) => setProfile({ objectifs: next })}
+              onExceed={onObjectifExceed}
+            />
+            {objError && (
+              <div style={{ marginTop: 6, fontSize: "0.8rem", color: "var(--error)" }}>2 objectifs maximum</div>
+            )}
             <button className={styles.btnSubNext} type="button" onClick={() => ecmGo(1)}>
               Suivant → Profil sportif
             </button>

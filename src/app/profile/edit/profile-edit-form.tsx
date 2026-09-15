@@ -5,13 +5,12 @@ import { useRouter } from "next/navigation";
 import { getMyEcmProfile, updateEcmProfile, type EcmProfileCookie } from "@/app/signup/actions";
 import {
   cx,
-  OBJECTIFS,
   EQUIPEMENTS,
   RESTRICTIONS,
   COMPLEMENTS,
   emptyEcmProfile,
   MoMulti,
-  MoMultiCapped,
+  ObjectifsPicker,
   YesNo,
   SportBlock,
 } from "@/app/signup/ecm-shared";
@@ -56,10 +55,6 @@ export function ProfileEditForm() {
     const arr = profile[key];
     const next = arr.includes(value) ? arr.filter((v) => v !== value) : [...arr, value];
     setField({ [key]: next } as Partial<EcmProfileCookie>);
-  };
-  const toggleObjectif = (value: string) => {
-    const next = profile.obj.includes(value) ? profile.obj.filter((v) => v !== value) : [...profile.obj, value];
-    setField({ obj: next });
   };
   const onObjectifExceed = () => {
     setObjError(true);
@@ -157,13 +152,8 @@ export function ProfileEditForm() {
             <span className={styles.nu}>kg</span>
           </div>
         </div>
-        <div className={styles.qc}>
-          <div className={styles.ql}>
-            <i>🎯</i> Objectifs <span className={styles.hint}>(2 maximum)</span>
-          </div>
-          <MoMultiCapped options={OBJECTIFS} values={profile.obj} max={2} onToggle={toggleObjectif} onExceed={onObjectifExceed} />
-          {objError && <div style={{ marginTop: 6, fontSize: "0.8rem", color: "var(--error)" }}>2 objectifs maximum</div>}
-        </div>
+        <ObjectifsPicker values={profile.objectifs} onChange={(next) => setField({ objectifs: next })} onExceed={onObjectifExceed} />
+        {objError && <div style={{ marginTop: 6, fontSize: "0.8rem", color: "var(--error)" }}>2 objectifs maximum</div>}
 
         {/* Sportif */}
         <SportBlock title="⚡ SPORT PRINCIPAL" sport={profile.s1} onField={(p) => setSportField("s1", p)} onDay={(d) => toggleDay("s1", d)} />

@@ -590,6 +590,46 @@
 .lbb:hover { border-color: rgba(232,255,0,0.3); }
 .lbb.sel { border-color: var(--accent); background: rgba(232,255,0,0.04); color: var(--accent); }
 
+/* ═══ OBJECTIFS DÉTAILLÉS (cartes accordéon) ═══ */
+.objMaxInfo { font-family: var(--font-barlow-condensed); font-size: 0.68rem; letter-spacing: 1px; color: var(--dim); margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+.objCounter { font-family: var(--font-bebas); font-size: 16px; color: var(--accent); }
+
+.objCard { border: 1px solid var(--border); margin-bottom: 8px; overflow: hidden; transition: border-color 0.2s; background: #0a0a0a; }
+.objCard.sel { border-color: rgba(232,255,0,0.5); background: #111108; }
+.objCardHeader { display: flex; align-items: center; gap: 12px; padding: 12px 14px; cursor: pointer; transition: background 0.15s; }
+.objCardHeader:hover { background: rgba(255,255,255,0.02); }
+.objIcon { font-size: 18px; flex-shrink: 0; width: 28px; text-align: center; }
+.objMainTitle { font-family: var(--font-barlow-condensed); font-size: 0.9rem; font-weight: 700; letter-spacing: 1px; color: var(--white); flex: 1; }
+.objCard.sel .objMainTitle { color: var(--accent); }
+.objCheck { width: 18px; height: 18px; border: 1px solid var(--mid); display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 900; transition: all 0.2s; flex-shrink: 0; }
+.objCard.sel .objCheck { background: var(--accent); border-color: var(--accent); color: #000; }
+.objBody { display: none; padding: 0 14px 14px; border-top: 1px solid var(--border); }
+.objCard.sel .objBody { display: block; }
+
+.subLabel { font-family: var(--font-barlow-condensed); font-size: 0.65rem; letter-spacing: 2px; text-transform: uppercase; color: var(--dim); margin-bottom: 8px; margin-top: 12px; display: block; }
+.subcats { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 10px; }
+.subcat { padding: 7px 11px; border: 1px solid var(--border); background: #0f0f0f; cursor: pointer; text-align: center; transition: all 0.2s; font-family: var(--font-barlow-condensed); font-size: 0.75rem; letter-spacing: 0.5px; color: var(--dim); }
+.subcat:hover { border-color: rgba(232,255,0,0.3); }
+.subcat.sel { border-color: var(--accent); background: rgba(232,255,0,0.04); color: var(--white); }
+
+.objMeta { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+.objMetaGroup label { font-family: var(--font-barlow-condensed); font-size: 0.6rem; letter-spacing: 2px; text-transform: uppercase; color: var(--dim); display: block; margin-bottom: 6px; }
+.deadlineOpts, .prioOpts { display: flex; flex-direction: column; gap: 4px; }
+.dlBtn, .prBtn { padding: 7px 10px; border: 1px solid var(--border); background: #0f0f0f; cursor: pointer; text-align: left; transition: all 0.2s; font-family: var(--font-barlow-condensed); font-size: 0.72rem; letter-spacing: 0.5px; color: var(--dim); display: flex; align-items: center; gap: 7px; width: 100%; }
+.dlBtn:hover, .prBtn:hover { border-color: rgba(232,255,0,0.3); }
+.dlBtn.sel, .prBtn.sel { border-color: var(--accent); background: rgba(232,255,0,0.04); color: var(--white); }
+.dlDot, .prDot { width: 6px; height: 6px; border-radius: 50%; border: 1px solid var(--dim); flex-shrink: 0; }
+.dlBtn.sel .dlDot, .prBtn.sel .prDot { background: var(--accent); border-color: var(--accent); }
+
+.prepGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+.prepItem { padding: 8px 10px; border: 1px solid var(--border); background: #0f0f0f; cursor: pointer; transition: all 0.2s; font-family: var(--font-barlow-condensed); font-size: 0.72rem; letter-spacing: 0.3px; color: var(--dim); display: flex; align-items: center; gap: 7px; }
+.prepItem:hover { border-color: rgba(232,255,0,0.3); }
+.prepItem.sel { border-color: var(--accent); background: rgba(232,255,0,0.04); color: var(--white); }
+.prepIcon { font-size: 14px; flex-shrink: 0; }
+.prepAutre { margin-top: 8px; }
+.prepAutre input { width: 100%; background: #0f0f0f; border: 1px solid var(--border); color: var(--white); font-family: var(--font-barlow); font-size: 0.85rem; padding: 9px 12px; outline: none; transition: border-color 0.2s; }
+.prepAutre input:focus { border-color: var(--accent); }
+
 .asb { width: 100%; padding: 10px; border: 1px dashed rgba(232,255,0,0.2); background: transparent; color: var(--accent); font-family: var(--font-barlow-condensed); font-size: 0.78rem; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; cursor: pointer; transition: all 0.2s; margin-bottom: 10px; }
 .asb:hover { background: rgba(232,255,0,0.04); border-color: var(--accent); }
 

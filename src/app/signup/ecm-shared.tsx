@@ -6,7 +6,7 @@
 // "J'ai changé" — ecm-update-form.tsx). Purs, sans état externe.
 // ============================================================================
 
-import type { EcmProfileCookie, EcmSport } from "./actions";
+import type { EcmProfileCookie, EcmSport, EcmObjectifDetail } from "./actions";
 import { BackHomeButton } from "@/components/back-home-button";
 import styles from "./ecm-signup.module.css";
 
@@ -35,13 +35,258 @@ export const SLUG_TO_SPORT_LABEL: Record<string, string> = Object.fromEntries(
 export const DAYS = ["LUN", "MAR", "MER", "JEU", "VEN", "SAM", "DIM"];
 export const LEVELS = ["🌱 Débutant", "📈 Intermédiaire", "🔥 Avancé", "⚡ Élite"];
 
-export const OBJECTIFS = [
-  "🔥 Réduire la graisse corporelle",
-  "💪 Gagner de la masse musculaire",
-  "🏆 Améliorer mes performances sportives",
-  "⚡ Recomposition corporelle",
-  "🧘 Bien-être général",
+type ObjectifCardConfig = {
+  icon: string;
+  title: string;
+  subLabel: string;
+  subcats: string[];
+  /** Icônes affichées devant chaque option de `subcats` — carte "événement" uniquement. */
+  subcatIcons?: Record<string, string>;
+  deadlineLabel: string;
+  deadlineOptions: string[];
+  prioLabel: string;
+  prioOptions: string[];
+  /** Carte 6 — les options de subcats sont des événements ; "Autre" ouvre un champ texte libre. */
+  isEvent?: boolean;
+};
+
+export const OBJECTIF_CARDS: ObjectifCardConfig[] = [
+  {
+    icon: "🔥",
+    title: "Réduire la graisse corporelle",
+    subLabel: "Quantité visée",
+    subcats: ["Légère · -3 à -5kg", "Modérée · -5 à -10kg", "Importante · -10kg+"],
+    deadlineLabel: "⏳ Deadline",
+    deadlineOptions: ["3 mois", "6 mois", "1 an", "Pas de deadline"],
+    prioLabel: "🎖️ Priorité",
+    prioOptions: ["Esthétique", "Santé", "Performance", "Les 3"],
+  },
+  {
+    icon: "💪",
+    title: "Gagner de la masse musculaire",
+    subLabel: "Progression visée",
+    subcats: ["Léger · +2 à +4kg", "Modéré · +4 à +8kg", "Transformation · +8kg+"],
+    deadlineLabel: "⏳ Deadline",
+    deadlineOptions: ["3 mois", "6 mois", "1 an", "Pas de deadline"],
+    prioLabel: "🎖️ Priorité",
+    prioOptions: ["Esthétique", "Force", "Volume", "Les 3"],
+  },
+  {
+    icon: "⚡",
+    title: "Recomposition corporelle",
+    subLabel: "Approche",
+    subcats: ["Perdre du gras en priorité", "Gagner du muscle en priorité", "Équilibre gras / muscle"],
+    deadlineLabel: "⏳ Deadline",
+    deadlineOptions: ["3 mois", "6 mois", "1 an", "Pas de deadline"],
+    prioLabel: "🎖️ Priorité",
+    prioOptions: ["Esthétique", "Santé", "Les 2"],
+  },
+  {
+    icon: "🏆",
+    title: "Améliorer mes performances sportives",
+    subLabel: "Axe de progression",
+    subcats: ["💪 Force", "🫀 Cardio", "⚡ Explosivité", "🏃 Endurance", "🔄 Mobilité", "🌟 Tout"],
+    deadlineLabel: "⏳ Deadline",
+    deadlineOptions: ["3 mois", "6 mois", "1 an", "Pas de deadline"],
+    prioLabel: "🎖️ Priorité",
+    prioOptions: ["Compétition", "Loisir", "Santé"],
+  },
+  {
+    icon: "🧘",
+    title: "Bien-être général",
+    subLabel: "Ce que tu veux améliorer",
+    subcats: ["😴 Sommeil", "⚡ Énergie au quotidien", "🧠 Gestion du stress", "🛡️ Santé générale", "🌟 Tout"],
+    deadlineLabel: "⏳ Deadline",
+    deadlineOptions: ["3 mois", "6 mois", "1 an", "Pas de deadline"],
+    prioLabel: "🎖️ Priorité",
+    prioOptions: ["Corps", "Mental", "Les 2"],
+  },
+  {
+    icon: "🎯",
+    title: "Je prépare mon corps à...",
+    subLabel: "Quel événement ?",
+    subcats: [
+      "Marathon",
+      "Semi-Marathon",
+      "Trail",
+      "Hyrox",
+      "CrossFit Games",
+      "Combat Boxe",
+      "Combat Muay Thai",
+      "Combat MMA",
+      "Compétition Jiu-Jitsu",
+      "Triathlon",
+      "Spartan / OCR",
+      "Autre",
+    ],
+    subcatIcons: {
+      Marathon: "🏃",
+      "Semi-Marathon": "🏃",
+      Trail: "⛷️",
+      Hyrox: "🏁",
+      "CrossFit Games": "⚡",
+      "Combat Boxe": "🥊",
+      "Combat Muay Thai": "🥋",
+      "Combat MMA": "🥋",
+      "Compétition Jiu-Jitsu": "🥋",
+      Triathlon: "🏊",
+      "Spartan / OCR": "🏔️",
+      Autre: "✏️",
+    },
+    deadlineLabel: "⏳ Date de l'événement",
+    deadlineOptions: ["Dans 1 mois", "Dans 3 mois", "Dans 6 mois", "Dans 1 an"],
+    prioLabel: "🎖️ Niveau visé",
+    prioOptions: ["Finir", "Performer", "Podium"],
+    isEvent: true,
+  },
 ];
+
+function emptyObjectifDetail(card: ObjectifCardConfig): EcmObjectifDetail {
+  return { type: `${card.icon} ${card.title}`, sousCat: "", deadline: "", priorite: "", event: "" };
+}
+
+/** Section complète "Mes objectifs" (2 max) — cartes accordéon avec sous-catégorie/deadline/priorité. */
+export function ObjectifsPicker({
+  values,
+  onChange,
+  onExceed,
+}: {
+  values: EcmObjectifDetail[];
+  onChange: (next: EcmObjectifDetail[]) => void;
+  onExceed: () => void;
+}) {
+  function patch(cardType: string, fields: Partial<EcmObjectifDetail>) {
+    onChange(values.map((v) => (v.type === cardType ? { ...v, ...fields } : v)));
+  }
+
+  function toggleCard(card: ObjectifCardConfig, type: string) {
+    const exists = values.some((v) => v.type === type);
+    if (exists) {
+      onChange(values.filter((v) => v.type !== type));
+      return;
+    }
+    if (values.length >= 2) {
+      onExceed();
+      return;
+    }
+    onChange([...values, emptyObjectifDetail(card)]);
+  }
+
+  return (
+    <div className={cx(styles.qc, styles.on)}>
+      <div className={styles.ql}>
+        <i>🎯</i> Mes objectifs <span className={styles.hint}>(2 maximum)</span>
+      </div>
+      <div className={styles.objMaxInfo}>
+        <span>Sélectionnés :</span>
+        <span className={styles.objCounter}>{values.length}</span>
+        <span>/ 2</span>
+      </div>
+      {OBJECTIF_CARDS.map((card) => {
+        const type = `${card.icon} ${card.title}`;
+        const entry = values.find((v) => v.type === type);
+        const selected = Boolean(entry);
+        return (
+          <div key={type} className={cx(styles.objCard, selected && styles.sel)}>
+            <div className={styles.objCardHeader} onClick={() => toggleCard(card, type)}>
+              <div className={styles.objIcon}>{card.icon}</div>
+              <div className={styles.objMainTitle}>{card.title}</div>
+              <div className={styles.objCheck}>{selected ? "✓" : ""}</div>
+            </div>
+            {entry && (
+              <div className={styles.objBody}>
+                <span className={styles.subLabel}>{card.subLabel}</span>
+                {card.isEvent ? (
+                  <>
+                    <div className={styles.prepGrid}>
+                      {card.subcats.map((s) => (
+                        <div
+                          key={s}
+                          className={cx(styles.prepItem, entry.sousCat === s && styles.sel)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            patch(type, { sousCat: s, event: s === "Autre" ? "" : s });
+                          }}
+                        >
+                          <span className={styles.prepIcon}>{card.subcatIcons?.[s] ?? "•"}</span>
+                          {s}
+                        </div>
+                      ))}
+                    </div>
+                    {entry.sousCat === "Autre" && (
+                      <div className={styles.prepAutre}>
+                        <input
+                          type="text"
+                          placeholder="Décris ton événement..."
+                          value={entry.event}
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={(e) => patch(type, { event: e.target.value })}
+                        />
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className={styles.subcats}>
+                    {card.subcats.map((s) => (
+                      <div
+                        key={s}
+                        className={cx(styles.subcat, entry.sousCat === s && styles.sel)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          patch(type, { sousCat: s });
+                        }}
+                      >
+                        {s}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className={styles.objMeta}>
+                  <div className={styles.objMetaGroup}>
+                    <label>{card.deadlineLabel}</label>
+                    <div className={styles.deadlineOpts}>
+                      {card.deadlineOptions.map((d) => (
+                        <div
+                          key={d}
+                          className={cx(styles.dlBtn, entry.deadline === d && styles.sel)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            patch(type, { deadline: d });
+                          }}
+                        >
+                          <div className={styles.dlDot} />
+                          {d}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className={styles.objMetaGroup}>
+                    <label>{card.prioLabel}</label>
+                    <div className={styles.prioOpts}>
+                      {card.prioOptions.map((p) => (
+                        <div
+                          key={p}
+                          className={cx(styles.prBtn, entry.priorite === p && styles.sel)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            patch(type, { priorite: p });
+                          }}
+                        >
+                          <div className={styles.prDot} />
+                          {p}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 export const EQUIPEMENTS = [
   "🏋️ Salle complète",
@@ -117,7 +362,7 @@ export function emptyEcmProfile(preselectedSport = ""): EcmProfileCookie {
     age: "",
     taille: "",
     poids: "",
-    obj: [],
+    objectifs: [],
     s1: { ...EMPTY_SPORT, nom: preselectedSport },
     s2: { ...EMPTY_SPORT },
     s2on: false,

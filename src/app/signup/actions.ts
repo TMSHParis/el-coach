@@ -209,13 +209,22 @@ const COOKIE_ECM_PROFILE = "el_coach_ecm_profile";
 
 export type EcmSport = { nom: string; jours: string[]; h: string; du: string; niv: string };
 
+/** Un objectif sélectionné avec ses détails (sous-catégorie/deadline/priorité, ou événement pour la carte 6). */
+export type EcmObjectifDetail = {
+  type: string;
+  sousCat: string;
+  deadline: string;
+  priorite: string;
+  event: string;
+};
+
 export type EcmProfileCookie = {
   prenom: string;
   age: string;
   taille: string;
   poids: string;
-  /** 0 à 2 objectifs sélectionnés — persistés en objectif_1 / objectif_2. */
-  obj: string[];
+  /** 0 à 2 objectifs sélectionnés (avec sous-catégorie/deadline/priorité) — persistés en objectif_1_* / objectif_2_*. */
+  objectifs: EcmObjectifDetail[];
   s1: EcmSport;
   s2: EcmSport;
   s2on: boolean;
@@ -301,8 +310,18 @@ async function persistEcmProfile(profile: EcmProfileCookie): Promise<void> {
     age: parseInt(profile.age, 10) || 0,
     taille: parseInt(profile.taille, 10) || 0,
     poids: parseFloat(profile.poids) || 0,
-    objectif: profile.obj[0] ?? "",
-    objectif2: profile.obj[1] || null,
+    objectif: profile.objectifs[0]?.type ?? "",
+    objectif2: profile.objectifs[1]?.type || null,
+    objectif1Type: profile.objectifs[0]?.type || null,
+    objectif1SousCat: profile.objectifs[0]?.sousCat || null,
+    objectif1Deadline: profile.objectifs[0]?.deadline || null,
+    objectif1Priorite: profile.objectifs[0]?.priorite || null,
+    objectif1Event: profile.objectifs[0]?.event || null,
+    objectif2Type: profile.objectifs[1]?.type || null,
+    objectif2SousCat: profile.objectifs[1]?.sousCat || null,
+    objectif2Deadline: profile.objectifs[1]?.deadline || null,
+    objectif2Priorite: profile.objectifs[1]?.priorite || null,
+    objectif2Event: profile.objectifs[1]?.event || null,
     programme: profile.s1.nom,
     niveau: profile.s1.niv,
     sportPrincipal: profile.s1.nom,
@@ -356,13 +375,30 @@ export async function getEcmProfileState(): Promise<EcmProfileCookie | null> {
 // Édition de profil — onglet "J'ai changé" (compte déjà créé via Clerk).
 // ============================================================================
 
+/** Reconstruit un objectif détaillé depuis les colonnes en base — replie sur le seul `type` legacy si les détails manquent (comptes créés avant l'ajout des objectifs enrichis). */
+function objectifFromRow(
+  type: string | null,
+  sousCat: string | null,
+  deadline: string | null,
+  priorite: string | null,
+  event: string | null,
+  legacyType: string | null,
+): EcmObjectifDetail | null {
+  const resolvedType = type ?? legacyType;
+  if (!resolvedType) return null;
+  return { type: resolvedType, sousCat: sousCat ?? "", deadline: deadline ?? "", priorite: priorite ?? "", event: event ?? "" };
+}
+
 function profileRowToCookie(row: Profile): EcmProfileCookie {
   return {
     prenom: row.prenom,
     age: String(row.age),
     taille: String(row.taille),
     poids: String(row.poids),
-    obj: [row.objectif, row.objectif2].filter((v): v is string => Boolean(v)),
+    objectifs: [
+      objectifFromRow(row.objectif1Type, row.objectif1SousCat, row.objectif1Deadline, row.objectif1Priorite, row.objectif1Event, row.objectif),
+      objectifFromRow(row.objectif2Type, row.objectif2SousCat, row.objectif2Deadline, row.objectif2Priorite, row.objectif2Event, row.objectif2),
+    ].filter((v): v is EcmObjectifDetail => v !== null),
     s1: {
       nom: row.sportPrincipal,
       jours: row.joursS1,

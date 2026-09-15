@@ -17,6 +17,17 @@ model Profile {
   poids             Float
   objectif          String  @map("objectif_1")
   objectif2         String? @map("objectif_2")
+  // Objectifs enrichis (sous-catégorie/deadline/priorité, ou événement pour "Je prépare mon corps à...").
+  objectif1Type     String? @map("objectif_1_type")
+  objectif1SousCat  String? @map("objectif_1_sous_cat")
+  objectif1Deadline String? @map("objectif_1_deadline")
+  objectif1Priorite String? @map("objectif_1_priorite")
+  objectif1Event    String? @map("objectif_1_event")
+  objectif2Type     String? @map("objectif_2_type")
+  objectif2SousCat  String? @map("objectif_2_sous_cat")
+  objectif2Deadline String? @map("objectif_2_deadline")
+  objectif2Priorite String? @map("objectif_2_priorite")
+  objectif2Event    String? @map("objectif_2_event")
   programme         String
   niveau            String
   sportPrincipal    String   @map("sport_principal")
