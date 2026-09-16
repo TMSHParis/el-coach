@@ -6,33 +6,29 @@
 // "J'ai changé" — ecm-update-form.tsx). Purs, sans état externe.
 // ============================================================================
 
-import type { EcmProfileCookie, EcmSport, EcmObjectifDetail } from "./actions";
+import { useState } from "react";
+import type { EcmProfileCookie, EcmObjectifDetail, WeekCycle, WeekCycleDay, WeekCycleDayKey } from "./actions";
 import { BackHomeButton } from "@/components/back-home-button";
 import styles from "./ecm-signup.module.css";
+
+function emptyWeekCycle(): WeekCycle {
+  const empty = (): WeekCycleDay => ({ repos: false, slots: [] });
+  return { lun: empty(), mar: empty(), mer: empty(), jeu: empty(), ven: empty(), sam: empty(), dim: empty() };
+}
 
 export const cx = (...classes: (string | false | undefined)[]) => classes.filter(Boolean).join(" ");
 
 export const LEFT_PROGRAMS: { name: string; tag: string }[] = [
   { name: "CrossFit Pure", tag: "Force · Olympique · Metcon" },
-  { name: "Hybrid Engine", tag: "CrossFit · Muscu · Adaptatif" },
+  { name: "Hybrid Engine", tag: "Functional Training · Force & Cardio" },
   { name: "Hyrox Pure", tag: "Stations · Course · Compétition" },
   { name: "Volume Block Hypertrophy", tag: "Split · Volume · Progression" },
   { name: "At Home", tag: "Bodyweight · Accessible · Run" },
 ];
 
-export const SPORT_LABEL_TO_SLUG: Record<string, string> = {
-  "⚡ CrossFit Pure": "crossfit-pure",
-  "🔥 Hybrid Engine": "hybrid-cf-strength",
-  "🏁 Hyrox Pure": "hyrox-pure",
-  "💪 Volume Block Hypertrophy": "volume-block-hypertrophy",
-  "🏠 At Home": "at-home",
-};
+import { SPORT_LABEL_TO_SLUG, SLUG_TO_SPORT_LABEL } from "@/lib/ecm-programs";
+export { SPORT_LABEL_TO_SLUG, SLUG_TO_SPORT_LABEL };
 
-export const SLUG_TO_SPORT_LABEL: Record<string, string> = Object.fromEntries(
-  Object.entries(SPORT_LABEL_TO_SLUG).map(([label, slug]) => [slug, label]),
-);
-
-export const DAYS = ["LUN", "MAR", "MER", "JEU", "VEN", "SAM", "DIM"];
 export const LEVELS = ["🌱 Débutant", "📈 Intermédiaire", "🔥 Avancé", "⚡ Élite"];
 
 type ObjectifCardConfig = {
@@ -354,18 +350,15 @@ export const SPORT_OPTGROUPS: { label: string; options: string[] }[] = [
   },
 ];
 
-export const EMPTY_SPORT: EcmSport = { nom: "", jours: [], h: "", du: "", niv: "" };
-
-export function emptyEcmProfile(preselectedSport = ""): EcmProfileCookie {
+export function emptyEcmProfile(preselectedProgramme = ""): EcmProfileCookie {
   return {
     prenom: "",
     age: "",
     taille: "",
     poids: "",
     objectifs: [],
-    s1: { ...EMPTY_SPORT, nom: preselectedSport },
-    s2: { ...EMPTY_SPORT },
-    s2on: false,
+    programmePrincipal: preselectedProgramme,
+    weekCycle: emptyWeekCycle(),
     equip: "",
     jeune: null,
     tj: "",
@@ -408,10 +401,10 @@ export function EcmPageHeader({
   );
 }
 
-/** 8 caractères min. · 1 chiffre · 1 symbole — retourne le message d'erreur, ou null si valide. */
+/** 15 caractères min. · 1 chiffre · 1 symbole — retourne le message d'erreur, ou null si valide. */
 export function validatePassword(pw: string): string | null {
-  const ok = /^(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/.test(pw);
-  return ok ? null : "8 caractères minimum · 1 chiffre · 1 symbole requis";
+  const ok = /^(?=.*\d)(?=.*[^A-Za-z0-9]).{15,}$/.test(pw);
+  return ok ? null : "15 caractères minimum · 1 chiffre · 1 symbole requis";
 }
 
 export function MoSolo({ options, value, onChange }: { options: string[]; value: string; onChange: (v: string) => void }) {
@@ -500,82 +493,158 @@ export function YesNo({ value, onChange }: { value: boolean | null; onChange: (v
   );
 }
 
-export function SportBlock({
-  title,
-  sport,
-  onField,
-  onDay,
-  onRemove,
-}: {
-  title: string;
-  sport: EcmSport;
-  onField: (patch: Partial<EcmSport>) => void;
-  onDay: (day: string) => void;
-  onRemove?: () => void;
-}) {
+const WEEK_DAY_KEYS: WeekCycleDayKey[] = ["lun", "mar", "mer", "jeu", "ven", "sam", "dim"];
+const WEEK_DAY_LABELS: Record<WeekCycleDayKey, string> = {
+  lun: "LUNDI",
+  mar: "MARDI",
+  mer: "MERCREDI",
+  jeu: "JEUDI",
+  ven: "VENDREDI",
+  sam: "SAMEDI",
+  dim: "DIMANCHE",
+};
+
+/** Programme ECM de référence — un champ dédié, séparé de la semaine type (pilote programSlug/profile.programme). */
+export function ProgrammePrincipalPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   return (
-    <div className={styles.sb}>
-      <div className={styles.sbt}>
-        {title}
-        {onRemove && (
-          <span className={styles.rm} onClick={onRemove}>
-            ✕ Supprimer
-          </span>
-        )}
+    <div className={styles.qc}>
+      <div className={styles.ql}>
+        <i>⚡</i> Programme principal
       </div>
-      <select className={styles.ss} value={sport.nom} onChange={(e) => onField({ nom: e.target.value })}>
-        <option value="" disabled>
-          Choisir ta programmation / sport...
-        </option>
-        {SPORT_OPTGROUPS.map((g) => (
-          <optgroup key={g.label} label={g.label}>
-            {g.options.map((o) => (
-              <option key={o} value={o}>
-                {o}
-              </option>
-            ))}
-          </optgroup>
-        ))}
-        <option value="Autre">Autre</option>
-      </select>
-      <div className={styles.dl}>📅 Jours d&apos;entraînement</div>
-      <div className={styles.dg}>
-        {DAYS.map((d) => (
-          <div key={d} className={cx(styles.db, sport.jours.includes(d) && styles.sel)} onClick={() => onDay(d)}>
-            {d}
-          </div>
-        ))}
+      <MoSolo options={Object.keys(SPORT_LABEL_TO_SLUG)} value={value} onChange={onChange} />
+    </div>
+  );
+}
+
+/** Semaine type — 7 jours, chacun avec repos ou plusieurs créneaux sport (matin/soir). */
+export function WeekCyclePicker({ value, onChange }: { value: WeekCycle; onChange: (next: WeekCycle) => void }) {
+  const [activeDay, setActiveDay] = useState<WeekCycleDayKey | null>(null);
+
+  function patchDay(day: WeekCycleDayKey, patch: Partial<WeekCycle[WeekCycleDayKey]>) {
+    onChange({ ...value, [day]: { ...value[day], ...patch } });
+  }
+  function patchSlot(day: WeekCycleDayKey, idx: number, patch: Partial<WeekCycle[WeekCycleDayKey]["slots"][number]>) {
+    patchDay(day, { slots: value[day].slots.map((s, i) => (i === idx ? { ...s, ...patch } : s)) });
+  }
+  function addSlot(day: WeekCycleDayKey) {
+    patchDay(day, { slots: [...value[day].slots, { sport: "", heure: "", duree: "", niveau: "" }] });
+  }
+  function removeSlot(day: WeekCycleDayKey, idx: number) {
+    patchDay(day, { slots: value[day].slots.filter((_, i) => i !== idx) });
+  }
+
+  return (
+    <div className={cx(styles.qc, styles.on)}>
+      <div className={styles.ql}>
+        <i>📅</i> Ma semaine type d&apos;entraînement
       </div>
-      <div className={styles.dr}>
-        <div className={styles.di}>
-          <label>⏰ Heure de séance</label>
-          <input
-            className={styles.mi}
-            type="text"
-            placeholder="ex: 18h30"
-            value={sport.h}
-            onChange={(e) => onField({ h: e.target.value })}
-          />
+      <p className={styles.weekHint}>
+        Clique sur un jour. Tu peux ajouter plusieurs sports le même jour (matin + soir).
+      </p>
+      <div className={styles.weekSelector}>
+        {WEEK_DAY_KEYS.map((d) => {
+          const day = value[d];
+          const hasSport = !day.repos && day.slots.some((s) => s.sport);
+          return (
+            <div
+              key={d}
+              className={cx(
+                styles.dayBtn,
+                activeDay === d && styles.active,
+                hasSport && styles.hasSport,
+                day.repos && styles.isRest,
+              )}
+              onClick={() => setActiveDay(d)}
+            >
+              <div className={styles.dayBtnName}>{d.toUpperCase()}</div>
+              <div className={styles.dayBtnDot} />
+            </div>
+          );
+        })}
+      </div>
+      {activeDay && (
+        <div className={cx(styles.dayDetail, styles.visible)}>
+          <div className={styles.dayDetailTitle}>{WEEK_DAY_LABELS[activeDay]}</div>
+          <label className={styles.dayRestRow}>
+            <input
+              type="checkbox"
+              checked={value[activeDay].repos}
+              onChange={(e) => patchDay(activeDay, { repos: e.target.checked })}
+            />
+            🛋️ Jour de repos
+          </label>
+          {!value[activeDay].repos && (
+            <>
+              {value[activeDay].slots.map((slot, idx) => (
+                <div key={idx} className={styles.sportSlot}>
+                  <div className={styles.sportSlotHeader}>
+                    <span className={styles.sportSlotLabel}>
+                      {idx === 0 ? "🌅 Matin / Unique" : `🌆 Soir / ${idx + 1}ème séance`}
+                    </span>
+                    {idx > 0 && (
+                      <button
+                        type="button"
+                        className={styles.btnRemoveSlot}
+                        onClick={() => removeSlot(activeDay, idx)}
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                  <select
+                    className={styles.slotSelect}
+                    value={slot.sport}
+                    onChange={(e) => patchSlot(activeDay, idx, { sport: e.target.value })}
+                  >
+                    <option value="" disabled>
+                      Choisir un sport...
+                    </option>
+                    {SPORT_OPTGROUPS.map((g) => (
+                      <optgroup key={g.label} label={g.label}>
+                        {g.options.map((o) => (
+                          <option key={o} value={o}>
+                            {o}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
+                  <div className={styles.slotRow}>
+                    <input
+                      className={styles.slotInput}
+                      type="text"
+                      placeholder="ex: 18h30"
+                      value={slot.heure}
+                      onChange={(e) => patchSlot(activeDay, idx, { heure: e.target.value })}
+                    />
+                    <input
+                      className={styles.slotInput}
+                      type="text"
+                      placeholder="ex: 1h30"
+                      value={slot.duree}
+                      onChange={(e) => patchSlot(activeDay, idx, { duree: e.target.value })}
+                    />
+                  </div>
+                  <div className={styles.slotNiveau}>
+                    {LEVELS.map((l) => (
+                      <div
+                        key={l}
+                        className={cx(styles.slotNivBtn, slot.niveau === l && styles.sel)}
+                        onClick={() => patchSlot(activeDay, idx, { niveau: l })}
+                      >
+                        {l}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+              <button type="button" className={styles.btnAddSport} onClick={() => addSlot(activeDay)}>
+                + Ajouter un sport
+              </button>
+            </>
+          )}
         </div>
-        <div className={styles.di}>
-          <label>⏱️ Durée moyenne</label>
-          <input
-            className={styles.mi}
-            type="text"
-            placeholder="ex: 1h30"
-            value={sport.du}
-            onChange={(e) => onField({ du: e.target.value })}
-          />
-        </div>
-      </div>
-      <div className={styles.ll}>🏆 Niveau</div>
-      <div className={styles.lb}>
-        {LEVELS.map((l) => (
-          <div key={l} className={cx(styles.lbb, sport.niv === l && styles.sel)} onClick={() => onField({ niv: l })}>
-            {l}
-          </div>
-        ))}
-      </div>
+      )}
     </div>
   );
 }

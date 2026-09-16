@@ -142,15 +142,17 @@ function HomeCTAButtons({ signedIn }: { signedIn: boolean }) {
   const profileHref = signedIn ? "/profile/edit" : "/signin?redirect=/profile/edit";
   return (
     <>
-      <Link href="/signup" className="btn-gold flex-col gap-1 py-3">
-        <span className="inline-flex items-center gap-2">
-          Je m&apos;inscris
-          <ArrowRight size={14} />
-        </span>
-        <span className="text-[10px] normal-case tracking-normal opacity-70">
-          Free Trial — 7 jours offerts
-        </span>
-      </Link>
+      {!signedIn && (
+        <Link href="/signup" className="btn-gold flex-col gap-1 py-3">
+          <span className="inline-flex items-center gap-2">
+            Je m&apos;inscris
+            <ArrowRight size={14} />
+          </span>
+          <span className="text-[10px] normal-case tracking-normal opacity-70">
+            Free Trial — 7 jours offerts
+          </span>
+        </Link>
+      )}
       <Link href={checkinHref} className="btn-primary">
         Mon check-in du jour
       </Link>

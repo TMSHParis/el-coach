@@ -4,7 +4,7 @@ import { useState, type Dispatch, type SetStateAction } from "react";
 import { useRouter } from "next/navigation";
 import { useSignUp } from "@clerk/nextjs";
 import { clerkEnabledClient } from "@/lib/clerk";
-import { submitEcmSignup, type EcmProfileCookie, type EcmSport } from "./actions";
+import { submitEcmSignup, type EcmProfileCookie } from "./actions";
 import {
   cx,
   LEFT_PROGRAMS,
@@ -13,14 +13,14 @@ import {
   EQUIPEMENTS,
   RESTRICTIONS,
   COMPLEMENTS,
-  EMPTY_SPORT,
   emptyEcmProfile,
   validatePassword,
   MoSolo,
   MoMulti,
   ObjectifsPicker,
+  ProgrammePrincipalPicker,
+  WeekCyclePicker,
   YesNo,
-  SportBlock,
 } from "./ecm-shared";
 import styles from "./ecm-signup.module.css";
 
@@ -55,7 +55,7 @@ type FormState = {
 
 export function EcmSignupForm({ defaultProgramSlug }: { defaultProgramSlug: string }) {
   const router = useRouter();
-  const preselectedSport = SLUG_TO_SPORT_LABEL[defaultProgramSlug] ?? "";
+  const preselectedProgramme = SLUG_TO_SPORT_LABEL[defaultProgramSlug] ?? "";
 
   const [phase, setPhase] = useState<"landing" | "form">("landing");
   const [accordionOpen, setAccordionOpen] = useState(false);
@@ -66,7 +66,7 @@ export function EcmSignupForm({ defaultProgramSlug }: { defaultProgramSlug: stri
     lastName: "",
     email: "",
     password: "",
-    profile: emptyEcmProfile(preselectedSport),
+    profile: emptyEcmProfile(preselectedProgramme),
     cardNumber: "",
     cardholder: "",
     expiry: "",
@@ -118,16 +118,6 @@ export function EcmSignupForm({ defaultProgramSlug }: { defaultProgramSlug: stri
     setEcmSubStep((from - 1) as 1 | 2 | 3);
   }
 
-  function toggleDay(sport: "s1" | "s2", day: string) {
-    const jours = profile[sport].jours;
-    const next = jours.includes(day) ? jours.filter((d) => d !== day) : [...jours, day];
-    setProfile({ [sport]: { ...profile[sport], jours: next } } as Partial<EcmProfileCookie>);
-  }
-
-  function setSportField(sport: "s1" | "s2", patch: Partial<EcmSport>) {
-    setProfile({ [sport]: { ...profile[sport], ...patch } } as Partial<EcmProfileCookie>);
-  }
-
   function toggleMulti(key: "rest" | "comp", value: string) {
     const arr = profile[key];
     const next = arr.includes(value) ? arr.filter((v) => v !== value) : [...arr, value];
@@ -165,7 +155,7 @@ export function EcmSignupForm({ defaultProgramSlug }: { defaultProgramSlug: stri
     }
     setSubmitting(true);
     setSubmitError(null);
-    const matchedSlug = SPORT_LABEL_TO_SLUG[profile.s1.nom] ?? defaultProgramSlug;
+    const matchedSlug = SPORT_LABEL_TO_SLUG[profile.programmePrincipal] ?? defaultProgramSlug;
     const result = await submitEcmSignup({
       firstName: data.firstName,
       lastName: data.lastName,
@@ -362,28 +352,11 @@ export function EcmSignupForm({ defaultProgramSlug }: { defaultProgramSlug: stri
 
           {/* Sous-étape 2 — Profil sportif */}
           <div className={cx(styles.ecmStep, ecmSubStep === 2 && styles.active)}>
-            <SportBlock title="⚡ SPORT PRINCIPAL" sport={profile.s1} onField={(p) => setSportField("s1", p)} onDay={(d) => toggleDay("s1", d)} />
-
-            {profile.s2on && (
-              <SportBlock
-                title="🥈 SPORT SECONDAIRE"
-                sport={profile.s2}
-                onField={(p) => setSportField("s2", p)}
-                onDay={(d) => toggleDay("s2", d)}
-                onRemove={() =>
-                  setProfile({ s2on: false, s2: { ...EMPTY_SPORT } })
-                }
-              />
-            )}
-            {!profile.s2on && (
-              <button
-                className={styles.asb}
-                type="button"
-                onClick={() => setProfile({ s2on: true })}
-              >
-                + AJOUTER UN 2ÈME SPORT
-              </button>
-            )}
+            <ProgrammePrincipalPicker
+              value={profile.programmePrincipal}
+              onChange={(v) => setProfile({ programmePrincipal: v })}
+            />
+            <WeekCyclePicker value={profile.weekCycle} onChange={(v) => setProfile({ weekCycle: v })} />
 
             <div className={styles.qc}>
               <div className={styles.ql}>
@@ -712,7 +685,7 @@ function AccountFields({
   showPassword,
   setShowPassword,
   strength,
-  passwordPlaceholder = "8 caractères min. · 1 chiffre · 1 symbole",
+  passwordPlaceholder = "15 caractères min. · 1 chiffre · 1 symbole",
   passwordError,
 }: {
   data: FormState;

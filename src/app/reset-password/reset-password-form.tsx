@@ -85,7 +85,7 @@ export function ResetPasswordForm() {
           <div className={styles.fieldPw}>
             <input
               type={showPassword ? "text" : "password"}
-              placeholder="8 caractères min. · 1 chiffre · 1 symbole"
+              placeholder="15 caractères min. · 1 chiffre · 1 symbole"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />

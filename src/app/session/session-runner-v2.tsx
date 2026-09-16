@@ -3,8 +3,10 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { DisplayBlock } from "@/lib/session-format";
+import type { BlockType } from "@/lib/programming";
 import styles from "./session.module.css";
 import { SessionItemRow } from "../dashboard/session-item-row";
+import { saveSessionResult, type SessionBlocResult } from "./actions";
 
 const cx = (...classes: (string | false | undefined)[]) => classes.filter(Boolean).join(" ");
 
@@ -21,6 +23,13 @@ const FORMAT_LABELS: Record<RuntimeFormat, string> = {
 const TABATA_WORK = 20;
 const TABATA_REST = 10;
 
+/** Blocs où la saisie se fait par exercice (charge × reps, plusieurs séries). */
+const SERIES_RESULT_TYPES: BlockType[] = ["strength", "accessory", "skill"];
+/** Blocs où la saisie se fait une fois pour tout le bloc (temps/rounds/score). */
+const WOD_RESULT_TYPES: BlockType[] = ["wod", "conditioning", "endurance"];
+
+type ExerciseSerie = { charge: string; reps: string };
+
 type BlocState = {
   sec: number;
   running: boolean;
@@ -33,6 +42,12 @@ type BlocState = {
   tabataRound: number;
   tabataSec: number;
   open: boolean;
+  /** Séries (charge/reps) par exercice du bloc — uniquement pour les blocs SERIES_RESULT_TYPES. */
+  exerciseSeries: ExerciseSerie[][];
+  /** Résultat global du bloc — uniquement pour les blocs WOD_RESULT_TYPES. */
+  temps: string;
+  rounds: string;
+  score: string;
 };
 
 function fmtMS(totalSec: number): string {
@@ -57,30 +72,43 @@ export function SessionRunnerV2({
   sessionMeta,
   blocks: blockData,
   initial,
+  date,
+  variant,
 }: {
   sessionName: string;
   sessionMeta: string;
   blocks: DisplayBlock[];
   initial: { format: RuntimeFormat; durationMin: number; tabataRounds: number }[];
+  date: string;
+  variant: "A" | "B";
 }) {
   const router = useRouter();
   const [blocks, setBlocks] = useState<BlocState[]>(() =>
-    initial.map((cfg, i) => ({
-      sec: 0,
-      running: false,
-      done: false,
-      finalTime: "",
-      format: cfg.format,
-      durationMin: cfg.durationMin,
-      tabataRounds: cfg.tabataRounds,
-      tabataPhase: "work",
-      tabataRound: 1,
-      tabataSec: TABATA_WORK,
-      open: i === 0,
-    })),
+    initial.map((cfg, i) => {
+      const type = blockData[i]?.type;
+      const isSeries = type && SERIES_RESULT_TYPES.includes(type);
+      return {
+        sec: 0,
+        running: false,
+        done: false,
+        finalTime: "",
+        format: cfg.format,
+        durationMin: cfg.durationMin,
+        tabataRounds: cfg.tabataRounds,
+        tabataPhase: "work",
+        tabataRound: 1,
+        tabataSec: TABATA_WORK,
+        open: i === 0,
+        exerciseSeries: isSeries ? blockData[i].items.map(() => [{ charge: "", reps: "" }]) : [],
+        temps: "",
+        rounds: "",
+        score: "",
+      };
+    }),
   );
   const [globalSec, setGlobalSec] = useState(0);
   const [sessionDone, setSessionDone] = useState(false);
+  const [resultsSaved, setResultsSaved] = useState(false);
   const intervalsRef = useRef<Record<number, ReturnType<typeof setInterval>>>({});
   const blocRefs = useRef<Record<number, HTMLDivElement | null>>({});
 
@@ -241,6 +269,45 @@ export function SessionRunnerV2({
     }, 100);
   }
 
+  function addSerie(blocIdx: number, exIdx: number) {
+    setBlocks((prev) =>
+      prev.map((x, i) =>
+        i === blocIdx
+          ? { ...x, exerciseSeries: x.exerciseSeries.map((es, j) => (j === exIdx ? [...es, { charge: "", reps: "" }] : es)) }
+          : x,
+      ),
+    );
+  }
+
+  function updateSerie(blocIdx: number, exIdx: number, serieIdx: number, patch: Partial<ExerciseSerie>) {
+    setBlocks((prev) =>
+      prev.map((x, i) =>
+        i === blocIdx
+          ? {
+              ...x,
+              exerciseSeries: x.exerciseSeries.map((es, j) =>
+                j === exIdx ? es.map((s, k) => (k === serieIdx ? { ...s, ...patch } : s)) : es,
+              ),
+            }
+          : x,
+      ),
+    );
+  }
+
+  function removeSerie(blocIdx: number, exIdx: number, serieIdx: number) {
+    setBlocks((prev) =>
+      prev.map((x, i) =>
+        i === blocIdx
+          ? { ...x, exerciseSeries: x.exerciseSeries.map((es, j) => (j === exIdx ? es.filter((_, k) => k !== serieIdx) : es)) }
+          : x,
+      ),
+    );
+  }
+
+  function setWodResult(blocIdx: number, patch: Partial<{ temps: string; rounds: string; score: string }>) {
+    setBlocks((prev) => prev.map((x, i) => (i === blocIdx ? { ...x, ...patch } : x)));
+  }
+
   const doneCount = blocks.filter((b) => b.done).length;
   const total = blocks.length;
 
@@ -282,6 +349,35 @@ export function SessionRunnerV2({
       router.push("/dashboard");
     }
   }
+
+  // Enregistre les résultats (charge/reps, temps/rounds/score) une fois la séance
+  // terminée — best effort, ne bloque jamais l'écran de fin même en cas d'échec.
+  useEffect(() => {
+    if (!sessionDone || resultsSaved) return;
+    setResultsSaved(true);
+    const blocs: SessionBlocResult[] = [];
+    blockData.forEach((b, i) => {
+      const state = blocks[i];
+      if (state.exerciseSeries.length > 0) {
+        b.items.forEach((it, j) => {
+          const series = (state.exerciseSeries[j] ?? []).filter((s) => s.charge.trim() || s.reps.trim());
+          if (series.length > 0) blocs.push({ bloc: i + 1, nom: it.name, series });
+        });
+      } else if (WOD_RESULT_TYPES.includes(b.type) && (state.temps || state.rounds || state.score)) {
+        blocs.push({
+          bloc: i + 1,
+          nom: b.titre,
+          temps: state.temps || undefined,
+          rounds: state.rounds || undefined,
+          score: state.score || undefined,
+        });
+      }
+    });
+    saveSessionResult({ date, variant, blocs }).catch(() => {
+      // Silencieux — l'écran de fin de séance s'affiche quoi qu'il arrive.
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionDone]);
 
   if (sessionDone) {
     return (
@@ -372,6 +468,10 @@ export function SessionRunnerV2({
               onPause={() => pauseTimer(i)}
               onReset={() => resetTimer(i)}
               onDone={() => doneBloc(i)}
+              onAddSerie={(exIdx) => addSerie(i, exIdx)}
+              onUpdateSerie={(exIdx, serieIdx, patch) => updateSerie(i, exIdx, serieIdx, patch)}
+              onRemoveSerie={(exIdx, serieIdx) => removeSerie(i, exIdx, serieIdx)}
+              onSetWodResult={(patch) => setWodResult(i, patch)}
             />
           ))}
         </div>
@@ -417,6 +517,10 @@ function BlocCard({
   onPause,
   onReset,
   onDone,
+  onAddSerie,
+  onUpdateSerie,
+  onRemoveSerie,
+  onSetWodResult,
 }: {
   refCb: (el: HTMLDivElement | null) => void;
   index: number;
@@ -431,6 +535,10 @@ function BlocCard({
   onPause: () => void;
   onReset: () => void;
   onDone: () => void;
+  onAddSerie: (exIdx: number) => void;
+  onUpdateSerie: (exIdx: number, serieIdx: number, patch: Partial<ExerciseSerie>) => void;
+  onRemoveSerie: (exIdx: number, serieIdx: number) => void;
+  onSetWodResult: (patch: Partial<{ temps: string; rounds: string; score: string }>) => void;
 }) {
   const isDone = state.done;
   const isActive = index === currentIndex && !isDone;
@@ -461,16 +569,56 @@ function BlocCard({
         />
         <div className={styles.blocItems}>
           {block.items.map((it, j) => (
-            <SessionItemRow
-              key={`${it.movementName}-${j}`}
-              name={it.name}
-              qty={it.qty}
-              detail={it.detail}
-              movementName={it.movementName}
-              videoUrl={it.videoUrl}
-            />
+            <div key={`${it.movementName}-${j}`}>
+              <SessionItemRow
+                name={it.name}
+                qty={it.qty}
+                detail={it.detail}
+                movementName={it.movementName}
+                videoUrl={it.videoUrl}
+              />
+              {state.exerciseSeries[j] && (
+                <SerieInput
+                  series={state.exerciseSeries[j]}
+                  onAdd={() => onAddSerie(j)}
+                  onUpdate={(serieIdx, patch) => onUpdateSerie(j, serieIdx, patch)}
+                  onRemove={(serieIdx) => onRemoveSerie(j, serieIdx)}
+                />
+              )}
+            </div>
           ))}
         </div>
+        {WOD_RESULT_TYPES.includes(block.type) && (
+          <div className={styles.wodResultRow}>
+            <div className={styles.wodResultField}>
+              <label>Temps</label>
+              <input
+                type="text"
+                placeholder="MM:SS"
+                value={state.temps}
+                onChange={(e) => onSetWodResult({ temps: e.target.value })}
+              />
+            </div>
+            <div className={styles.wodResultField}>
+              <label>Rounds</label>
+              <input
+                type="text"
+                placeholder="—"
+                value={state.rounds}
+                onChange={(e) => onSetWodResult({ rounds: e.target.value })}
+              />
+            </div>
+            <div className={styles.wodResultField}>
+              <label>Score</label>
+              <input
+                type="text"
+                placeholder="—"
+                value={state.score}
+                onChange={(e) => onSetWodResult({ score: e.target.value })}
+              />
+            </div>
+          </div>
+        )}
         {block.note && <div className={styles.blocNote}>{block.note}</div>}
         {isDone && (
           <div className={styles.blocDoneOverlay}>
@@ -485,6 +633,55 @@ function BlocCard({
 
 function capitalize(s: string) {
   return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function SerieInput({
+  series,
+  onAdd,
+  onUpdate,
+  onRemove,
+}: {
+  series: ExerciseSerie[];
+  onAdd: () => void;
+  onUpdate: (serieIdx: number, patch: Partial<ExerciseSerie>) => void;
+  onRemove: (serieIdx: number) => void;
+}) {
+  return (
+    <div className={styles.seriesWrap}>
+      {series.map((s, k) => (
+        <div key={k} className={styles.serieRow}>
+          <span className={styles.serieLabel}>Série {k + 1}</span>
+          <input
+            className={styles.serieInput}
+            type="number"
+            inputMode="decimal"
+            placeholder="—"
+            value={s.charge}
+            onChange={(e) => onUpdate(k, { charge: e.target.value })}
+          />
+          <span className={styles.serieUnit}>kg</span>
+          <span>×</span>
+          <input
+            className={styles.serieInput}
+            type="number"
+            inputMode="numeric"
+            placeholder="—"
+            value={s.reps}
+            onChange={(e) => onUpdate(k, { reps: e.target.value })}
+          />
+          <span className={styles.serieUnit}>reps</span>
+          {series.length > 1 && (
+            <button type="button" className={styles.removeSerieBtn} onClick={() => onRemove(k)}>
+              ✕
+            </button>
+          )}
+        </div>
+      ))}
+      <button type="button" className={styles.addSerieBtn} onClick={onAdd}>
+        + Ajouter une série
+      </button>
+    </div>
+  );
 }
 
 function TimerZone({

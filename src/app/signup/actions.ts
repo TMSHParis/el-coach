@@ -207,7 +207,20 @@ export async function getProfileState(): Promise<ProfileCookie | null> {
 
 const COOKIE_ECM_PROFILE = "el_coach_ecm_profile";
 
-export type EcmSport = { nom: string; jours: string[]; h: string; du: string; niv: string };
+export type WeekCycleSlot = { sport: string; heure: string; duree: string; niveau: string };
+export type WeekCycleDay = { repos: boolean; slots: WeekCycleSlot[] };
+export type WeekCycleDayKey = "lun" | "mar" | "mer" | "jeu" | "ven" | "sam" | "dim";
+export type WeekCycle = Record<WeekCycleDayKey, WeekCycleDay>;
+
+/** Niveau du 1er créneau renseigné dans la semaine (ordre lun→dim) — sert de repli pour profiles.niveau. */
+function firstConfiguredLevel(cycle: WeekCycle): string | null {
+  const order: WeekCycleDayKey[] = ["lun", "mar", "mer", "jeu", "ven", "sam", "dim"];
+  for (const day of order) {
+    const slot = cycle[day]?.slots.find((s) => s.niveau);
+    if (slot) return slot.niveau;
+  }
+  return null;
+}
 
 /** Un objectif sélectionné avec ses détails (sous-catégorie/deadline/priorité, ou événement pour la carte 6). */
 export type EcmObjectifDetail = {
@@ -225,9 +238,10 @@ export type EcmProfileCookie = {
   poids: string;
   /** 0 à 2 objectifs sélectionnés (avec sous-catégorie/deadline/priorité) — persistés en objectif_1_* / objectif_2_*. */
   objectifs: EcmObjectifDetail[];
-  s1: EcmSport;
-  s2: EcmSport;
-  s2on: boolean;
+  /** Programme ECM de référence (parmi les 5 catalogués) — pilote le programme fixe hebdo et le profil affiché. */
+  programmePrincipal: string;
+  /** Semaine type — 7 jours, chacun avec repos ou plusieurs créneaux sport (matin/soir). */
+  weekCycle: WeekCycle;
   equip: string;
   jeune: boolean | null;
   tj: string;
@@ -322,18 +336,12 @@ async function persistEcmProfile(profile: EcmProfileCookie): Promise<void> {
     objectif2Deadline: profile.objectifs[1]?.deadline || null,
     objectif2Priorite: profile.objectifs[1]?.priorite || null,
     objectif2Event: profile.objectifs[1]?.event || null,
-    programme: profile.s1.nom,
-    niveau: profile.s1.niv,
-    sportPrincipal: profile.s1.nom,
-    sportSecondaire: profile.s2on ? profile.s2.nom : null,
-    joursS1: profile.s1.jours,
-    heureS1: profile.s1.h,
-    dureeS1: profile.s1.du,
-    niveauS1: profile.s1.niv,
-    joursS2: profile.s2on ? profile.s2.jours : [],
-    heureS2: profile.s2on ? profile.s2.h : null,
-    dureeS2: profile.s2on ? profile.s2.du : null,
-    niveauS2: profile.s2on ? profile.s2.niv : null,
+    programme: profile.programmePrincipal,
+    // Pas de niveau global dédié dans le nouveau modèle — repris du 1er créneau
+    // configuré sur la semaine type, sinon vide.
+    niveau: firstConfiguredLevel(profile.weekCycle) ?? "",
+    sportPrincipal: profile.programmePrincipal,
+    weekCycle: profile.weekCycle,
     equipement: profile.equip,
     jeune: profile.jeune ?? false,
     typeJeune: profile.tj || null,
@@ -389,6 +397,12 @@ function objectifFromRow(
   return { type: resolvedType, sousCat: sousCat ?? "", deadline: deadline ?? "", priorite: priorite ?? "", event: event ?? "" };
 }
 
+/** Semaine vide (7 jours, tous en repos, sans créneau) — repli pour les comptes créés avant weekCycle. */
+function emptyWeekCycleRow(): WeekCycle {
+  const empty = (): WeekCycleDay => ({ repos: false, slots: [] });
+  return { lun: empty(), mar: empty(), mer: empty(), jeu: empty(), ven: empty(), sam: empty(), dim: empty() };
+}
+
 function profileRowToCookie(row: Profile): EcmProfileCookie {
   return {
     prenom: row.prenom,
@@ -399,21 +413,8 @@ function profileRowToCookie(row: Profile): EcmProfileCookie {
       objectifFromRow(row.objectif1Type, row.objectif1SousCat, row.objectif1Deadline, row.objectif1Priorite, row.objectif1Event, row.objectif),
       objectifFromRow(row.objectif2Type, row.objectif2SousCat, row.objectif2Deadline, row.objectif2Priorite, row.objectif2Event, row.objectif2),
     ].filter((v): v is EcmObjectifDetail => v !== null),
-    s1: {
-      nom: row.sportPrincipal,
-      jours: row.joursS1,
-      h: row.heureS1,
-      du: row.dureeS1,
-      niv: row.niveauS1,
-    },
-    s2: {
-      nom: row.sportSecondaire ?? "",
-      jours: row.joursS2,
-      h: row.heureS2 ?? "",
-      du: row.dureeS2 ?? "",
-      niv: row.niveauS2 ?? "",
-    },
-    s2on: Boolean(row.sportSecondaire),
+    programmePrincipal: row.programme,
+    weekCycle: (row.weekCycle as unknown as WeekCycle | null) ?? emptyWeekCycleRow(),
     equip: row.equipement,
     jeune: row.jeune,
     tj: row.typeJeune ?? "",

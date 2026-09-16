@@ -83,42 +83,53 @@ export const programDetailContent: Record<string, ProgramDetailContent> = {
   "hybrid-cf-strength": {
     slug: "hybrid-cf-strength",
     name: "Hybrid Engine",
-    tagline: "CrossFit × Musculation × Récupération adaptative",
-    shortDescription: "Force conjuguée, hypertrophie ciblée, récupération choisie.",
+    tagline: "Functional Training · Force & Cardio",
+    shortDescription:
+      "Programme hybride combinant force fonctionnelle, kettlebell, mouvements composés et cardio ciblé. Conçu pour développer un athlète complet — fort, endurant et mobile.",
     sessionGroups: [
       {
-        title: "JOUR CROSSFIT — Structure identique à CrossFit Pure",
         blocks: [
-          { label: "Bloc 1 — Warm Up", tags: ["Not For Time"], description: "" },
-          { label: "Bloc 2 — Skill / Strength", tags: ["Build to Heavy"], description: "" },
-          { label: "Bloc 3 — WOD", tags: ["AMRAP", "For Time", "EMOM"], description: "" },
-          { label: "Bloc 4 — Finisher", description: "" },
-          { label: "Bloc 5 — Cool Down", tags: ["Facultatif"], description: "" },
-        ],
-      },
-      {
-        title: "JOUR MUSCULATION — Structure Volume Block",
-        blocks: [
-          { label: "Bloc 1 — Warm Up", tags: ["Not For Time"], description: "" },
-          { label: "Bloc 2 — Main Lift", tags: ["Build to Heavy"], description: "" },
-          { label: "Bloc 3 — Accessory 1", tags: ["Not For Time"], description: "" },
-          { label: "Bloc 4 — Accessory 2", tags: ["Not For Time"], description: "" },
-          { label: "Bloc 5 — Cool Down", tags: ["Facultatif"], description: "" },
-        ],
-      },
-      {
-        title: "JOUR ADAPTATIF",
-        blocks: [
-          { label: "Faible fatigue", description: "Course / Boxe / Natation" },
-          { label: "Fatigue modérée", description: "Marche / Natation douce" },
-          { label: "Fatigue élevée", description: "Repos complet" },
+          {
+            label: "Bloc 1 — Warm Up",
+            tags: ["Not For Time"],
+            description: "Mobilité, activation cardio, mouvements spécifiques à la séance.",
+          },
+          {
+            label: "Bloc 2 — Strength / Skill",
+            tags: ["Build to Heavy", "Sets × Reps"],
+            description: "Mouvement de force fonctionnelle ou kettlebell — build to heavy ou séries chargées.",
+          },
+          {
+            label: "Bloc 3 — WOD",
+            tags: ["AMRAP", "For Time", "EMOM"],
+            description: "Conditioning combinant force et cardio.",
+          },
+          {
+            label: "Bloc 4 — Finisher",
+            duration: "5-10 min",
+            description: "Cardio ou core selon le jour.",
+          },
+          {
+            label: "Bloc 5 — Cool Down",
+            tags: ["Facultatif"],
+            description: "Étirements, mobilité, récupération active.",
+          },
         ],
       },
     ],
+    weeklySplit: [
+      { day: "Lun", focus: "Upper Body Force (poussée / traction lourde)" },
+      { day: "Mar", focus: "Lower Body Force (squat / hip hinge lourd)" },
+      { day: "Mer", focus: "Jour Adaptatif (selon check-in)" },
+      { day: "Jeu", focus: "Full Body Functional (KB · DB · BW)" },
+      { day: "Ven", focus: "Push / Pull Hypertrophie (volume 8-12 reps)" },
+      { day: "Sam", focus: "WOD Long ou sport secondaire du cycle" },
+      { day: "Dim", focus: "Repos ou récupération active" },
+    ],
     adaptiveStates: [
-      { level: "VERT", description: "Jour CrossFit ou Musculation selon planning · Intensité 100%" },
-      { level: "JAUNE", description: "Séance allégée · Jour adaptatif recommandé" },
-      { level: "ROUGE", description: "Jour adaptatif automatique · Repos ou récupération douce" },
+      { level: "VERT", description: "Séance complète · Charges prescrites · Intensité 100%" },
+      { level: "JAUNE", description: "Volume réduit · Intensité 80% · Finisher allégé" },
+      { level: "ROUGE", description: "Warm Up + Mobilité uniquement · Pas de WOD" },
     ],
     ctaLabel: "Commencer avec Hybrid Engine →",
   },

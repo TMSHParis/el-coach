@@ -67,6 +67,8 @@ export default async function SessionPage({
         sessionMeta={`${minutesToHM(day.estimatedMinutes)} · ${displayBlocks.length} blocs`}
         blocks={displayBlocks}
         initial={initial}
+        date={todayKey()}
+        variant={variant === "b" ? "B" : "A"}
       />
     </div>
   );

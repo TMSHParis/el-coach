@@ -5,7 +5,14 @@ import { COOKIE_KEYS, getDemoState, resolveTodaySession } from "@/lib/demo-sessi
 import { todayKey } from "@/lib/date-key";
 import { prisma } from "@/lib/prisma";
 import { ensureUserId } from "@/lib/user-id";
-import { buildSleepFromCheckins, buildWeightFromCheckins, generateEcmAnalysis, extractMainLift } from "@/lib/ecm-engine";
+import {
+  buildSleepFromCheckins,
+  buildWeightFromCheckins,
+  generateEcmAnalysis,
+  generateNonEcmAdvice,
+  extractMainLift,
+} from "@/lib/ecm-engine";
+import { SPORT_LABEL_TO_SLUG } from "@/lib/ecm-programs";
 import {
   computeEcmScore,
   buildStack4Moments,
@@ -78,6 +85,17 @@ export type CheckinPayload = {
 // todayKey() vit dans lib/date-key.ts (pas ici) : un fichier "use server" ne
 // peut exporter que des fonctions async — voir ce fichier pour le partager
 // avec dashboard/page.tsx (Server Component).
+
+/** Vrai si `seance` correspond à l'un des 5 programmes ECM catalogués (mêmes libellés que le signup). */
+function isEcmProgram(seance: string | null | undefined): boolean {
+  return Boolean(seance && SPORT_LABEL_TO_SLUG[seance]);
+}
+
+const FALLBACK_ADVICE = {
+  warmupTips: ["Échauffement articulaire général, 5 à 10 minutes.", "Monte l'intensité progressivement avant l'effort principal."],
+  preventionTips: ["Hydrate-toi avant et pendant l'effort.", "Arrête ou ralentis en cas de douleur inhabituelle."],
+  mindsetMessage: "Fais de ton mieux aujourd'hui, à ton rythme.",
+};
 
 /**
  * Convertit les réponses du check-in en fatigueScore 0-10 (0 = frais, 10 = épuisé)
@@ -187,6 +205,25 @@ async function persistCheckinAndGenerateDashboard(payload: CheckinPayload, fatig
     profile.poids = poidsDuJour;
   }
 
+  // Activité hors des 5 programmes ECM (ou repos) → 3 sections conseils, pas
+  // de Séance A/B (le catalogue de mouvements ECM n'a pas de sens ici).
+  if (!isEcmProgram(checkin.seance)) {
+    let advice;
+    try {
+      advice = await generateNonEcmAdvice({ profile, checkin });
+    } catch (err) {
+      console.error("generateNonEcmAdvice a échoué, repli sur des conseils génériques:", err);
+      advice = FALLBACK_ADVICE;
+    }
+    const output = { mode: "advice" as const, advice, generatedAt: new Date().toISOString() };
+    await prisma.dashboardOutput.upsert({
+      where: { userId_date: { userId, date } },
+      create: { userId, date, output: output as Prisma.InputJsonValue },
+      update: { output: output as Prisma.InputJsonValue },
+    });
+    return;
+  }
+
   const recentCheckins = await prisma.checkin.findMany({
     where: { userId },
     orderBy: { date: "desc" },
@@ -244,6 +281,7 @@ async function persistCheckinAndGenerateDashboard(payload: CheckinPayload, fatig
   }));
 
   const output = {
+    mode: "ecm" as const,
     ecm: analysis.ecm,
     recommendedVariant: analysis.recommendedVariant,
     recommendedReason: analysis.recommendedReason,

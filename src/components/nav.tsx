@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { clerkEnabled } from "@/lib/clerk";
-import { auth } from "@clerk/nextjs/server";
-import { UserButton } from "@clerk/nextjs";
+import { auth, currentUser } from "@clerk/nextjs/server";
 import { Logo } from "./logo";
+import { MobileDrawer } from "./mobile-drawer";
 import { isCheckinDoneToday } from "@/app/checkin/actions";
 
 export async function Nav() {
@@ -13,16 +13,20 @@ export async function Nav() {
   }
   const signedIn = Boolean(userId);
   const checkinDone = signedIn ? await isCheckinDoneToday() : false;
+  const user = clerkEnabled && signedIn ? await currentUser() : null;
 
   return (
     <header className="hairline-b sticky top-0 z-50 bg-black/80 backdrop-blur">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-        <Link href="/" className="flex items-center gap-2.5 text-white">
-          <Logo size={28} />
-          <span className="mono text-sm font-semibold tracking-[0.25em]">
-            EL COACH <span className="text-[color:var(--color-gold)]">METHOD</span>
-          </span>
-        </Link>
+        <div className="flex items-center gap-3">
+          {clerkEnabled && <MobileDrawer signedIn={signedIn} />}
+          <Link href="/" className="flex items-center gap-2.5 text-white">
+            <Logo size={28} />
+            <span className="mono text-sm font-semibold tracking-[0.25em]">
+              EL COACH <span className="text-[color:var(--color-gold)]">METHOD</span>
+            </span>
+          </Link>
+        </div>
         <nav className="label hidden items-center gap-8 md:flex">
           <Link href="/marketplace" className="hover:text-white">Programmes</Link>
           <Link href="/training" className="hover:text-white">Training</Link>
@@ -40,19 +44,35 @@ export async function Nav() {
               ) : (
                 <Link href="/checkin" className="btn-ghost">Mon check-in du jour</Link>
               )}
-              <Link href="/settings" className="label hover:text-white" aria-label="Réglages">
-                ⚙️
-              </Link>
-              <UserButton
-                appearance={{
-                  elements: { userButtonAvatarBox: "h-9 w-9 rounded-none border border-white/20" },
-                }}
-              />
             </>
+          )}
+          {clerkEnabled && (
+            <Link
+              href={signedIn ? "/settings" : "/signin?redirect=/settings"}
+              className="label hover:text-white"
+              aria-label="Réglages"
+            >
+              ⚙️
+            </Link>
+          )}
+          {clerkEnabled && (
+            <Link href={signedIn ? "/settings" : "/signin"} aria-label="Mon profil">
+              {signedIn && user?.imageUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element -- avatar Clerk externe, taille fixe 36px
+                <img
+                  src={user.imageUrl}
+                  alt=""
+                  className="h-9 w-9 rounded-full border border-white/20 object-cover"
+                />
+              ) : (
+                <span className="flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-white/5 text-xs font-semibold text-white">
+                  {signedIn ? (user?.firstName?.[0] ?? "•") : "•"}
+                </span>
+              )}
+            </Link>
           )}
         </div>
       </div>
     </header>
   );
 }
-

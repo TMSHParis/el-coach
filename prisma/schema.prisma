@@ -31,12 +31,16 @@ model Profile {
   programme         String
   niveau            String
   sportPrincipal    String   @map("sport_principal")
+  // Semaine type enrichie (multi-jours, multi-créneaux) — remplace sportSecondaire/joursS1.../niveauS2.
+  weekCycle         Json?    @map("week_cycle")
+  // Dépréciés (sept. 2026) — remplacés par weekCycle. Gardés pour compat avec les
+  // comptes créés avant cette migration, plus lus/écrits par l'app.
   sportSecondaire   String?  @map("sport_secondaire")
-  joursS1           String[] @map("jours_s1")
-  heureS1           String   @map("heure_s1")
-  dureeS1           String   @map("duree_s1")
-  niveauS1          String   @map("niveau_s1")
-  joursS2           String[] @map("jours_s2")
+  joursS1           String[] @default([]) @map("jours_s1")
+  heureS1           String?  @map("heure_s1")
+  dureeS1           String?  @map("duree_s1")
+  niveauS1          String?  @map("niveau_s1")
+  joursS2           String[] @default([]) @map("jours_s2")
   heureS2           String?  @map("heure_s2")
   dureeS2           String?  @map("duree_s2")
   niveauS2          String?  @map("niveau_s2")
@@ -153,5 +157,6 @@ model Session {
 
   profile Profile @relation(fields: [userId], references: [userId])
 
+  @@unique([userId, date])
   @@map("sessions")
 }

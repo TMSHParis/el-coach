@@ -138,7 +138,7 @@ export function SettingsView({
       <div className={styles.sectionLabel}>Compte &amp; Sécurité</div>
       <div className={styles.group}>
         <Row icon="📧" title="Modifier l'email" sub={email} onClick={() => setModal("email")} />
-        <Row icon="🔑" title="Modifier le mot de passe" sub="8 caractères min · 1 chiffre · 1 symbole" onClick={() => setModal("password")} />
+        <Row icon="🔑" title="Modifier le mot de passe" sub="15 caractères min · 1 chiffre · 1 symbole" onClick={() => setModal("password")} />
         <Row icon="🚪" title="Déconnexion" sub="Retour à la page d'accueil" onClick={handleLogout} />
       </div>
 
@@ -451,7 +451,7 @@ function PasswordModal({ onClose, onDone }: { onClose: () => void; onDone: () =>
       </div>
       <div className={styles.field}>
         <label>Nouveau mot de passe</label>
-        <input type="password" placeholder="8 car. min · 1 chiffre · 1 symbole" value={next} onChange={(e) => setNext(e.target.value)} />
+        <input type="password" placeholder="15 car. min · 1 chiffre · 1 symbole" value={next} onChange={(e) => setNext(e.target.value)} />
       </div>
       {error && <div className={styles.errorText}>{error}</div>}
       <button className={styles.btnGold} disabled={busy} onClick={handleSave}>

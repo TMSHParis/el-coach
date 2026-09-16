@@ -381,9 +381,9 @@
 }
 
 .field input, .field select {
-  background: var(--gray);
-  border: 1px solid var(--border);
-  color: var(--white);
+  background: #1a1a1a;
+  border: 1px solid #444;
+  color: #fff;
   font-family: var(--font-barlow);
   font-size: 0.9rem; font-weight: 400;
   padding: 14px 16px;
@@ -392,8 +392,8 @@
   width: 100%;
   -webkit-appearance: none;
 }
-.field input::placeholder { color: var(--dim); font-size: 0.85rem; }
-.field input:focus, .field select:focus { border-color: var(--accent); background: #141414; }
+.field input::placeholder { color: #888; font-size: 0.85rem; }
+.field input:focus, .field select:focus { border-color: var(--accent); background: #1f1f1f; }
 .field input.fieldError { border-color: var(--error); }
 .field select option { background: #1a1a1a; }
 
@@ -461,9 +461,9 @@
 
 .ecmInput {
   width: 100%;
-  background: #0a0a0a;
-  border: 1px solid var(--border);
-  color: var(--white);
+  background: #1a1a1a;
+  border: 1px solid #444;
+  color: #fff;
   font-family: var(--font-barlow);
   font-size: 0.9rem;
   padding: 11px 13px;
@@ -471,7 +471,7 @@
   transition: border-color 0.2s;
 }
 .ecmInput:focus { border-color: var(--accent); }
-.ecmInput::placeholder { color: var(--dim); }
+.ecmInput::placeholder { color: #888; }
 .ecmNum { text-align: center; font-family: var(--font-bebas); font-size: 22px; letter-spacing: 2px; }
 
 .nr { display: flex; align-items: center; gap: 10px; }
@@ -530,65 +530,56 @@
 .ynb.y.sel { border-color: var(--success); background: rgba(0,255,136,0.06); color: var(--success); }
 .ynb.n.sel { border-color: var(--error); background: rgba(255,68,68,0.06); color: var(--error); }
 
-.sb {
-  background: #0d0d0d;
-  border: 1px solid var(--border);
-  padding: 14px;
-  margin-bottom: 8px;
-}
-.sbt {
-  font-family: var(--font-bebas);
-  font-size: 0.9rem; letter-spacing: 3px;
-  color: var(--accent);
-  margin-bottom: 12px;
-  display: flex; align-items: center; justify-content: space-between;
-}
-.rm { font-size: 0.7rem; color: var(--error); cursor: pointer; font-family: var(--font-barlow-condensed); font-weight: 600; letter-spacing: 1px; }
-
-.ss {
-  width: 100%;
-  background: #0a0a0a;
-  border: 1px solid var(--border);
-  color: var(--white);
-  font-family: var(--font-barlow);
-  font-size: 0.85rem;
-  padding: 10px 12px;
-  outline: none;
-  margin-bottom: 12px;
-  cursor: pointer;
-  appearance: none;
-  transition: border-color 0.2s;
-}
-.ss:focus { border-color: var(--accent); }
-.ss option, .ss optgroup { background: #111; }
-.ss optgroup { color: var(--accent); font-family: var(--font-barlow-condensed); font-size: 0.7rem; letter-spacing: 2px; }
-
 .dl { font-family: var(--font-barlow-condensed); font-size: 0.65rem; letter-spacing: 2px; text-transform: uppercase; color: var(--dim); margin-bottom: 7px; }
 
-.dg { display: flex; gap: 5px; margin-bottom: 12px; flex-wrap: wrap; }
-.db {
-  width: 38px; height: 38px;
-  border: 1px solid var(--border);
-  background: #0a0a0a;
-  cursor: pointer; display: flex; align-items: center; justify-content: center;
-  font-family: var(--font-barlow-condensed);
-  font-size: 0.65rem; font-weight: 700; letter-spacing: 1px;
-  color: var(--dim); transition: all 0.2s; user-select: none;
-}
-.db:hover { border-color: rgba(232,255,0,0.3); }
-.db.sel { border-color: var(--accent); background: rgba(232,255,0,0.06); color: var(--accent); }
-
-.dr { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
-.di label { font-family: var(--font-barlow-condensed); font-size: 0.62rem; letter-spacing: 2px; text-transform: uppercase; color: var(--dim); display: block; margin-bottom: 4px; }
 .mi { width: 100%; background: #0a0a0a; border: 1px solid var(--border); color: var(--white); font-family: var(--font-barlow); font-size: 0.85rem; padding: 8px 10px; outline: none; transition: border-color 0.2s; }
 .mi:focus { border-color: var(--accent); }
 .mi::placeholder { color: var(--dim); }
 
-.ll { font-family: var(--font-barlow-condensed); font-size: 0.65rem; letter-spacing: 2px; text-transform: uppercase; color: var(--dim); margin-bottom: 6px; }
-.lb { display: flex; gap: 4px; }
-.lbb { flex: 1; padding: 7px 3px; border: 1px solid var(--border); background: #0a0a0a; cursor: pointer; text-align: center; font-family: var(--font-barlow-condensed); font-size: 0.68rem; font-weight: 600; letter-spacing: 1px; color: var(--dim); transition: all 0.2s; user-select: none; }
-.lbb:hover { border-color: rgba(232,255,0,0.3); }
-.lbb.sel { border-color: var(--accent); background: rgba(232,255,0,0.04); color: var(--accent); }
+/* ═══ SEMAINE TYPE (multi-jours, multi-créneaux) ═══ */
+.weekHint { font-size: 11px; color: var(--dim); margin-bottom: 14px; line-height: 1.5; }
+
+.weekSelector { display: flex; gap: 5px; margin-bottom: 14px; }
+.dayBtn {
+  flex: 1; display: flex; flex-direction: column; align-items: center;
+  padding: 10px 3px;
+  border: 1px solid var(--border);
+  background: #0a0a0a;
+  cursor: pointer; transition: all 0.2s;
+}
+.dayBtn:hover { border-color: rgba(232,255,0,0.3); }
+.dayBtn.active { border-color: var(--accent); background: rgba(232,255,0,0.06); }
+.dayBtn.hasSport { border-color: rgba(232,255,0,0.4); background: rgba(232,255,0,0.03); }
+.dayBtn.isRest { border-color: rgba(107,114,128,0.3); }
+.dayBtnName { font-family: var(--font-bebas); font-size: 13px; letter-spacing: 1px; color: var(--dim); line-height: 1; }
+.dayBtn.active .dayBtnName, .dayBtn.hasSport .dayBtnName { color: var(--accent); }
+.dayBtnDot { width: 5px; height: 5px; border-radius: 50%; background: transparent; margin-top: 5px; }
+.dayBtn.hasSport .dayBtnDot { background: var(--accent); }
+.dayBtn.isRest .dayBtnDot { background: var(--dim); }
+
+.dayDetail { background: #080808; border: 1px solid rgba(232,255,0,0.2); padding: 14px; margin-bottom: 8px; display: none; }
+.dayDetail.visible { display: block; }
+.dayDetailTitle { font-family: var(--font-bebas); font-size: 17px; letter-spacing: 2px; color: var(--accent); margin-bottom: 12px; }
+.dayRestRow { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; font-family: var(--font-barlow-condensed); font-size: 12px; letter-spacing: 1px; color: var(--dim); cursor: pointer; }
+.dayRestRow input { accent-color: var(--accent); width: 15px; height: 15px; cursor: pointer; }
+
+.sportSlot { background: #0f0f0f; border: 1px solid var(--border); padding: 10px 12px; position: relative; margin-bottom: 6px; }
+.sportSlotHeader { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.sportSlotLabel { font-family: var(--font-barlow-condensed); font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--accent); }
+.btnRemoveSlot { background: none; border: none; color: var(--dim); cursor: pointer; font-size: 14px; line-height: 1; padding: 0; }
+.btnRemoveSlot:hover { color: var(--error); }
+.slotRow { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 6px; }
+.slotInput { width: 100%; background: #0a0a0a; border: 1px solid var(--border); color: var(--white); font-family: var(--font-barlow); font-size: 12px; padding: 8px 10px; outline: none; transition: border-color 0.2s; }
+.slotInput:focus { border-color: var(--accent); }
+.slotSelect { width: 100%; background: #0a0a0a; border: 1px solid var(--border); color: var(--white); font-family: var(--font-barlow); font-size: 12px; padding: 8px 10px; outline: none; appearance: none; cursor: pointer; transition: border-color 0.2s; margin-bottom: 6px; }
+.slotSelect:focus { border-color: var(--accent); }
+.slotSelect option, .slotSelect optgroup { background: #111; }
+.slotNiveau { display: flex; gap: 4px; }
+.slotNivBtn { flex: 1; padding: 6px 3px; border: 1px solid var(--border); background: #0a0a0a; cursor: pointer; text-align: center; font-family: var(--font-barlow-condensed); font-size: 0.6rem; font-weight: 600; color: var(--dim); transition: all 0.2s; }
+.slotNivBtn:hover { border-color: rgba(232,255,0,0.3); }
+.slotNivBtn.sel { border-color: var(--accent); background: rgba(232,255,0,0.06); color: var(--accent); }
+.btnAddSport { width: 100%; padding: 9px; background: rgba(232,255,0,0.04); border: 1px dashed rgba(232,255,0,0.2); color: rgba(232,255,0,0.6); font-family: var(--font-barlow-condensed); font-size: 0.72rem; letter-spacing: 2px; text-transform: uppercase; cursor: pointer; transition: all 0.2s; margin-top: 4px; }
+.btnAddSport:hover { background: rgba(232,255,0,0.08); border-color: rgba(232,255,0,0.4); }
 
 /* ═══ OBJECTIFS DÉTAILLÉS (cartes accordéon) ═══ */
 .objMaxInfo { font-family: var(--font-barlow-condensed); font-size: 0.68rem; letter-spacing: 1px; color: var(--dim); margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
@@ -630,8 +621,6 @@
 .prepAutre input { width: 100%; background: #0f0f0f; border: 1px solid var(--border); color: var(--white); font-family: var(--font-barlow); font-size: 0.85rem; padding: 9px 12px; outline: none; transition: border-color 0.2s; }
 .prepAutre input:focus { border-color: var(--accent); }
 
-.asb { width: 100%; padding: 10px; border: 1px dashed rgba(232,255,0,0.2); background: transparent; color: var(--accent); font-family: var(--font-barlow-condensed); font-size: 0.78rem; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; cursor: pointer; transition: all 0.2s; margin-bottom: 10px; }
-.asb:hover { background: rgba(232,255,0,0.04); border-color: var(--accent); }
 
 .ecmTa { width: 100%; background: #0a0a0a; border: 1px solid var(--border); color: var(--white); font-family: var(--font-barlow); font-size: 0.85rem; padding: 10px 12px; resize: none; outline: none; transition: border-color 0.2s; min-height: 64px; }
 .ecmTa:focus { border-color: var(--accent); }

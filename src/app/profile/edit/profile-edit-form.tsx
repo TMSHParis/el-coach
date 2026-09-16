@@ -11,8 +11,9 @@ import {
   emptyEcmProfile,
   MoMulti,
   ObjectifsPicker,
+  ProgrammePrincipalPicker,
+  WeekCyclePicker,
   YesNo,
-  SportBlock,
 } from "@/app/signup/ecm-shared";
 import styles from "@/app/signup/ecm-signup.module.css";
 
@@ -44,13 +45,6 @@ export function ProfileEditForm() {
   }, []);
 
   const setField = (patch: Partial<EcmProfileCookie>) => setProfile((d) => ({ ...d, ...patch }));
-  const setSportField = (sport: "s1" | "s2", patch: Partial<EcmProfileCookie["s1"]>) =>
-    setField({ [sport]: { ...profile[sport], ...patch } } as Partial<EcmProfileCookie>);
-  const toggleDay = (sport: "s1" | "s2", day: string) => {
-    const jours = profile[sport].jours;
-    const next = jours.includes(day) ? jours.filter((d) => d !== day) : [...jours, day];
-    setSportField(sport, { jours: next });
-  };
   const toggleMulti = (key: "rest" | "comp", value: string) => {
     const arr = profile[key];
     const next = arr.includes(value) ? arr.filter((v) => v !== value) : [...arr, value];
@@ -156,21 +150,11 @@ export function ProfileEditForm() {
         {objError && <div style={{ marginTop: 6, fontSize: "0.8rem", color: "var(--error)" }}>2 objectifs maximum</div>}
 
         {/* Sportif */}
-        <SportBlock title="⚡ SPORT PRINCIPAL" sport={profile.s1} onField={(p) => setSportField("s1", p)} onDay={(d) => toggleDay("s1", d)} />
-        {profile.s2on && (
-          <SportBlock
-            title="🥈 SPORT SECONDAIRE"
-            sport={profile.s2}
-            onField={(p) => setSportField("s2", p)}
-            onDay={(d) => toggleDay("s2", d)}
-            onRemove={() => setField({ s2on: false })}
-          />
-        )}
-        {!profile.s2on && (
-          <button className={styles.asb} type="button" onClick={() => setField({ s2on: true })}>
-            + AJOUTER UN 2ÈME SPORT
-          </button>
-        )}
+        <ProgrammePrincipalPicker
+          value={profile.programmePrincipal}
+          onChange={(v) => setField({ programmePrincipal: v })}
+        />
+        <WeekCyclePicker value={profile.weekCycle} onChange={(v) => setField({ weekCycle: v })} />
         <div className={styles.qc}>
           <div className={styles.ql}>
             <i>🏗️</i> Accès équipement

@@ -39,6 +39,14 @@ export default async function SignInPage({
             fallbackRedirectUrl={redirectTo}
             appearance={{
               variables: { colorPrimary: "#e8ff00", colorBackground: "#080808", colorText: "#f0ede8" },
+              elements: {
+                formFieldInput: {
+                  backgroundColor: "#1a1a1a",
+                  borderColor: "#444",
+                  color: "#fff",
+                  "&::placeholder": { color: "#888" },
+                },
+              },
             }}
           />
         ) : (

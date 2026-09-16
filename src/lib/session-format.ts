@@ -1,7 +1,7 @@
 // Correspondance entre le format de programmation (programming.ts) et l'affichage
 // UI partagé par le dashboard (aperçu séance) et /session (moteur de chrono).
 
-import { resolveExerciseMovement, displayBlockName, type Block, type Exercise } from "./programming";
+import { resolveExerciseMovement, displayBlockName, type Block, type BlockType, type Exercise } from "./programming";
 
 export type BadgeCls = "nft" | "bth" | "ft" | "amrap" | "emom" | "tabata";
 export type RuntimeFormat = "nft" | "ft" | "amrap" | "emom" | "tabata";
@@ -57,6 +57,8 @@ export type DisplayBlock = {
   titre: string;
   badge: string;
   badgeCls: BadgeCls;
+  /** Type brut du bloc (programming.ts) — pilote la saisie de résultats sur /session (charge/reps vs temps/rounds/score). */
+  type: BlockType;
   items: (ExerciseDisplay & { movementName: string; videoUrl?: string })[];
   note?: string;
 };
@@ -70,6 +72,7 @@ export function toDisplayBlocks(blocks: Block[]): DisplayBlock[] {
       titre: displayBlockName(block),
       badge: label,
       badgeCls: cls,
+      type: block.type,
       items: block.exercises.map((ex) => {
         const movement = resolveExerciseMovement(ex);
         const movementName = movement?.name ?? ex.movementId;

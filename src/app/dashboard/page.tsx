@@ -2,6 +2,7 @@ import Link from "next/link";
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { isCheckinDoneToday } from "../checkin/actions";
 import { getEcmProfileState, getSignupState } from "../signup/actions";
+import { SPORT_LABEL_TO_SLUG } from "@/lib/ecm-programs";
 import { clerkEnabled } from "@/lib/clerk";
 import { getDemoState, resolveTodaySession } from "@/lib/demo-session";
 import { getUserId } from "@/lib/user-id";
@@ -18,7 +19,9 @@ import {
   recommendVariant,
 } from "@/lib/coaching-adaptatif-mock";
 
-type DashboardOutputJson = {
+type EcmDashboardOutput = {
+  /** Absent sur les lignes générées avant l'ajout de ce champ — traité comme "ecm" (comportement historique). */
+  mode?: "ecm";
   ecm: EcmScore;
   recommendedVariant: "A" | "B";
   recommendedReason: string;
@@ -31,6 +34,15 @@ type DashboardOutputJson = {
    * génération a échoué ou si l'utilisateur n'a pas encore de profil ECM (mode démo). */
   generatedDay?: Day;
 };
+
+/** Activité hors des 5 programmes ECM (ou repos) — pas de Séance A/B, 3 sections conseils. */
+type AdviceDashboardOutput = {
+  mode: "advice";
+  advice: { warmupTips: string[]; preventionTips: string[]; mindsetMessage: string };
+  generatedAt: string;
+};
+
+type DashboardOutputJson = EcmDashboardOutput | AdviceDashboardOutput;
 import { BackHomeButton } from "@/components/back-home-button";
 import type { Day } from "@/lib/programming";
 import { toDisplayBlocks } from "@/lib/session-format";
@@ -48,6 +60,11 @@ const cx = (...classes: (string | false | undefined)[]) => classes.filter(Boolea
 
 export default async function DashboardPage() {
   const demo = await getDemoState();
+  const userId = await getUserId();
+
+  // Fetch précoce — sert au repli du prénom (si cookies absents) et au repli
+  // du programme (cookie perdu, ex. nouvel appareil) sans attendre le reste.
+  const profile = userId ? await prisma.profile.findUnique({ where: { userId } }) : null;
 
   let userFirstName: string | null = null;
   if (clerkEnabled) {
@@ -60,34 +77,42 @@ export default async function DashboardPage() {
   if (!userFirstName) {
     const ecmProfile = await getEcmProfileState();
     const signup = await getSignupState();
-    userFirstName = ecmProfile?.prenom || signup?.firstName || null;
+    userFirstName = ecmProfile?.prenom || signup?.firstName || profile?.prenom || null;
   }
 
-  if (!demo.programSlug) {
+  // Le cookie du programme peut manquer (nouvel appareil, navigation privée,
+  // cookies effacés) alors qu'un profil complet existe déjà en base — dans ce
+  // cas on retrouve le programme depuis profile.programme plutôt que
+  // d'afficher "Pas encore de programme" à tort.
+  const programSlug = demo.programSlug || (profile?.programme ? SPORT_LABEL_TO_SLUG[profile.programme] : null) || null;
+
+  if (!programSlug) {
     return <EmptyState />;
   }
-
-  const userId = await getUserId();
 
   if (!(await isCheckinDoneToday())) {
     const everCheckedIn = userId ? (await prisma.checkin.count({ where: { userId } })) > 0 : false;
     return <CheckinPendingState userFirstName={userFirstName} everCheckedIn={everCheckedIn} />;
   }
 
-  const today = resolveTodaySession(demo.programSlug, demo.fatigueScore);
+  const today = resolveTodaySession(programSlug, demo.fatigueScore);
   if (!today) return <EmptyState />;
 
   const fatigueScore = demo.fatigueScore ?? 3;
 
-  const [dbOutput, profile, todayCheckin, recentCheckinRows] = userId
+  const [dbOutput, todayCheckin, recentCheckinRows] = userId
     ? await Promise.all([
         prisma.dashboardOutput.findUnique({ where: { userId_date: { userId, date: todayKey() } } }),
-        prisma.profile.findUnique({ where: { userId } }),
         prisma.checkin.findUnique({ where: { userId_date: { userId, date: todayKey() } } }),
         prisma.checkin.findMany({ where: { userId }, select: { date: true }, orderBy: { date: "desc" }, take: 60 }),
       ])
-    : [null, null, null, []];
+    : [null, null, []];
   const real = dbOutput ? (dbOutput.output as unknown as DashboardOutputJson) : null;
+
+  if (real && real.mode === "advice") {
+    return <AdviceState userFirstName={userFirstName} seance={todayCheckin?.seance ?? null} advice={real.advice} />;
+  }
+
   const checkinDates = recentCheckinRows.map((c) => c.date);
 
   const injuryAreas = detectInjuryAreas(
@@ -416,6 +441,55 @@ function CheckinPendingState({
       <Link href="/checkin" className="btn-gold mt-8 inline-flex">
         {everCheckedIn ? "Faire mon check-in maintenant" : "Commencer mon premier check-in"}
       </Link>
+    </section>
+  );
+}
+
+function AdviceState({
+  userFirstName,
+  seance,
+  advice,
+}: {
+  userFirstName: string | null;
+  seance: string | null;
+  advice: { warmupTips: string[]; preventionTips: string[]; mindsetMessage: string };
+}) {
+  const salut = userFirstName ? `Salut ${userFirstName}.` : "Salut.";
+  return (
+    <section className="mx-auto max-w-2xl px-6 py-16">
+      <div className="text-center">
+        <div className="label">[ DASHBOARD ]</div>
+        <h1 className="mt-4 text-4xl font-semibold">{salut}</h1>
+        <p className="mt-2 text-[color:var(--color-mute)]">{seance ? `Aujourd'hui : ${seance}` : "Séance du jour"}</p>
+      </div>
+
+      <div className="mt-10 space-y-8">
+        <div>
+          <div className="label text-[color:var(--color-accent)]">[ ÉCHAUFFEMENT ]</div>
+          <ul className="mt-3 space-y-2 text-[color:var(--color-mute)]">
+            {advice.warmupTips.map((tip, i) => (
+              <li key={i}>• {tip}</li>
+            ))}
+          </ul>
+        </div>
+        <div>
+          <div className="label text-[color:var(--color-accent)]">[ PRÉVENTION ]</div>
+          <ul className="mt-3 space-y-2 text-[color:var(--color-mute)]">
+            {advice.preventionTips.map((tip, i) => (
+              <li key={i}>• {tip}</li>
+            ))}
+          </ul>
+        </div>
+        <div className="border-l-2 border-[color:var(--color-accent)] pl-4 italic text-[color:var(--color-mute)]">
+          {advice.mindsetMessage}
+        </div>
+      </div>
+
+      <div className="mt-10 text-center">
+        <Link href="/" className="btn-ghost inline-flex">
+          ← Accueil
+        </Link>
+      </div>
     </section>
   );
 }

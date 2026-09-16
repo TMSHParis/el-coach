@@ -317,11 +317,7 @@ export function buildDashboardData(profile: Profile, checkin: Checkin) {
 
 const REQUIRED_DASHBOARD_FIELDS = [
   "programme",
-  "niveau",
   "sportPrincipal",
-  "joursS1",
-  "heureS1",
-  "dureeS1",
   "complements",
   "restrictions",
   "objectif",
@@ -516,4 +512,92 @@ RÈGLES :
     snack: out.snack,
     generatedDay,
   };
+}
+
+// ============================================================================
+// Contenu "hors programmation ECM" — sport non catalogué ou repos (sept. 2026).
+// Pas de sessionBlocks (mouvements du catalogue non pertinents pour ces
+// activités) : 3 sections texte courtes, affichées telles quelles sur le
+// dashboard (pas de Séance A/B, pas de /session).
+// ============================================================================
+
+export type NonEcmAdvice = {
+  warmupTips: string[];
+  preventionTips: string[];
+  mindsetMessage: string;
+};
+
+const ADVICE_TOOL = {
+  name: "emit_advice",
+  description: "Conseils du jour pour une activité hors programmation ECM (ou un jour de repos).",
+  input_schema: {
+    type: "object" as const,
+    properties: {
+      warmupTips: {
+        type: "array",
+        items: { type: "string" },
+        description: "3 à 5 conseils courts et actionnables.",
+      },
+      preventionTips: {
+        type: "array",
+        items: { type: "string" },
+        description: "3 à 5 conseils de prévention des blessures, courts et actionnables.",
+      },
+      mindsetMessage: {
+        type: "string",
+        description: "Message de motivation court (1-2 phrases), ton direct, style coach.",
+      },
+    },
+    required: ["warmupTips", "preventionTips", "mindsetMessage"],
+  },
+};
+
+const REST_LABELS = ["🛋️ Repos complet", "🚶 Récupération active"];
+
+/** Vrai si `seance` est un jour de repos déclaré (check-in) plutôt qu'un sport. */
+export function isRestDay(seance: string | null | undefined): boolean {
+  return Boolean(seance && REST_LABELS.includes(seance));
+}
+
+/**
+ * Génère les 3 sections (échauffement/prévention/mindset) pour une activité du
+ * jour hors des 5 programmes ECM (ex. Boxe, Running, cours collectif) ou un
+ * jour de repos — appelé à la place de generateEcmAnalysis dans ce cas.
+ */
+export async function generateNonEcmAdvice(input: { profile: Profile; checkin: Checkin }): Promise<NonEcmAdvice> {
+  const { profile, checkin } = input;
+  const client = getAnthropicClient();
+  const rest = isRestDay(checkin.seance);
+  const sport = checkin.seance || "activité non précisée";
+
+  const prompt = `Tu es le Coaching Adaptatif EL COACH METHOD. L'athlète pratique aujourd'hui une activité hors des 5 programmations ECM catalogue : "${sport}"${rest ? " (jour de repos/récupération déclaré)" : ""}.
+
+CONTEXTE ATHLÈTE :
+- Blessures chroniques déclarées : ${profile.blessures ? profile.blessuresDetail || "oui, sans détail" : "aucune"}.
+- Douleur signalée aujourd'hui (check-in) : ${checkin.douleur ? checkin.douleurDetail || "oui, sans détail" : "aucune"}.
+- État du jour : énergie ${checkin.energie ?? "—"}/5, jambes ${checkin.jambes ?? "—"}, mental ${checkin.mental ?? "—"}, stress ${checkin.stress ?? "—"}.
+
+Compose 3 sections courtes et actionnables, puis appelle l'outil emit_advice :
+- warmupTips : ${rest ? "conseils de récupération active (étirements, sommeil, hydratation, mobilité douce) — PAS d'échauffement, c'est un jour de repos." : `échauffement spécifique à "${sport}" (mobilité, activation).`}
+- preventionTips : prévention des blessures spécifique à cette activité${profile.blessures || checkin.douleur ? ", en tenant compte des blessures/douleurs signalées ci-dessus" : ""}.
+- mindsetMessage : message court, direct, motivant, cohérent avec l'état du jour.
+Réponds uniquement via l'appel à l'outil, sans texte additionnel.`;
+
+  const response = await client.messages.create(
+    {
+      model: ECM_ANALYSIS_MODEL,
+      max_tokens: 800,
+      tools: [ADVICE_TOOL],
+      tool_choice: { type: "tool", name: "emit_advice" },
+      messages: [{ role: "user", content: prompt }],
+    },
+    { timeout: 20_000 },
+  );
+
+  const toolUse = response.content.find(
+    (block) => block.type === "tool_use" && block.name === "emit_advice",
+  ) as Anthropic.ToolUseBlock | undefined;
+  if (!toolUse) throw new Error("Claude n'a pas renvoyé de conseils (pas de tool_use).");
+
+  return toolUse.input as NonEcmAdvice;
 }
