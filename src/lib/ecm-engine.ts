@@ -601,3 +601,82 @@ Réponds uniquement via l'appel à l'outil, sans texte additionnel.`;
 
   return toolUse.input as NonEcmAdvice;
 }
+
+// ============================================================================
+// Message de félicitations post-séance (sept. 2026) — généré une fois à la fin
+// d'une séance (saveSessionResult), stocké dans dashboard_outputs du jour, pas
+// régénéré au refresh. Ton adapté à l'état du check-in du jour (énergie/douleur).
+// ============================================================================
+
+const CONGRATS_TOOL = {
+  name: "emit_congrats",
+  description: "Message de félicitations post-séance, court et direct.",
+  input_schema: {
+    type: "object" as const,
+    properties: {
+      message: {
+        type: "string",
+        description: "2-3 phrases max, inclut le prénom, style coaching direct, jamais identique au message précédent.",
+      },
+    },
+    required: ["message"],
+  },
+};
+
+function congratsState(checkin: Checkin): "vert" | "jaune" | "rouge" | "douleur" {
+  if (checkin.douleur) return "douleur";
+  const energie = checkin.energie ?? 5;
+  if (energie >= 8) return "vert";
+  if (energie >= 5) return "jaune";
+  return "rouge";
+}
+
+const CONGRATS_STATE_GUIDANCE: Record<ReturnType<typeof congratsState>, string> = {
+  vert: "Énergie haute — ton conquérant, félicitations franches.",
+  jaune: "Énergie moyenne — valorise l'effort malgré la fatigue, la régularité plutôt que la performance.",
+  rouge: "Énergie basse — salue le courage d'avoir quand même fait la séance, insiste sur la récupération ce soir.",
+  douleur: "Douleur signalée aujourd'hui — félicite la gestion intelligente du corps (avoir fait la séance adaptée plutôt que de forcer).",
+};
+
+/**
+ * Génère le message de félicitations affiché en haut du dashboard après une
+ * séance terminée. `previousMessage`, si fourni (dernier message généré, un
+ * autre jour), sert uniquement à demander à Claude de ne pas le répéter.
+ */
+export async function generateSessionCongrats(input: {
+  profile: Profile;
+  checkin: Checkin;
+  sportLabel: string;
+  durationLabel: string;
+  previousMessage?: string | null;
+}): Promise<string> {
+  const { profile, checkin, sportLabel, durationLabel, previousMessage } = input;
+  const client = getAnthropicClient();
+  const state = congratsState(checkin);
+
+  const prompt = `Génère un message de félicitations post-séance pour ${profile.prenom || "l'athlète"}.
+État du jour (check-in) : énergie ${checkin.energie ?? "—"}/10 · mental ${checkin.mental ?? "—"} · stress ${checkin.stress ?? "—"}.
+Sport : ${sportLabel} · Durée : ${durationLabel}.
+Ton à adopter : ${CONGRATS_STATE_GUIDANCE[state]}
+2-3 phrases max · direct · style coaching · inclure le prénom.
+${previousMessage ? `Ne répète jamais ce message déjà utilisé un jour précédent : "${previousMessage}"` : "Ne jamais utiliser une formule générique impersonnelle."}
+Réponds uniquement via l'appel à l'outil, sans texte additionnel.`;
+
+  const response = await client.messages.create(
+    {
+      model: ECM_ANALYSIS_MODEL,
+      max_tokens: 300,
+      tools: [CONGRATS_TOOL],
+      tool_choice: { type: "tool", name: "emit_congrats" },
+      messages: [{ role: "user", content: prompt }],
+    },
+    { timeout: 15_000 },
+  );
+
+  const toolUse = response.content.find(
+    (block) => block.type === "tool_use" && block.name === "emit_congrats",
+  ) as Anthropic.ToolUseBlock | undefined;
+  if (!toolUse) throw new Error("Claude n'a pas renvoyé de message de félicitations (pas de tool_use).");
+
+  return (toolUse.input as { message: string }).message;
+}

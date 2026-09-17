@@ -373,7 +373,7 @@ export function SessionRunnerV2({
         });
       }
     });
-    saveSessionResult({ date, variant, blocs }).catch(() => {
+    saveSessionResult({ date, variant, blocs, durationSec: globalSec }).catch(() => {
       // Silencieux — l'écran de fin de séance s'affiche quoi qu'il arrive.
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps

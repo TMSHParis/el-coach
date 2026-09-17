@@ -145,6 +145,44 @@
     transform: translate(-2px, -2px);
     box-shadow: 4px 4px 0 var(--color-accent);
   }
+  /* Page d'accueil — hiérarchie stricte : 1 seul bouton jaune (principal),
+     tout le reste en contour blanc (secondaire). Bebas Neue (--font-bebas,
+     chargée via ecmFontVariables sur la page d'accueil). */
+  .btn-home-primary {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    background: var(--color-accent);
+    color: #000000;
+    font-family: var(--font-bebas, sans-serif);
+    font-size: 1.1rem;
+    letter-spacing: 3px;
+    padding: 18px 24px;
+    border: none;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .btn-home-primary:hover {
+    transform: translate(-2px, -2px);
+    box-shadow: 4px 4px 0 var(--color-accent);
+  }
+  .btn-home-secondary {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    background: transparent;
+    color: #ffffff;
+    font-family: var(--font-bebas, sans-serif);
+    font-size: 0.9rem;
+    letter-spacing: 3px;
+    padding: 16px 24px;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    transition: border-color 0.15s ease;
+  }
+  .btn-home-secondary:hover {
+    border-color: #ffffff;
+  }
   .card {
     position: relative;
     background: #0a0a0a;

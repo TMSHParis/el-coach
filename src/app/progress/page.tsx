@@ -2,6 +2,7 @@ import { getUserId } from "@/lib/user-id";
 import { prisma } from "@/lib/prisma";
 import { dateKey } from "@/lib/date-key";
 import { BackHomeButton } from "@/components/back-home-button";
+import { ecmFontVariables } from "@/app/signup/ecm-fonts";
 import type { EcmScore } from "@/lib/coaching-adaptatif-mock";
 import { ProgressCharts, type WeightPoint, type ScorePoint } from "./progress-charts";
 
@@ -85,7 +86,7 @@ export default async function ProgressPage() {
   const { current, best } = computeStreaks(allCheckinDates.map((c) => c.date));
 
   return (
-    <div style={{ background: "#080808", minHeight: "100vh", color: "#e0e0e0" }}>
+    <div className={ecmFontVariables} style={{ background: "#080808", minHeight: "100vh", color: "#e0e0e0" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "20px 20px 0" }}>
         <BackHomeButton href="/dashboard" label="← Dashboard" />
         <div style={{ fontFamily: "var(--font-bebas, sans-serif)", fontSize: 28, letterSpacing: 3, color: "#fff" }}>

@@ -1,6 +1,7 @@
 import { getUserId } from "@/lib/user-id";
 import { prisma } from "@/lib/prisma";
 import { BackHomeButton } from "@/components/back-home-button";
+import { ecmFontVariables } from "@/app/signup/ecm-fonts";
 import type { EcmScore } from "@/lib/coaching-adaptatif-mock";
 
 export const metadata = { title: "Historique des check-ins — EL COACH METHOD" };
@@ -18,7 +19,7 @@ export default async function CheckinsHistoryPage() {
   );
 
   return (
-    <div style={{ background: "#080808", minHeight: "100vh", color: "#e0e0e0" }}>
+    <div className={ecmFontVariables} style={{ background: "#080808", minHeight: "100vh", color: "#e0e0e0" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "20px 20px 0" }}>
         <BackHomeButton href="/settings" label="← Réglages" />
         <div style={{ fontFamily: "var(--font-bebas, sans-serif)", fontSize: 28, letterSpacing: 3, color: "#fff" }}>

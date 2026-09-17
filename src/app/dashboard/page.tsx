@@ -33,6 +33,10 @@ type EcmDashboardOutput = {
   /** Séance composée par le moteur de génération dynamique (ecm-engine.ts) — absente si la
    * génération a échoué ou si l'utilisateur n'a pas encore de profil ECM (mode démo). */
   generatedDay?: Day;
+  /** Message de félicitations post-séance (généré une fois à la fin de /session,
+   * absent tant qu'aucune séance n'a été terminée aujourd'hui). */
+  sessionMessage?: string;
+  sessionMessageDuration?: string;
 };
 
 /** Activité hors des 5 programmes ECM (ou repos) — pas de Séance A/B, 3 sections conseils. */
@@ -160,6 +164,27 @@ export default async function DashboardPage() {
         </div>
 
         <div className={styles.wrap}>
+          {real?.sessionMessage && (
+            <div
+              style={{
+                background: "rgba(232,255,0,0.05)",
+                borderLeft: "3px solid var(--color-accent, #E8FF00)",
+                borderRadius: 8,
+                padding: "16px 20px",
+                marginBottom: 20,
+              }}
+            >
+              <div
+                className="label"
+                style={{ color: "var(--color-accent, #E8FF00)", marginBottom: 8 }}
+              >
+                ✓ SÉANCE TERMINÉE{real.sessionMessageDuration ? ` · ${real.sessionMessageDuration}` : ""}
+              </div>
+              <div style={{ fontFamily: "var(--font-dm-sans, sans-serif)", fontSize: 14, color: "#fff", lineHeight: 1.5 }}>
+                {real.sessionMessage}
+              </div>
+            </div>
+          )}
           <CalendarWeek checkinDates={checkinDates} />
           <Link
             href="/progress"
@@ -406,9 +431,11 @@ export default async function DashboardPage() {
 
 function EmptyState() {
   return (
-    <section className="mx-auto max-w-3xl px-6 py-24 text-center">
+    <section className={`mx-auto max-w-3xl px-6 py-24 text-center ${dashboardFontVariables}`}>
       <div className="label">[ DASHBOARD ]</div>
-      <h1 className="mt-4 text-4xl font-semibold">Pas encore de programme</h1>
+      <h1 className="mt-4 text-4xl font-semibold" style={{ fontFamily: "var(--font-bebas, sans-serif)", letterSpacing: 1 }}>
+        Pas encore de programme
+      </h1>
       <p className="mt-4 text-[color:var(--color-mute)]">
         Choisis une programmation pour activer ton dashboard, ta semaine et ta séance du jour.
       </p>
@@ -428,9 +455,11 @@ function CheckinPendingState({
 }) {
   const salut = userFirstName ? `Salut ${userFirstName}.` : "Salut.";
   return (
-    <section className="mx-auto max-w-3xl px-6 py-24 text-center">
+    <section className={`mx-auto max-w-3xl px-6 py-24 text-center ${dashboardFontVariables}`}>
       <div className="label">[ DASHBOARD ]</div>
-      <h1 className="mt-4 text-4xl font-semibold">{salut}</h1>
+      <h1 className="mt-4 text-4xl font-semibold" style={{ fontFamily: "var(--font-bebas, sans-serif)", letterSpacing: 1 }}>
+        {salut}
+      </h1>
       {everCheckedIn ? (
         <p className="mt-4 text-[color:var(--color-mute)]">Ton plan du jour n&apos;est pas encore généré.</p>
       ) : (
@@ -456,10 +485,12 @@ function AdviceState({
 }) {
   const salut = userFirstName ? `Salut ${userFirstName}.` : "Salut.";
   return (
-    <section className="mx-auto max-w-2xl px-6 py-16">
+    <section className={`mx-auto max-w-2xl px-6 py-16 ${dashboardFontVariables}`}>
       <div className="text-center">
         <div className="label">[ DASHBOARD ]</div>
-        <h1 className="mt-4 text-4xl font-semibold">{salut}</h1>
+        <h1 className="mt-4 text-4xl font-semibold" style={{ fontFamily: "var(--font-bebas, sans-serif)", letterSpacing: 1 }}>
+          {salut}
+        </h1>
         <p className="mt-2 text-[color:var(--color-mute)]">{seance ? `Aujourd'hui : ${seance}` : "Séance du jour"}</p>
       </div>
 
