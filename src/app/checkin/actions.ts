@@ -11,6 +11,9 @@ import {
   generateEcmAnalysis,
   generateNonEcmAdvice,
   extractMainLift,
+  isRestDay,
+  type EcmAnalysisResult,
+  type EcmStateAnalysisResult,
 } from "@/lib/ecm-engine";
 import { SPORT_LABEL_TO_SLUG } from "@/lib/ecm-programs";
 import {
@@ -21,6 +24,7 @@ import {
   recommendVariant,
 } from "@/lib/coaching-adaptatif-mock";
 import type { Prisma } from "@prisma/client";
+import type { SleepInsight } from "@/lib/coaching-adaptatif-mock";
 import type { Day } from "@/lib/programming";
 
 const YEAR = 60 * 60 * 24 * 365;
@@ -96,6 +100,40 @@ const FALLBACK_ADVICE = {
   preventionTips: ["Hydrate-toi avant et pendant l'effort.", "Arrête ou ralentis en cas de douleur inhabituelle."],
   mindsetMessage: "Fais de ton mieux aujourd'hui, à ton rythme.",
 };
+
+const FALLBACK_REST_ADVICE = {
+  warmupTips: [
+    "Étirements doux 10 à 15 minutes, sans forcer.",
+    "Bois régulièrement dans la journée (au moins 2 litres).",
+    "Vise une nuit complète ce soir, écrans coupés une heure avant.",
+  ],
+  preventionTips: ["Évite les efforts intenses aujourd'hui.", "Surveille toute douleur qui persiste au repos."],
+  mindsetMessage: "Le repos fait partie de l'entraînement. Tu progresses aussi aujourd'hui.",
+};
+
+/** Analyse déterministe (moteur mock) quand l'appel Claude échoue. */
+function fallbackAnalysis(fatigueScore: number, sleep: SleepInsight) {
+  const ecm = computeEcmScore(fatigueScore);
+  const reco = recommendVariant(ecm);
+  return {
+    ecm,
+    recommendedVariant: reco.recommended,
+    recommendedReason: reco.reason,
+    stack: buildStack4Moments(fatigueScore),
+    alerts: buildAlerts(fatigueScore, sleep).filter((a) => a.category !== "sleep"),
+    snack: buildSnack(fatigueScore),
+  };
+}
+
+/** Alertes sommeil calculées en code (pas par Claude) à partir des vrais check-ins. */
+function sleepAlertsFrom(sleep: SleepInsight) {
+  return sleep.alerts.map((message) => ({
+    level: (message.startsWith("Sommeil profond") ? "warning" : "info") as "warning" | "info",
+    category: "sleep" as const,
+    message,
+    hint: "Magnésium augmenté ce soir · écrans off 21h.",
+  }));
+}
 
 /**
  * Convertit les réponses du check-in en fatigueScore 0-10 (0 = frais, 10 = épuisé)
@@ -205,25 +243,6 @@ async function persistCheckinAndGenerateDashboard(payload: CheckinPayload, fatig
     profile.poids = poidsDuJour;
   }
 
-  // Activité hors des 5 programmes ECM (ou repos) → 3 sections conseils, pas
-  // de Séance A/B (le catalogue de mouvements ECM n'a pas de sens ici).
-  if (!isEcmProgram(checkin.seance)) {
-    let advice;
-    try {
-      advice = await generateNonEcmAdvice({ profile, checkin });
-    } catch (err) {
-      console.error("generateNonEcmAdvice a échoué, repli sur des conseils génériques:", err);
-      advice = FALLBACK_ADVICE;
-    }
-    const output = { mode: "advice" as const, advice, generatedAt: new Date().toISOString() };
-    await prisma.dashboardOutput.upsert({
-      where: { userId_date: { userId, date } },
-      create: { userId, date, output: output as Prisma.InputJsonValue },
-      update: { output: output as Prisma.InputJsonValue },
-    });
-    return;
-  }
-
   const recentCheckins = await prisma.checkin.findMany({
     where: { userId },
     orderBy: { date: "desc" },
@@ -232,6 +251,38 @@ async function persistCheckinAndGenerateDashboard(payload: CheckinPayload, fatig
 
   const sleep = buildSleepFromCheckins(recentCheckins);
   const weight = buildWeightFromCheckins(recentCheckins);
+
+  // Activité hors des 5 programmes ECM (ou repos) → même dashboard complet
+  // (score, stack, alertes, en-cas, sommeil, poids), seul le bloc séance change :
+  // conseils échauffement/prévention/mindset (ou récupération/vigilance/mindset
+  // repos) à la place de Séance A/B.
+  if (!isEcmProgram(checkin.seance)) {
+    const [analysis, advice] = await Promise.all([
+      generateEcmAnalysis({ profile, checkin, sleep, weight, recentCheckins, withSession: false }).catch((err) => {
+        console.error("generateEcmAnalysis (sans séance) a échoué, repli sur l'analyse déterministe:", err);
+        return fallbackAnalysis(fatigueScore, sleep);
+      }),
+      generateNonEcmAdvice({ profile, checkin }).catch((err) => {
+        console.error("generateNonEcmAdvice a échoué, repli sur des conseils génériques:", err);
+        return isRestDay(checkin.seance) ? FALLBACK_REST_ADVICE : FALLBACK_ADVICE;
+      }),
+    ]);
+    const output = {
+      mode: "advice" as const,
+      ...analysis,
+      alerts: [...sleepAlertsFrom(sleep), ...analysis.alerts],
+      sleep,
+      weight,
+      advice,
+      generatedAt: new Date().toISOString(),
+    };
+    await prisma.dashboardOutput.upsert({
+      where: { userId_date: { userId, date } },
+      create: { userId, date, output: output as Prisma.InputJsonValue },
+      update: { output: output as Prisma.InputJsonValue },
+    });
+    return;
+  }
 
   // Rotation 14 jours : movementId du "main lift" (bloc strength) des dashboardOutputs
   // récents — passé au générateur pour éviter de répéter le même mouvement principal.
@@ -253,32 +304,14 @@ async function persistCheckinAndGenerateDashboard(payload: CheckinPayload, fatig
     ? (resolveTodaySession(demo.programSlug, demo.fatigueScore)?.day.focus ?? null)
     : null;
 
-  let analysis: Omit<Awaited<ReturnType<typeof generateEcmAnalysis>>, "generatedDay"> & {
-    generatedDay?: Awaited<ReturnType<typeof generateEcmAnalysis>>["generatedDay"];
-  };
+  let analysis: EcmStateAnalysisResult & { generatedDay?: EcmAnalysisResult["generatedDay"] };
   try {
     analysis = await generateEcmAnalysis({ profile, checkin, sleep, weight, recentCheckins, recentMainLifts, weekTypeFocus });
   } catch (err) {
     console.error("generateEcmAnalysis a échoué, repli sur l'analyse déterministe:", err);
-    const ecm = computeEcmScore(fatigueScore);
-    const reco = recommendVariant(ecm);
-    analysis = {
-      ecm,
-      recommendedVariant: reco.recommended,
-      recommendedReason: reco.reason,
-      stack: buildStack4Moments(fatigueScore),
-      alerts: buildAlerts(fatigueScore, sleep).filter((a) => a.category !== "sleep"),
-      snack: buildSnack(fatigueScore),
-      // Pas de generatedDay : le dashboard retombe sur resolveTodaySession (programme fixe).
-    };
+    // Pas de generatedDay : le dashboard retombe sur resolveTodaySession (programme fixe).
+    analysis = fallbackAnalysis(fatigueScore, sleep);
   }
-
-  const sleepAlerts = sleep.alerts.map((message) => ({
-    level: (message.startsWith("Sommeil profond") ? "warning" : "info") as "warning" | "info",
-    category: "sleep" as const,
-    message,
-    hint: "Magnésium augmenté ce soir · écrans off 21h.",
-  }));
 
   const output = {
     mode: "ecm" as const,
@@ -286,7 +319,7 @@ async function persistCheckinAndGenerateDashboard(payload: CheckinPayload, fatig
     recommendedVariant: analysis.recommendedVariant,
     recommendedReason: analysis.recommendedReason,
     stack: analysis.stack,
-    alerts: [...sleepAlerts, ...analysis.alerts],
+    alerts: [...sleepAlertsFrom(sleep), ...analysis.alerts],
     snack: analysis.snack,
     sleep,
     weight,

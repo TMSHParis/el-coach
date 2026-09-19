@@ -124,6 +124,9 @@ export type EcmAnalysisResult = {
   generatedDay: Day;
 };
 
+/** Même analyse sans séance composée — sport hors ECM ou repos (le bloc séance vient de generateNonEcmAdvice). */
+export type EcmStateAnalysisResult = Omit<EcmAnalysisResult, "generatedDay">;
+
 const STACK_TOOL = {
   name: "emit_ecm_analysis",
   description: "Analyse quotidienne EL COACH METHOD à partir du profil et du check-in de l'athlète.",
@@ -340,8 +343,28 @@ export async function generateEcmAnalysis(input: {
   recentMainLifts?: string[];
   /** Focus du jour dans la programmation fixe (ex. "Squat lourd + couplet court") — référence par défaut si le check-in ne dit rien de spécifique. */
   weekTypeFocus?: string | null;
-}): Promise<EcmAnalysisResult> {
+}): Promise<EcmAnalysisResult>;
+export function generateEcmAnalysis(input: {
+  profile: Profile;
+  checkin: Checkin;
+  sleep: SleepInsight;
+  weight: WeightInsight;
+  recentCheckins: Checkin[];
+  /** false = sport hors ECM ou repos : score/stack/alertes/en-cas seulement, pas de sessionBlocks. */
+  withSession: false;
+}): Promise<EcmStateAnalysisResult>;
+export async function generateEcmAnalysis(input: {
+  profile: Profile;
+  checkin: Checkin;
+  sleep: SleepInsight;
+  weight: WeightInsight;
+  recentCheckins: Checkin[];
+  recentMainLifts?: string[];
+  weekTypeFocus?: string | null;
+  withSession?: boolean;
+}): Promise<EcmAnalysisResult | EcmStateAnalysisResult> {
   const { profile, checkin, sleep, weight, recentCheckins, recentMainLifts = [], weekTypeFocus = null } = input;
+  const withSession = input.withSession ?? true;
 
   const dataForDashboard = buildDashboardData(profile, checkin);
 
@@ -357,6 +380,10 @@ export async function generateEcmAnalysis(input: {
   }
 
   const client = getAnthropicClient();
+
+  if (!withSession) {
+    return generateStateOnlyAnalysis(client, dataForDashboard, profile, sleep, weight, recentCheckins.length);
+  }
 
   const candidateMovements = selectCandidateMovements(profile, checkin.seanceEquipement);
   const movementLines = candidateMovements.map(formatMovementLine).join("\n");
@@ -514,6 +541,87 @@ RÈGLES :
   };
 }
 
+const STATE_ONLY_TOOL = {
+  ...STACK_TOOL,
+  input_schema: {
+    ...STACK_TOOL.input_schema,
+    required: STACK_TOOL.input_schema.required.filter((k) => k !== "sessionBlocks"),
+    properties: omit(STACK_TOOL.input_schema.properties, ["sessionBlocks"]),
+  },
+};
+
+/**
+ * Variante de generateEcmAnalysis pour un sport hors ECM ou un jour de repos :
+ * le dashboard garde toute sa structure (score, stack, alertes, en-cas), seul
+ * le bloc séance est remplacé par les conseils de generateNonEcmAdvice. Pas de
+ * catalogue de mouvements dans le prompt — aucune séance à composer.
+ */
+async function generateStateOnlyAnalysis(
+  client: ReturnType<typeof getAnthropicClient>,
+  dataForDashboard: ReturnType<typeof buildDashboardData>,
+  profile: Profile,
+  sleep: SleepInsight,
+  weight: WeightInsight,
+  recentCheckinsCount: number,
+): Promise<EcmStateAnalysisResult> {
+  const rest = isRestDay(dataForDashboard.seance);
+  const prompt = `Tu es le Coaching Adaptatif EL COACH METHOD. Analyse les données de cet athlète (profil fusionné avec le check-in du jour), puis appelle l'outil emit_ecm_analysis avec ton analyse complète.
+
+AUJOURD'HUI : ${rest ? "jour de repos / récupération déclaré" : `activité hors programmation ECM : "${dataForDashboard.seance}"`} — aucune séance ECM à composer.
+
+DONNÉES ATHLÈTE (profil + check-in du jour déjà fusionnés) :
+${JSON.stringify(dataForDashboard, null, 2)}
+
+SOMMEIL CETTE NUIT (déjà calculé, ne pas recalculer) : ${sleep.lastNight.totalMinutes} min total, tendance 7j ${sleep.trendMinutes >= 0 ? "+" : ""}${sleep.trendMinutes} min.
+POIDS : ${weight.today} kg, delta 7j ${weight.deltaWeek} kg.
+NOMBRE DE CHECK-INS RÉCENTS DISPONIBLES : ${recentCheckinsCount}.
+
+RÈGLES :
+- Le stack utilise UNIQUEMENT des compléments réalistes cohérents avec la liste "complements" (${profile.complements.join(", ") || "aucun déclaré — stack vide ou générique léger"}).${rest ? " Jour de repos : le moment pre-workout reste présent mais ses items sont inactifs (active: false)." : ""}
+- recommendedVariant = "B" si état jaune/rouge ou douleur/blessure signalée, sinon "A" (champ technique, non affiché aujourd'hui).
+- N'invente aucune donnée numérique (poids, sommeil) — utilise uniquement les valeurs fournies ci-dessus.
+- Les alertes de la catégorie "injury" ne doivent apparaître que si blessures ou douleur est vrai.
+- Réponds uniquement via l'appel à l'outil, sans texte additionnel.`;
+
+  const response = await client.messages.create(
+    {
+      model: ECM_ANALYSIS_MODEL,
+      max_tokens: 2000,
+      tools: [STATE_ONLY_TOOL],
+      tool_choice: { type: "tool", name: "emit_ecm_analysis" },
+      messages: [{ role: "user", content: prompt }],
+    },
+    { timeout: 25_000 },
+  );
+
+  const toolUse = response.content.find(
+    (block) => block.type === "tool_use" && block.name === "emit_ecm_analysis",
+  ) as Anthropic.ToolUseBlock | undefined;
+  if (!toolUse) throw new Error("Claude n'a pas renvoyé d'analyse ECM (pas de tool_use).");
+
+  const out = toolUse.input as {
+    state: "green" | "yellow" | "red";
+    letter: string;
+    numeric: number;
+    headline: string;
+    summary: string;
+    recommendedVariant: "A" | "B";
+    recommendedReason: string;
+    stack: StackMoment[];
+    alerts: Alert[];
+    snack: SnackInsight;
+  };
+
+  return {
+    ecm: { state: out.state, letter: out.letter, numeric: out.numeric, headline: out.headline, summary: out.summary },
+    recommendedVariant: out.recommendedVariant,
+    recommendedReason: out.recommendedReason,
+    stack: out.stack,
+    alerts: out.alerts ?? [],
+    snack: out.snack,
+  };
+}
+
 // ============================================================================
 // Contenu "hors programmation ECM" — sport non catalogué ou repos (sept. 2026).
 // Pas de sessionBlocks (mouvements du catalogue non pertinents pour ces
@@ -556,7 +664,7 @@ const REST_LABELS = ["🛋️ Repos complet", "🚶 Récupération active"];
 
 /** Vrai si `seance` est un jour de repos déclaré (check-in) plutôt qu'un sport. */
 export function isRestDay(seance: string | null | undefined): boolean {
-  return Boolean(seance && REST_LABELS.includes(seance));
+  return !seance || REST_LABELS.includes(seance);
 }
 
 /**
@@ -579,8 +687,12 @@ CONTEXTE ATHLÈTE :
 
 Compose 3 sections courtes et actionnables, puis appelle l'outil emit_advice :
 - warmupTips : ${rest ? "conseils de récupération active (étirements, sommeil, hydratation, mobilité douce) — PAS d'échauffement, c'est un jour de repos." : `échauffement spécifique à "${sport}" (mobilité, activation).`}
-- preventionTips : prévention des blessures spécifique à cette activité${profile.blessures || checkin.douleur ? ", en tenant compte des blessures/douleurs signalées ci-dessus" : ""}.
-- mindsetMessage : message court, direct, motivant, cohérent avec l'état du jour.
+- preventionTips : ${
+    rest
+      ? `points de vigilance pour la journée${profile.blessures || checkin.douleur ? " selon les blessures/douleurs signalées ci-dessus (quoi éviter, quoi surveiller, quand consulter)" : " (aucune blessure déclarée : vigilance générale — raideurs, gestes du quotidien, retour à l'entraînement demain)"}.`
+      : `prévention des blessures spécifique à cette activité${profile.blessures || checkin.douleur ? ", en tenant compte des blessures/douleurs signalées ci-dessus" : ""}.`
+  }
+- mindsetMessage : message court, direct, cohérent avec l'état du jour${rest ? ", axé récupération (le repos fait partie de la progression)" : ", motivant"}.
 Réponds uniquement via l'appel à l'outil, sans texte additionnel.`;
 
   const response = await client.messages.create(

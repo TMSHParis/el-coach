@@ -39,10 +39,14 @@ type EcmDashboardOutput = {
   sessionMessageDuration?: string;
 };
 
-/** Activité hors des 5 programmes ECM (ou repos) — pas de Séance A/B, 3 sections conseils. */
-type AdviceDashboardOutput = {
+type Advice = { warmupTips: string[]; preventionTips: string[]; mindsetMessage: string };
+
+/** Activité hors des 5 programmes ECM (ou repos) — même dashboard complet, le bloc
+ * séance affiche les conseils au lieu de Séance A/B. Les champs d'analyse sont
+ * absents sur les lignes générées avant sept. 2026 (repli sur le moteur mock). */
+type AdviceDashboardOutput = Partial<Omit<EcmDashboardOutput, "mode" | "generatedDay">> & {
   mode: "advice";
-  advice: { warmupTips: string[]; preventionTips: string[]; mindsetMessage: string };
+  advice: Advice;
   generatedAt: string;
 };
 
@@ -50,6 +54,7 @@ type DashboardOutputJson = EcmDashboardOutput | AdviceDashboardOutput;
 import { BackHomeButton } from "@/components/back-home-button";
 import type { Day } from "@/lib/programming";
 import { toDisplayBlocks } from "@/lib/session-format";
+import { isRestDay as isReposSeance } from "@/lib/ecm-engine";
 import { adaptDayForInjuries, detectInjuryAreas, reduceVolume, substitutionMessage } from "@/lib/session-adapt";
 import { minutesToHM, ETAT_LABELS, sleepPhaseBadge, trendColor } from "./dashboard-helpers";
 import { dashboardFontVariables } from "./dashboard-fonts";
@@ -113,9 +118,9 @@ export default async function DashboardPage() {
     : [null, null, []];
   const real = dbOutput ? (dbOutput.output as unknown as DashboardOutputJson) : null;
 
-  if (real && real.mode === "advice") {
-    return <AdviceState userFirstName={userFirstName} seance={todayCheckin?.seance ?? null} advice={real.advice} />;
-  }
+  // Sport hors ECM ou repos : même dashboard, seul le bloc séance change.
+  const advice = real?.mode === "advice" ? real.advice : null;
+  const generatedDay = real?.mode === "advice" ? undefined : real?.generatedDay;
 
   const checkinDates = recentCheckinRows.map((c) => c.date);
 
@@ -125,9 +130,12 @@ export default async function DashboardPage() {
   );
   // La séance composée par Claude (moteur de génération dynamique) prime sur le
   // programme fixe hebdomadaire dès qu'elle existe pour aujourd'hui.
-  const baseDay = real?.generatedDay ?? today.day;
-  const sessionTitle = real?.generatedDay ? baseDay.focus : `${today.template.name} — ${baseDay.focus}`;
-  const { day: safeDay, substitutions } = adaptDayForInjuries(baseDay, injuryAreas);
+  const baseDay = generatedDay ?? today.day;
+  const sessionTitle = generatedDay ? baseDay.focus : `${today.template.name} — ${baseDay.focus}`;
+  const adapted = adaptDayForInjuries(baseDay, injuryAreas);
+  const safeDay = adapted.day;
+  // Pas de séance ECM à adapter les jours hors ECM / repos → pas d'alertes de substitution.
+  const substitutions = advice ? [] : adapted.substitutions;
   const lightDay = reduceVolume(safeDay);
 
   // Repli sur le moteur mock déterministe si pas encore de profil ECM /
@@ -135,7 +143,7 @@ export default async function DashboardPage() {
   const ecm = real?.ecm ?? computeEcmScore(fatigueScore);
   const sleep = real?.sleep ?? buildSleepInsight(fatigueScore);
   const weight = real?.weight ?? buildWeightInsight(fatigueScore);
-  const stack = real ? normalizeStackOrder(real.stack, fatigueScore) : buildStack4Moments(fatigueScore);
+  const stack = real?.stack ? normalizeStackOrder(real.stack, fatigueScore) : buildStack4Moments(fatigueScore);
   const baseAlerts = real?.alerts ?? buildAlerts(fatigueScore, sleep);
   const alerts: Alert[] = [
     ...baseAlerts,
@@ -147,11 +155,12 @@ export default async function DashboardPage() {
     })),
   ];
   const snack = real?.snack ?? buildSnack(fatigueScore);
-  const variant = real
-    ? { recommended: real.recommendedVariant, reason: real.recommendedReason }
-    : recommendVariant(ecm);
+  const variant =
+    real?.recommendedVariant && real.recommendedReason
+      ? { recommended: real.recommendedVariant, reason: real.recommendedReason }
+      : recommendVariant(ecm);
   const etat = ETAT_LABELS[ecm.state];
-  const isRestDay = (!real?.generatedDay && today.needsFatigueInput) || baseDay.blocks.length === 0;
+  const isRestDay = (!generatedDay && today.needsFatigueInput) || baseDay.blocks.length === 0;
 
   const tomorrow = buildTomorrowPreview(today, fatigueScore);
 
@@ -337,79 +346,85 @@ export default async function DashboardPage() {
             <div className={styles.snackNote}>{snack.note}</div>
           </div>
 
-          {/* SÉANCE DU JOUR */}
-          <div className={styles.sdj}>
-            <div className={styles.sdjLabel}>[ SÉANCE DU JOUR ]</div>
-            <div className={styles.sdjTitle}>{isRestDay ? "Repos" : baseDay.focus}</div>
-            <div className={styles.sdjMeta}>
-              {isRestDay ? (
-                <span>{baseDay.notes ?? "Récupération complète."}</span>
-              ) : (
-                <span>
-                  {minutesToHM(baseDay.estimatedMinutes)} · {baseDay.blocks.length} bloc
-                  {baseDay.blocks.length > 1 ? "s" : ""}
-                </span>
-              )}
-            </div>
-            {!isRestDay && (
-              <Link
-                href={`/session?variant=${variant.recommended === "A" ? "a" : "b"}`}
-                className={styles.sdjBtn}
-              >
-                <span className={styles.sdjBtnIcon}>▷</span>
-                <span className={styles.sdjBtnText}>Démarrer la séance</span>
-              </Link>
-            )}
-          </div>
-
-          {!isRestDay && (
+          {/* SÉANCE DU JOUR — contenu selon le check-in, structure identique */}
+          {advice ? (
+            <AdviceSession seance={todayCheckin?.seance ?? null} advice={advice} />
+          ) : (
             <>
-              <div
-                style={{
-                  background: "var(--s)",
-                  border: "1px solid var(--bd)",
-                  borderRadius: 4,
-                  padding: "9px 13px",
-                  marginBottom: 0,
-                  fontSize: 11,
-                  color: "var(--m)",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 7,
-                }}
-              >
-                <span>▶️</span>
-                <span>Appuie sur le bouton rouge pour voir la démo YouTube du mouvement</span>
+              <div className={styles.sdj}>
+                <div className={styles.sdjLabel}>[ SÉANCE DU JOUR ]</div>
+                <div className={styles.sdjTitle}>{isRestDay ? "Repos" : baseDay.focus}</div>
+                <div className={styles.sdjMeta}>
+                  {isRestDay ? (
+                    <span>{baseDay.notes ?? "Récupération complète."}</span>
+                  ) : (
+                    <span>
+                      {minutesToHM(baseDay.estimatedMinutes)} · {baseDay.blocks.length} bloc
+                      {baseDay.blocks.length > 1 ? "s" : ""}
+                    </span>
+                  )}
+                </div>
+                {!isRestDay && (
+                  <Link
+                    href={`/session?variant=${variant.recommended === "A" ? "a" : "b"}`}
+                    className={styles.sdjBtn}
+                  >
+                    <span className={styles.sdjBtnIcon}>▷</span>
+                    <span className={styles.sdjBtnText}>Démarrer la séance</span>
+                  </Link>
+                )}
               </div>
 
-              <SessionTabs
-                recommended={variant.recommended === "A" ? "a" : "b"}
-                recoText={`Recommandée : ${variant.recommended} · ${variant.reason}`}
-                labelA="SÉANCE A"
-                labelB="SÉANCE B"
-                subA="Standard"
-                subB="Adaptée"
-                panelA={
-                  <SessionPanel
-                    variant="a"
-                    nom={sessionTitle}
-                    duree={minutesToHM(safeDay.estimatedMinutes)}
-                    difficulte={difficultyFor(today.template.level, "a")}
-                    tags={sessionTags(safeDay.blocks)}
-                    blocs={toDisplayBlocks(safeDay.blocks)}
+              {!isRestDay && (
+                <>
+                  <div
+                    style={{
+                      background: "var(--s)",
+                      border: "1px solid var(--bd)",
+                      borderRadius: 4,
+                      padding: "9px 13px",
+                      marginBottom: 0,
+                      fontSize: 11,
+                      color: "var(--m)",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 7,
+                    }}
+                  >
+                    <span>▶️</span>
+                    <span>Appuie sur le bouton rouge pour voir la démo YouTube du mouvement</span>
+                  </div>
+
+                  <SessionTabs
+                    recommended={variant.recommended === "A" ? "a" : "b"}
+                    recoText={`Recommandée : ${variant.recommended} · ${variant.reason}`}
+                    labelA="SÉANCE A"
+                    labelB="SÉANCE B"
+                    subA="Standard"
+                    subB="Adaptée"
+                    panelA={
+                      <SessionPanel
+                        variant="a"
+                        nom={sessionTitle}
+                        duree={minutesToHM(safeDay.estimatedMinutes)}
+                        difficulte={difficultyFor(today.template.level, "a")}
+                        tags={sessionTags(safeDay.blocks)}
+                        blocs={toDisplayBlocks(safeDay.blocks)}
+                      />
+                    }
+                    panelB={
+                      <SessionPanel
+                        variant="b"
+                        nom={`${sessionTitle} — Allégée`}
+                        duree={minutesToHM(lightDay.estimatedMinutes)}
+                        difficulte={difficultyFor(today.template.level, "b")}
+                        tags={sessionTags(lightDay.blocks)}
+                        blocs={toDisplayBlocks(lightDay.blocks)}
+                      />
+                    }
                   />
-                }
-                panelB={
-                  <SessionPanel
-                    variant="b"
-                    nom={`${sessionTitle} — Allégée`}
-                    duree={minutesToHM(lightDay.estimatedMinutes)}
-                    difficulte={difficultyFor(today.template.level, "b")}
-                    tags={sessionTags(lightDay.blocks)}
-                    blocs={toDisplayBlocks(lightDay.blocks)}
-                  />
-                }
-              />
+                </>
+              )}
             </>
           )}
 
@@ -474,55 +489,51 @@ function CheckinPendingState({
   );
 }
 
-function AdviceState({
-  userFirstName,
-  seance,
-  advice,
-}: {
-  userFirstName: string | null;
-  seance: string | null;
-  advice: { warmupTips: string[]; preventionTips: string[]; mindsetMessage: string };
-}) {
-  const salut = userFirstName ? `Salut ${userFirstName}.` : "Salut.";
+/** Bloc séance d'un jour hors ECM (sport libre) ou de repos — remplace Séance A/B. */
+function AdviceSession({ seance, advice }: { seance: string | null; advice: Advice }) {
+  const repos = isReposSeance(seance);
+  const sport = seance ? stripLeadingEmoji(seance) : "";
+  const sections = repos
+    ? [
+        { label: "Récupération", tips: advice.warmupTips },
+        { label: "Points de vigilance", tips: advice.preventionTips },
+      ]
+    : [
+        { label: "Échauffement", tips: advice.warmupTips },
+        { label: "Prévention des blessures", tips: advice.preventionTips },
+      ];
   return (
-    <section className={`mx-auto max-w-2xl px-6 py-16 ${dashboardFontVariables}`}>
-      <div className="text-center">
-        <div className="label">[ DASHBOARD ]</div>
-        <h1 className="mt-4 text-4xl font-semibold" style={{ fontFamily: "var(--font-bebas, sans-serif)", letterSpacing: 1 }}>
-          {salut}
-        </h1>
-        <p className="mt-2 text-[color:var(--color-mute)]">{seance ? `Aujourd'hui : ${seance}` : "Séance du jour"}</p>
+    <>
+      <div className={styles.sdj}>
+        <div className={styles.sdjLabel}>{repos ? "[ REPOS ACTIF ]" : `[ SÉANCE DU JOUR — ${sport.toUpperCase()} ]`}</div>
+        <div className={styles.sdjTitle}>{repos ? "Récupération" : sport}</div>
+        <div className={styles.sdjMeta}>
+          <span>{repos ? "Récupération · vigilance · mindset" : "Échauffement · prévention · mindset"}</span>
+        </div>
       </div>
-
-      <div className="mt-10 space-y-8">
-        <div>
-          <div className="label text-[color:var(--color-accent)]">[ ÉCHAUFFEMENT ]</div>
-          <ul className="mt-3 space-y-2 text-[color:var(--color-mute)]">
-            {advice.warmupTips.map((tip, i) => (
-              <li key={i}>• {tip}</li>
+      {sections.map((sec) => (
+        <div key={sec.label} className={styles.snackCard} style={{ background: "var(--s)", borderColor: "var(--bd)" }}>
+          <div className={styles.snackTitle} style={{ color: "var(--w)" }}>
+            {sec.label}
+          </div>
+          <ul className={styles.snackContent} style={{ margin: 0, paddingLeft: 18 }}>
+            {sec.tips.map((tip, i) => (
+              <li key={i}>{tip}</li>
             ))}
           </ul>
         </div>
-        <div>
-          <div className="label text-[color:var(--color-accent)]">[ PRÉVENTION ]</div>
-          <ul className="mt-3 space-y-2 text-[color:var(--color-mute)]">
-            {advice.preventionTips.map((tip, i) => (
-              <li key={i}>• {tip}</li>
-            ))}
-          </ul>
-        </div>
-        <div className="border-l-2 border-[color:var(--color-accent)] pl-4 italic text-[color:var(--color-mute)]">
-          {advice.mindsetMessage}
-        </div>
+      ))}
+      <div className={styles.snackCard}>
+        <div className={styles.snackTitle}>{repos ? "Mindset récupération" : "Mindset"}</div>
+        <div className={styles.snackContent}>{advice.mindsetMessage}</div>
       </div>
-
-      <div className="mt-10 text-center">
-        <Link href="/" className="btn-ghost inline-flex">
-          ← Accueil
-        </Link>
-      </div>
-    </section>
+    </>
   );
+}
+
+/** "🥊 Boxe" → "Boxe" (libellés du <select> du check-in préfixés d'un emoji). */
+function stripLeadingEmoji(label: string): string {
+  return label.replace(/^[^\p{L}\p{N}]+/u, "").trim() || label;
 }
 
 function SleepPhaseRow({
