@@ -17,6 +17,7 @@ const isProtected = createRouteMatcher([
   "/settings(.*)",
   "/progress(.*)",
   "/history(.*)",
+  "/account(.*)",
 ]);
 
 // Redirection maison vers /signin?redirect=<page demandée> (page ECM, pas la

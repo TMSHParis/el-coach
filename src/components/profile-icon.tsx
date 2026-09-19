@@ -17,7 +17,7 @@ export function ProfileIcon({
   if (pathname !== "/") return null;
 
   return (
-    <Link href={signedIn ? "/profile/edit" : "/signin"} aria-label="Mon profil">
+    <Link href={signedIn ? "/account" : "/signin"} aria-label="Mon compte">
       {signedIn && imageUrl ? (
         // eslint-disable-next-line @next/next/no-img-element -- avatar Clerk externe, taille fixe 36px
         <img src={imageUrl} alt="" className="h-9 w-9 rounded-full border border-white/20 object-cover" />

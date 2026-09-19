@@ -7,7 +7,7 @@ export const metadata = { title: "Modifier mon profil · EL COACH METHOD" };
 export default function ProfileEditPage() {
   return (
     <div className={ecmFontVariables}>
-      <EcmPageHeader title="Je mets à jour mon profil" backHref="/dashboard" backLabel="← Dashboard" />
+      <EcmPageHeader title="Je mets à jour mon profil" backHref="/" />
       <ProfileEditForm />
     </div>
   );

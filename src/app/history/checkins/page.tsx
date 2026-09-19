@@ -21,7 +21,7 @@ export default async function CheckinsHistoryPage() {
   return (
     <div className={ecmFontVariables} style={{ background: "#080808", minHeight: "100vh", color: "#e0e0e0" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "20px 20px 0" }}>
-        <BackHomeButton href="/settings" label="← Réglages" />
+        <BackHomeButton />
         <div style={{ fontFamily: "var(--font-bebas, sans-serif)", fontSize: 28, letterSpacing: 3, color: "#fff" }}>
           Historique des check-ins
         </div>

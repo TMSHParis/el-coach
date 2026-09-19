@@ -15,10 +15,10 @@ export async function Nav() {
 
   return (
     <header className="hairline-b sticky top-0 z-50 bg-black/80 backdrop-blur">
-      <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
+      <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-4 md:px-6">
         <div className="flex items-center gap-3">
           {clerkEnabled && <MobileDrawer signedIn={signedIn} />}
-          <Link href="/" className="mono text-sm font-semibold tracking-[0.25em] text-white">
+          <Link href="/" className="mono text-xs font-semibold tracking-[0.2em] text-white md:text-sm md:tracking-[0.25em]">
             EL COACH <span className="text-[color:var(--color-gold)]">METHOD</span>
           </Link>
         </div>
@@ -28,17 +28,17 @@ export async function Nav() {
           <Link href="/wods" className="hover:text-white">WODs</Link>
           <Link href="/dashboard" className="hover:text-white">Dashboard</Link>
         </nav>
-        <div className="flex items-center gap-3">
-          {clerkEnabled && !signedIn && (
-            <Link href="/signin" className="btn-ghost">Connexion</Link>
-          )}
-          {clerkEnabled && signedIn && (
-            <Link href="/dashboard" className="btn-ghost">Mon Dashboard</Link>
-          )}
-          {clerkEnabled && (
-            <ProfileIcon signedIn={signedIn} imageUrl={user?.imageUrl ?? null} initial={user?.firstName?.[0] ?? "•"} />
-          )}
-        </div>
+        {clerkEnabled && (
+          <Link
+            href={signedIn ? "/dashboard" : "/signin"}
+            className="btn-ghost !px-3 !py-2 !text-[10px] !tracking-[0.12em] md:!px-5 md:!py-3 md:!text-xs"
+          >
+            {signedIn ? "Mon Dashboard" : "Déjà inscrit · Connexion"}
+          </Link>
+        )}
+        {clerkEnabled && (
+          <ProfileIcon signedIn={signedIn} imageUrl={user?.imageUrl ?? null} initial={user?.firstName?.[0] ?? "•"} />
+        )}
       </div>
     </header>
   );

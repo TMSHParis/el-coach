@@ -3,6 +3,7 @@ import { SignIn } from "@clerk/nextjs";
 import { clerkEnabled } from "@/lib/clerk";
 import { EcmPageHeader } from "@/app/signup/ecm-shared";
 import { ecmFontVariables } from "@/app/signup/ecm-fonts";
+import { clerkSignInAppearance } from "@/lib/clerk-appearance";
 
 export const metadata = { title: "Connexion · EL COACH METHOD" };
 
@@ -12,7 +13,9 @@ export default async function SignInPage({
   searchParams: Promise<{ redirect?: string; reset?: string }>;
 }) {
   const { redirect, reset } = await searchParams;
-  const redirectTo = redirect && redirect.startsWith("/") && !redirect.startsWith("//") ? redirect : "/checkin";
+  // Après connexion → accueil (qui affiche l'état connecté), sauf si on arrive
+  // ici redirigé depuis une page protégée (middleware) : on y renvoie.
+  const redirectTo = redirect && redirect.startsWith("/") && !redirect.startsWith("//") ? redirect : "/";
 
   return (
     <div className={ecmFontVariables}>
@@ -37,17 +40,7 @@ export default async function SignInPage({
           <SignIn
             routing="hash"
             fallbackRedirectUrl={redirectTo}
-            appearance={{
-              variables: { colorPrimary: "#e8ff00", colorBackground: "#080808", colorText: "#f0ede8" },
-              elements: {
-                formFieldInput: {
-                  backgroundColor: "#1a1a1a",
-                  borderColor: "#444",
-                  color: "#fff",
-                  "&::placeholder": { color: "#888" },
-                },
-              },
-            }}
+            appearance={clerkSignInAppearance}
           />
         ) : (
           <p style={{ color: "#8a8a8a" }}>Clerk non configuré.</p>
@@ -55,6 +48,12 @@ export default async function SignInPage({
         <Link href="/forgot-password" style={{ color: "#8a8a8a", fontSize: "0.85rem" }}>
           Mot de passe oublié ?
         </Link>
+        <p style={{ color: "#666", fontSize: "0.85rem" }}>
+          Pas encore inscrit ?{" "}
+          <Link href="/signup" style={{ color: "#E8FF00", letterSpacing: 1 }}>
+            JE M&apos;INSCRIS
+          </Link>
+        </p>
       </section>
     </div>
   );

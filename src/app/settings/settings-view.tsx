@@ -14,6 +14,7 @@ import {
   type RecordsRm,
 } from "./actions";
 import styles from "./settings.module.css";
+import { useSmartBack } from "@/components/back-home-button";
 
 const cx = (...c: (string | false | undefined)[]) => c.filter(Boolean).join(" ");
 
@@ -45,6 +46,7 @@ export function SettingsView({
   stripeEnabled: boolean;
 }) {
   const router = useRouter();
+  const goBack = useSmartBack();
   const { user } = useUser();
   const { signOut } = useClerk();
   const [modal, setModal] = useState<string | null>(null);
@@ -111,7 +113,7 @@ export function SettingsView({
   return (
     <div className={styles.root}>
       <div className={styles.topbar}>
-        <button className={styles.backBtn} onClick={() => router.push("/dashboard")}>←</button>
+        <button className={styles.backBtn} onClick={goBack} aria-label="Retour">←</button>
         <div className={styles.pageTitle}>Réglages</div>
       </div>
 

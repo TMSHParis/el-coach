@@ -380,7 +380,7 @@ export function EcmPageHeader({
   title,
   subtitle,
   backHref,
-  backLabel = "← Accueil",
+  backLabel = "← Retour",
 }: {
   title: string;
   subtitle?: string;

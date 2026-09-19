@@ -11,8 +11,7 @@ export default function ResetPasswordPage() {
       <EcmPageHeader
         title="Nouveau mot de passe."
         subtitle="Saisis le code reçu par email et ton nouveau mot de passe."
-        backHref="/signin"
-        backLabel="← Connexion"
+        backHref="/"
       />
       <Suspense>
         <ResetPasswordForm />

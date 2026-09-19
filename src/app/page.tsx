@@ -2,26 +2,38 @@ import Link from "next/link";
 import { auth } from "@clerk/nextjs/server";
 import { clerkEnabled } from "@/lib/clerk";
 import { ecmFontVariables } from "@/app/signup/ecm-fonts";
+import { isCheckinDoneToday } from "@/app/checkin/actions";
+import { prisma } from "@/lib/prisma";
+import { todayKey } from "@/lib/date-key";
 
-async function isSignedIn(): Promise<boolean> {
-  if (!clerkEnabled) return false;
-  const session = await auth();
-  return Boolean(session.userId);
+/** "anon" = déconnecté · "todo" = connecté, check-in pas fait · "done" = check-in du jour fait. */
+type HomeState = "anon" | "todo" | "done";
+
+async function resolveHomeState(): Promise<HomeState> {
+  if (!clerkEnabled) return "anon";
+  const { userId } = await auth();
+  if (!userId) return "anon";
+  // Base de données d'abord (fiable sur tous les appareils), cookie du jour en repli.
+  const checkin = await prisma.checkin
+    .findUnique({ where: { userId_date: { userId, date: todayKey() } }, select: { id: true } })
+    .catch(() => null);
+  if (checkin || (await isCheckinDoneToday())) return "done";
+  return "todo";
 }
 
 export default async function Home() {
-  const signedIn = await isSignedIn();
+  const state = await resolveHomeState();
   return (
     <div className={ecmFontVariables}>
-      <Hero signedIn={signedIn} />
+      <Hero state={state} />
       <ThreePillars />
       <Ticker />
-      <CTA signedIn={signedIn} />
+      <CTA state={state} />
     </div>
   );
 }
 
-function Hero({ signedIn }: { signedIn: boolean }) {
+function Hero({ state }: { state: HomeState }) {
   return (
     <section className="hairline-b relative overflow-hidden">
       <div className="scan pointer-events-none absolute inset-0 opacity-60" />
@@ -46,10 +58,7 @@ function Hero({ signedIn }: { signedIn: boolean }) {
           5 secondes.
         </p>
         <div className="mt-6 flex w-full max-w-sm flex-col gap-2.5">
-          <HomeCTAButtons signedIn={signedIn} />
-          <Link href="#bases-coaching-adaptatif" className="btn-home-secondary">
-            Voir comment ça marche
-          </Link>
+          <HomeCTAButtons state={state} />
         </div>
       </div>
     </section>
@@ -125,7 +134,7 @@ function Ticker() {
   );
 }
 
-function CTA({ signedIn }: { signedIn: boolean }) {
+function CTA({ state }: { state: HomeState }) {
   return (
     <section className="mx-auto max-w-7xl px-6 py-20 text-center">
       <h2
@@ -137,37 +146,59 @@ function CTA({ signedIn }: { signedIn: boolean }) {
         <span className="text-[#8a8a8a]">Tu exécutes.</span>
       </h2>
       <div className="mx-auto mt-8 flex w-full max-w-sm flex-col gap-2.5">
-        <HomeCTAButtons signedIn={signedIn} />
-        <Link href="/marketplace" className="btn-home-secondary">
-          Découvrir les programmes
-        </Link>
+        <PrimaryButton state={state} />
       </div>
     </section>
   );
 }
 
-function HomeCTAButtons({ signedIn }: { signedIn: boolean }) {
-  const checkinHref = signedIn ? "/checkin" : "/signin?redirect=/checkin";
-  const profileHref = signedIn ? "/profile/edit" : "/signin?redirect=/profile/edit";
+function PrimaryButton({ state }: { state: HomeState }) {
+  if (state === "anon") {
+    return (
+      <Link href="/signup" className="btn-home-primary" style={{ flexDirection: "column", gap: 2, padding: "16px 24px" }}>
+        <span>Je m&apos;inscris</span>
+        <span
+          style={{
+            fontFamily: "var(--font-barlow-condensed, sans-serif)",
+            fontSize: "0.8rem",
+            fontWeight: 600,
+            letterSpacing: 1,
+            textTransform: "none",
+            color: "#000",
+          }}
+        >
+          Free Trial — 7 jours offerts
+        </span>
+      </Link>
+    );
+  }
+  return state === "done" ? (
+    <Link href="/dashboard" className="btn-home-primary">
+      Mon dashboard
+    </Link>
+  ) : (
+    <Link href="/checkin" className="btn-home-primary">
+      Mon check-in du jour
+    </Link>
+  );
+}
+
+function HomeCTAButtons({ state }: { state: HomeState }) {
   return (
     <>
-      {signedIn ? (
-        <Link href={checkinHref} className="btn-home-primary">
-          Mon check-in du jour
+      <PrimaryButton state={state} />
+      {state === "anon" ? (
+        <Link href="/signin" className="btn-home-secondary">
+          Déjà inscrit · Je me connecte
         </Link>
       ) : (
-        <Link href="/signup" className="btn-home-primary">
-          Je m&apos;inscris
+        <Link href="/profile/edit" className="btn-home-secondary">
+          Je mets à jour mon profil
         </Link>
       )}
-      <Link href={profileHref} className="btn-home-secondary">
-        Je mets à jour mon profil
+      <Link href="#bases-coaching-adaptatif" className="btn-home-secondary">
+        Voir comment ça marche
       </Link>
-      {!signedIn && (
-        <Link href={checkinHref} className="btn-home-secondary">
-          Mon check-in du jour
-        </Link>
-      )}
     </>
   );
 }

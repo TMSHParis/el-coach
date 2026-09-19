@@ -10,8 +10,7 @@ export default function ForgotPasswordPage() {
       <EcmPageHeader
         title="Mot de passe oublié."
         subtitle="On t'envoie un code pour le réinitialiser."
-        backHref="/signin"
-        backLabel="← Connexion"
+        backHref="/"
       />
       <ForgotPasswordForm />
     </div>

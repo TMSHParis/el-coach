@@ -224,7 +224,8 @@ export function CheckinForm() {
       setMissing([result.error]);
       return;
     }
-    router.push("/dashboard");
+    // replace : le retour depuis le dashboard ramène avant le check-in (accueil), pas au formulaire.
+    router.replace("/dashboard");
   }
 
   return (
