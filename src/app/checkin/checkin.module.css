@@ -16,7 +16,7 @@
 
   background: var(--bg);
   color: var(--t);
-  font-family: var(--font-dm-sans);
+  font-family: var(--font-barlow);
   padding-bottom: 80px;
   min-height: 100vh;
   -webkit-tap-highlight-color: transparent;
@@ -30,7 +30,7 @@
   border-radius: 10px;
   padding: 10px 12px;
   color: var(--w);
-  font-family: var(--font-dm-sans);
+  font-family: var(--font-barlow);
   font-size: 13px;
   outline: none;
   transition: border-color 0.2s;
@@ -75,7 +75,7 @@
 .gtab:last-child { border-radius: 0 12px 12px 0; }
 .gtab.activeH { border-color: var(--blue); background: rgba(82, 137, 224, .08); color: var(--blue); }
 .gtab.activeF { border-color: var(--pink); background: rgba(236, 72, 153, .08); color: var(--pink); }
-.gtabSub { font-size: 10px; letter-spacing: 1px; font-family: var(--font-dm-sans); font-weight: 400; margin-top: 2px; color: var(--m); }
+.gtabSub { font-size: 10px; letter-spacing: 1px; font-family: var(--font-barlow); font-weight: 400; margin-top: 2px; color: var(--m); }
 
 .fw { padding: 0 18px; max-width: 440px; margin: 0 auto; }
 
@@ -157,7 +157,7 @@
 .ynb.y.selF { border-color: var(--pink); background: rgba(236, 72, 153, .08); color: var(--pink); }
 .ynb.n.selF { border-color: var(--red); background: rgba(224, 82, 82, .1); color: var(--red); }
 
-.ss { width: 100%; background: var(--s2); border: 1.5px solid var(--bd); border-radius: 10px; padding: 10px 12px; color: var(--w); font-family: var(--font-dm-sans); font-size: 13px; outline: none; transition: border-color .2s; appearance: none; cursor: pointer; }
+.ss { width: 100%; background: var(--s2); border: 1.5px solid var(--bd); border-radius: 10px; padding: 10px 12px; color: var(--w); font-family: var(--font-barlow); font-size: 13px; outline: none; transition: border-color .2s; appearance: none; cursor: pointer; }
 .ss:focus { border-color: rgba(201, 168, 76, .4); }
 .ss option { background: #111; color: #fff; }
 .ss optgroup { background: #0a0a0a; color: var(--g); font-weight: 700; }

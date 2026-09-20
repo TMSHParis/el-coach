@@ -59,7 +59,7 @@ export type DisplayBlock = {
   badgeCls: BadgeCls;
   /** Type brut du bloc (programming.ts) — pilote la saisie de résultats sur /session (charge/reps vs temps/rounds/score). */
   type: BlockType;
-  items: (ExerciseDisplay & { movementName: string; videoUrl?: string })[];
+  items: (ExerciseDisplay & { movementName: string; videoUrl?: string; /** Conseil/message, pas un mouvement : pas de bouton vidéo. */ noVideo?: boolean })[];
   note?: string;
 };
 

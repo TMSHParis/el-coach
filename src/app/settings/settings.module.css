@@ -12,7 +12,7 @@
 
   background: var(--bg);
   color: var(--t);
-  font-family: var(--font-dm-sans, sans-serif);
+  font-family: var(--font-barlow, sans-serif);
   min-height: 100vh;
   padding-bottom: 60px;
 }

@@ -10,12 +10,14 @@ export function SessionItemRow({
   detail,
   movementName,
   videoUrl,
+  noVideo,
 }: {
   name: string;
   qty: string;
   detail?: string;
   movementName: string;
   videoUrl?: string;
+  noVideo?: boolean;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -27,10 +29,25 @@ export function SessionItemRow({
         {detail && <em>{detail}</em>}
       </div>
       <div className={styles.idetail}>{qty}</div>
-      <button type="button" className={styles.ytBtn} onClick={() => setOpen(true)} aria-label={`Vidéo ${movementName}`}>
-        ▶
-      </button>
-      <VideoModal open={open} onClose={() => setOpen(false)} title={movementName} searchQuery={movementName} videoUrl={videoUrl} />
+      {!noVideo && (
+        <>
+          <button
+            type="button"
+            className={styles.ytBtn}
+            onClick={() => setOpen(true)}
+            aria-label={`Vidéo ${movementName}`}
+          >
+            ▶
+          </button>
+          <VideoModal
+            open={open}
+            onClose={() => setOpen(false)}
+            title={movementName}
+            searchQuery={movementName}
+            videoUrl={videoUrl}
+          />
+        </>
+      )}
     </div>
   );
 }

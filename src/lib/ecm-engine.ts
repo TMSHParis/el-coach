@@ -29,6 +29,7 @@ import { WODS } from "./wods";
 import { SOURCE_PROGRAM_EXAMPLES } from "./source-program-examples";
 import type { Block, BlockType, Day, Exercise, WodFormat } from "./programming";
 import { validateGeneratedDay } from "./session-adapt";
+import { ageFromDateNaissance } from "./age";
 
 function normalizeAccents(s: string): string {
   return s
@@ -91,9 +92,14 @@ export function buildSleepFromCheckins(checkins: Checkin[]): SleepInsight {
   const avg = (arr: SleepNight[]) => arr.reduce((s, n) => s + n.totalMinutes, 0) / (arr.length || 1);
   const trendMinutes = Math.round(avg(last) - avg(first));
 
+  // Une seule alerte par problème : profond + REM sous les seuils se fusionnent
+  // (avant, les deux s'affichaient séparément et faisaient doublon).
   const alerts: string[] = [];
-  if (lastNight.deepMinutes < 40) alerts.push("Sommeil profond < 40 min cette nuit");
-  if (lastNight.remMinutes < 90) alerts.push("REM < 1h30 cette nuit");
+  const deepLow = lastNight.deepMinutes < 40;
+  const remLow = lastNight.remMinutes < 90;
+  if (deepLow && remLow) alerts.push("Sommeil profond et REM sous les seuils cette nuit");
+  else if (deepLow) alerts.push("Sommeil profond < 40 min cette nuit");
+  else if (remLow) alerts.push("REM < 1h30 cette nuit");
   if (lastNight.awakeMinutes > 120) alerts.push("Réveils > 2h cette nuit");
 
   return { nights, lastNight, trendMinutes, alerts };
@@ -313,9 +319,11 @@ function omit<T extends object, K extends keyof T>(obj: T, keys: K[]): Omit<T, K
  * vérification (§1 de la note "Corrections prioritaires").
  */
 export function buildDashboardData(profile: Profile, checkin: Checkin) {
-  const profileData = omit(profile, ["id", "userId", "createdAt", "updatedAt"]);
+  // dateNaissance n'est jamais envoyée telle quelle : Claude reçoit l'âge du
+  // jour, recalculé à chaque génération (plus de champ âge figé en base).
+  const profileData = omit(profile, ["id", "userId", "createdAt", "updatedAt", "dateNaissance"]);
   const checkinData = omit(checkin, ["id", "userId", "createdAt"]);
-  return { ...profileData, ...checkinData };
+  return { ...profileData, age: ageFromDateNaissance(profile.dateNaissance), ...checkinData };
 }
 
 const REQUIRED_DASHBOARD_FIELDS = [
@@ -629,7 +637,20 @@ RÈGLES :
 // dashboard (pas de Séance A/B, pas de /session).
 // ============================================================================
 
+/** Séance d'un jour hors ECM (sport libre) ou de repos — 3 blocs, même mise en page que les séances ECM. */
 export type NonEcmAdvice = {
+  /** Durée estimée affichée en pied de séance, ex. "45-60 min". */
+  dureeEstimee: string;
+  /** Bloc 1 — échauffement spécifique au sport, ou récupération active un jour de repos. */
+  warmup: { nom: string; duree?: string }[];
+  /** Bloc 2 — prévention des blessures (ou points de vigilance un jour de repos). */
+  prevention: string[];
+  /** Bloc 3 — message mindset (repos : axé récupération). */
+  mindset: string;
+};
+
+/** Ancien format (avant sept. 2026) encore stocké dans dashboard_outputs. */
+export type LegacyNonEcmAdvice = {
   warmupTips: string[];
   preventionTips: string[];
   mindsetMessage: string;
@@ -637,26 +658,34 @@ export type NonEcmAdvice = {
 
 const ADVICE_TOOL = {
   name: "emit_advice",
-  description: "Conseils du jour pour une activité hors programmation ECM (ou un jour de repos).",
+  description: "Séance du jour pour une activité hors programmation ECM (ou un jour de repos), en 3 blocs.",
   input_schema: {
     type: "object" as const,
     properties: {
-      warmupTips: {
+      dureeEstimee: { type: "string", description: "Durée totale estimée de la séance, ex. \"45-60 min\"." },
+      warmup: {
+        type: "array",
+        description: "4 à 6 exercices d'échauffement (ou de récupération active un jour de repos), dans l'ordre.",
+        items: {
+          type: "object",
+          required: ["nom"],
+          properties: {
+            nom: { type: "string", description: "Nom court de l'exercice, ex. \"Corde à sauter souple\"." },
+            duree: { type: "string", description: "Durée ou volume, ex. \"5-8 min\", \"2×10 répétitions\"." },
+          },
+        },
+      },
+      prevention: {
         type: "array",
         items: { type: "string" },
-        description: "3 à 5 conseils courts et actionnables.",
+        description: "3 à 5 points de prévention des blessures (ou de vigilance), courts et actionnables.",
       },
-      preventionTips: {
-        type: "array",
-        items: { type: "string" },
-        description: "3 à 5 conseils de prévention des blessures, courts et actionnables.",
-      },
-      mindsetMessage: {
+      mindset: {
         type: "string",
         description: "Message de motivation court (1-2 phrases), ton direct, style coach.",
       },
     },
-    required: ["warmupTips", "preventionTips", "mindsetMessage"],
+    required: ["dureeEstimee", "warmup", "prevention", "mindset"],
   },
 };
 
@@ -668,9 +697,9 @@ export function isRestDay(seance: string | null | undefined): boolean {
 }
 
 /**
- * Génère les 3 sections (échauffement/prévention/mindset) pour une activité du
- * jour hors des 5 programmes ECM (ex. Boxe, Running, cours collectif) ou un
- * jour de repos — appelé à la place de generateEcmAnalysis dans ce cas.
+ * Compose la séance du jour (3 blocs) pour une activité hors des 5 programmes
+ * ECM (ex. Boxe, Running, cours collectif) ou un jour de repos — appelée à la
+ * place de la composition ECM, qui s'appuie sur le catalogue de mouvements.
  */
 export async function generateNonEcmAdvice(input: { profile: Profile; checkin: Checkin }): Promise<NonEcmAdvice> {
   const { profile, checkin } = input;
@@ -685,20 +714,21 @@ CONTEXTE ATHLÈTE :
 - Douleur signalée aujourd'hui (check-in) : ${checkin.douleur ? checkin.douleurDetail || "oui, sans détail" : "aucune"}.
 - État du jour : énergie ${checkin.energie ?? "—"}/5, jambes ${checkin.jambes ?? "—"}, mental ${checkin.mental ?? "—"}, stress ${checkin.stress ?? "—"}.
 
-Compose 3 sections courtes et actionnables, puis appelle l'outil emit_advice :
-- warmupTips : ${rest ? "conseils de récupération active (étirements, sommeil, hydratation, mobilité douce) — PAS d'échauffement, c'est un jour de repos." : `échauffement spécifique à "${sport}" (mobilité, activation).`}
-- preventionTips : ${
+Compose la séance du jour en 3 blocs, puis appelle l'outil emit_advice :
+- dureeEstimee : ${rest ? "durée de la routine de récupération, ex. \"20-30 min\"." : `durée totale réaliste pour une séance de "${sport}", ex. \"45-60 min\".`}
+- warmup : ${rest ? "4 à 6 exercices de récupération active (mobilité douce, étirements, marche), avec durée — PAS d'échauffement, c'est un jour de repos." : `4 à 6 exercices d'échauffement spécifiques à "${sport}" (mobilité, activation), avec durée pour chacun.`}
+- prevention : ${
     rest
       ? `points de vigilance pour la journée${profile.blessures || checkin.douleur ? " selon les blessures/douleurs signalées ci-dessus (quoi éviter, quoi surveiller, quand consulter)" : " (aucune blessure déclarée : vigilance générale — raideurs, gestes du quotidien, retour à l'entraînement demain)"}.`
       : `prévention des blessures spécifique à cette activité${profile.blessures || checkin.douleur ? ", en tenant compte des blessures/douleurs signalées ci-dessus" : ""}.`
   }
-- mindsetMessage : message court, direct, cohérent avec l'état du jour${rest ? ", axé récupération (le repos fait partie de la progression)" : ", motivant"}.
+- mindset : message court, direct, cohérent avec l'état du jour${rest ? ", axé récupération (le repos fait partie de la progression)" : ", motivant"}.
 Réponds uniquement via l'appel à l'outil, sans texte additionnel.`;
 
   const response = await client.messages.create(
     {
       model: ECM_ANALYSIS_MODEL,
-      max_tokens: 800,
+      max_tokens: 1200,
       tools: [ADVICE_TOOL],
       tool_choice: { type: "tool", name: "emit_advice" },
       messages: [{ role: "user", content: prompt }],
@@ -709,9 +739,69 @@ Réponds uniquement via l'appel à l'outil, sans texte additionnel.`;
   const toolUse = response.content.find(
     (block) => block.type === "tool_use" && block.name === "emit_advice",
   ) as Anthropic.ToolUseBlock | undefined;
-  if (!toolUse) throw new Error("Claude n'a pas renvoyé de conseils (pas de tool_use).");
+  if (!toolUse) throw new Error("Claude n'a pas renvoyé de séance hors ECM (pas de tool_use).");
 
   return toolUse.input as NonEcmAdvice;
+}
+
+// ============================================================================
+// Message mindset affiché juste après le check-in (page intermédiaire, sept.
+// 2026) — généré une fois et stocké avec le dashboard du jour.
+// ============================================================================
+
+const MINDSET_TOOL = {
+  name: "emit_mindset",
+  description: "Message mindset court, affiché à l'athlète juste après son check-in.",
+  input_schema: {
+    type: "object" as const,
+    properties: {
+      message: {
+        type: "string",
+        description: "2-3 phrases max, inclut le prénom, direct et percutant, style coaching.",
+      },
+    },
+    required: ["message"],
+  },
+};
+
+/** Message mindset du jour — ton dicté par l'énergie du check-in (vert/jaune/rouge) ou le repos. */
+export async function generateMindsetMessage(input: { profile: Profile; checkin: Checkin }): Promise<string> {
+  const { profile, checkin } = input;
+  const client = getAnthropicClient();
+  const rest = isRestDay(checkin.seance);
+  const energie = checkin.energie ?? 5;
+  const ton = rest
+    ? "Jour de repos — valorise la récupération : c'est là que le travail se transforme en progrès."
+    : energie >= 8
+      ? "Énergie haute (vert) — pousse-le à profiter de la journée pour repousser ses limites."
+      : energie >= 5
+        ? "Énergie moyenne (jaune) — valorise le fait d'y aller quand même, quitte à adapter l'intensité."
+        : "Énergie basse (rouge) — séance légère, pas d'ego, la discipline compte plus que la performance.";
+
+  const prompt = `Génère un message mindset court pour ${profile.prenom || "l'athlète"} avant sa séance.
+État du jour (check-in) : énergie ${energie}/10 · mental ${checkin.mental ?? "—"} · stress ${checkin.stress ?? "—"}.
+Sport du jour : ${checkin.seance || "non précisé"}.
+Ton à adopter : ${ton}
+2-3 phrases maximum · direct · percutant · style coaching · pas de blabla · inclure le prénom · varier les formulations.
+Réponds uniquement via l'appel à l'outil, sans texte additionnel.`;
+
+  const response = await client.messages.create(
+    {
+      model: ECM_ANALYSIS_MODEL,
+      max_tokens: 300,
+      tools: [MINDSET_TOOL],
+      tool_choice: { type: "tool", name: "emit_mindset" },
+      messages: [{ role: "user", content: prompt }],
+    },
+    { timeout: 15_000 },
+  );
+
+  const toolUse = response.content.find(
+    (block) => block.type === "tool_use" && block.name === "emit_mindset",
+  ) as Anthropic.ToolUseBlock | undefined;
+  if (!toolUse) throw new Error("Claude n'a pas renvoyé de message mindset (pas de tool_use).");
+
+  return (toolUse.input as { message: string }).message;
 }
 
 // ============================================================================

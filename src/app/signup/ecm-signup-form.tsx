@@ -280,7 +280,7 @@ export function EcmSignupForm({ defaultProgramSlug }: { defaultProgramSlug: stri
           <div className={cx(styles.ecmStep, ecmSubStep === 1 && styles.active)}>
             <div className={styles.qc}>
               <div className={styles.ql}>
-                <i>👤</i> Prénom &amp; Âge
+                <i>👤</i> Prénom &amp; date de naissance
               </div>
               <div className={styles.nr} style={{ gap: 8, marginBottom: 8 }}>
                 <input
@@ -292,16 +292,13 @@ export function EcmSignupForm({ defaultProgramSlug }: { defaultProgramSlug: stri
                   onChange={(e) => setProfile({ prenom: e.target.value })}
                 />
                 <input
-                  className={cx(styles.ecmInput, styles.ecmNum)}
-                  type="number"
-                  placeholder="—"
-                  min={16}
-                  max={80}
-                  style={{ flex: 1 }}
-                  value={profile.age}
-                  onChange={(e) => setProfile({ age: e.target.value })}
+                  className={styles.ecmInput}
+                  type="date"
+                  style={{ flex: 2 }}
+                  max={new Date().toISOString().slice(0, 10)}
+                  value={profile.dateNaissance}
+                  onChange={(e) => setProfile({ dateNaissance: e.target.value })}
                 />
-                <span className={styles.nu}>ans</span>
               </div>
             </div>
             <div className={styles.qc}>

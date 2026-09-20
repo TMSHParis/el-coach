@@ -224,8 +224,9 @@ export function CheckinForm() {
       setMissing([result.error]);
       return;
     }
-    // replace : le retour depuis le dashboard ramène avant le check-in (accueil), pas au formulaire.
-    router.replace("/dashboard");
+    // Page mindset intermédiaire (elle enchaîne sur le dashboard) — replace pour
+    // que le retour depuis le dashboard ramène avant le check-in, pas au formulaire.
+    router.replace("/mindset");
   }
 
   return (

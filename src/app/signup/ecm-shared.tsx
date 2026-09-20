@@ -353,7 +353,7 @@ export const SPORT_OPTGROUPS: { label: string; options: string[] }[] = [
 export function emptyEcmProfile(preselectedProgramme = ""): EcmProfileCookie {
   return {
     prenom: "",
-    age: "",
+    dateNaissance: "",
     taille: "",
     poids: "",
     objectifs: [],

@@ -15,10 +15,11 @@
   --yellow: #EAB308;
   --purple: #A855F7;
   --orange: #F97316;
+  --accent: #E8FF00;
 
   background: var(--bg);
   color: var(--t);
-  font-family: var(--font-dm-sans);
+  font-family: var(--font-barlow);
   padding-bottom: 80px;
   min-height: 100vh;
 }
@@ -33,7 +34,7 @@
 .calNav { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border-bottom: 1px solid var(--bd); }
 .calArrow { width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--m); font-size: 14px; transition: color .2s; border: none; background: none; }
 .calArrow:hover { color: var(--w); }
-.calMonth { font-family: var(--font-dm-sans); font-size: 13px; font-weight: 600; letter-spacing: 3px; text-transform: uppercase; color: var(--t); }
+.calMonth { font-family: var(--font-barlow); font-size: 13px; font-weight: 600; letter-spacing: 3px; text-transform: uppercase; color: var(--t); }
 .calDays { display: grid; grid-template-columns: repeat(7, 1fr); }
 .calDay { display: flex; flex-direction: column; align-items: center; padding: 10px 4px 12px; cursor: pointer; transition: all .2s; position: relative; }
 .calDayLabel { font-size: 9px; letter-spacing: 1px; text-transform: uppercase; color: var(--m); margin-bottom: 6px; font-weight: 600; }
@@ -60,7 +61,7 @@
 .jaune .ecmDot { background: var(--yellow); box-shadow: 0 0 12px var(--yellow); }
 .rouge .ecmDot { background: var(--red); box-shadow: 0 0 12px var(--red); }
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
-.ecmGrade { font-family: var(--font-dm-sans); font-size: 80px; font-weight: 700; line-height: .9; letter-spacing: -3px; }
+.ecmGrade { font-family: var(--font-barlow); font-size: 80px; font-weight: 700; line-height: .9; letter-spacing: -3px; }
 .vert .ecmGrade { color: var(--green); }
 .jaune .ecmGrade { color: var(--yellow); }
 .rouge .ecmGrade { color: var(--red); }
@@ -147,10 +148,10 @@
 .sdjTitle { font-size: 36px; font-weight: 700; color: var(--w); line-height: 1.1; letter-spacing: -1px; margin-bottom: 10px; }
 .sdjMeta { font-size: 14px; color: var(--m); letter-spacing: 1px; margin-bottom: 24px; }
 .sdjMeta span { color: var(--t); }
-.sdjBtn { display: flex; align-items: center; gap: 14px; width: 100%; padding: 18px 22px; background: var(--w); border: none; border-radius: 4px; cursor: pointer; transition: all .2s; text-decoration: none; }
-.sdjBtn:hover { background: #e5e5e5; }
-.sdjBtnIcon { font-size: 16px; color: var(--bg); }
-.sdjBtnText { font-size: 14px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; color: var(--bg); }
+.sdjBtn { display: flex; align-items: center; gap: 14px; width: 100%; padding: 18px 22px; background: var(--accent); border: none; border-radius: 4px; cursor: pointer; transition: all .2s; text-decoration: none; }
+.sdjBtn:hover { background: #d4e800; }
+.sdjBtnIcon { font-size: 16px; color: #000; }
+.sdjBtnText { font-size: 14px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; color: #000; }
 
 /* TABS SÉANCES */
 .tabs { display: flex; gap: 0; margin-bottom: 0; margin-top: 24px; }

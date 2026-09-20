@@ -29,7 +29,8 @@
   body {
     background: #080808;
     color: #f0ede8;
-    font-family: var(--font-sans);
+    /* Corps de texte ECM : Barlow partout (--font-barlow est chargé dans le layout racine). */
+    font-family: var(--font-barlow, var(--font-sans));
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
   }
@@ -52,7 +53,8 @@
     letter-spacing: 0.02em;
   }
   .label {
-    font-family: var(--font-mono);
+    /* Labels / badges ECM : Barlow Condensed uppercase. */
+    font-family: var(--font-barlow-condensed, var(--font-mono));
     text-transform: uppercase;
     letter-spacing: 0.18em;
     font-size: 11px;

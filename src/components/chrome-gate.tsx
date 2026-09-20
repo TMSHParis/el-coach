@@ -18,6 +18,7 @@ const BARE_PREFIX_ROUTES = [
   "/progress",
   "/history",
   "/account",
+  "/mindset",
 ];
 // /dashboard seul (pas /dashboard/session, qui garde le chrome du site).
 const BARE_EXACT_ROUTES = ["/dashboard"];

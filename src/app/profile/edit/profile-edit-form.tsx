@@ -102,7 +102,7 @@ export function ProfileEditForm() {
         {/* Personnel */}
         <div className={styles.qc}>
           <div className={styles.ql}>
-            <i>👤</i> Prénom &amp; Âge
+            <i>👤</i> Prénom &amp; date de naissance
           </div>
           <div className={styles.nr} style={{ gap: 8, marginBottom: 8 }}>
             <input
@@ -113,13 +113,13 @@ export function ProfileEditForm() {
               onChange={(e) => setField({ prenom: e.target.value })}
             />
             <input
-              className={cx(styles.ecmInput, styles.ecmNum)}
-              type="number"
-              style={{ flex: 1 }}
-              value={profile.age}
-              onChange={(e) => setField({ age: e.target.value })}
+              className={styles.ecmInput}
+              type="date"
+              style={{ flex: 2 }}
+              max={new Date().toISOString().slice(0, 10)}
+              value={profile.dateNaissance}
+              onChange={(e) => setField({ dateNaissance: e.target.value })}
             />
-            <span className={styles.nu}>ans</span>
           </div>
         </div>
         <div className={styles.qc}>

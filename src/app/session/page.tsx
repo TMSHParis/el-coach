@@ -7,6 +7,7 @@ import type { Day } from "@/lib/programming";
 import { adaptDayForInjuries, detectInjuryAreas, reduceVolume } from "@/lib/session-adapt";
 import { toDisplayBlocks, defaultRuntimeFormat, defaultDurationMinutes } from "@/lib/session-format";
 import { minutesToHM } from "../dashboard/dashboard-helpers";
+import { buildAdviceSession, type StoredAdvice } from "@/lib/advice-session";
 import { SessionRunnerV2 } from "./session-runner-v2";
 import { sessionFontVariables } from "./session-fonts";
 
@@ -35,7 +36,27 @@ export default async function SessionPage({
       ])
     : [null, null, null];
 
-  const generatedDay = (dbOutput?.output as { generatedDay?: Day } | null)?.generatedDay;
+  const output = dbOutput?.output as { generatedDay?: Day; mode?: string; advice?: StoredAdvice } | null;
+
+  // Jour hors ECM (sport libre) ou repos : la séance est la routine en 3 blocs
+  // générée au check-in — même moteur de chrono, sans variante allégée.
+  if (output?.mode === "advice" && output.advice) {
+    const advice = buildAdviceSession(todayCheckin?.seance ?? null, output.advice);
+    return (
+      <div className={sessionFontVariables}>
+        <SessionRunnerV2
+          sessionName={advice.titre}
+          sessionMeta={`${advice.dureeEstimee} · ${advice.blocks.length} blocs`}
+          blocks={advice.blocks}
+          initial={advice.blocks.map(() => ({ format: "nft" as const, durationMin: 10, tabataRounds: 8 }))}
+          date={todayKey()}
+          variant="A"
+        />
+      </div>
+    );
+  }
+
+  const generatedDay = output?.generatedDay;
 
   // Sans séance générée, on retombe sur le programme fixe hebdomadaire — mêmes
   // garde-fous qu'avant (jour adaptatif pas encore calibré / jour de repos).

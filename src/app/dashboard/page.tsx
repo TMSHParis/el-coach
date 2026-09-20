@@ -39,14 +39,12 @@ type EcmDashboardOutput = {
   sessionMessageDuration?: string;
 };
 
-type Advice = { warmupTips: string[]; preventionTips: string[]; mindsetMessage: string };
-
 /** Activité hors des 5 programmes ECM (ou repos) — même dashboard complet, le bloc
  * séance affiche les conseils au lieu de Séance A/B. Les champs d'analyse sont
  * absents sur les lignes générées avant sept. 2026 (repli sur le moteur mock). */
 type AdviceDashboardOutput = Partial<Omit<EcmDashboardOutput, "mode" | "generatedDay">> & {
   mode: "advice";
-  advice: Advice;
+  advice: StoredAdvice;
   generatedAt: string;
 };
 
@@ -54,7 +52,8 @@ type DashboardOutputJson = EcmDashboardOutput | AdviceDashboardOutput;
 import { BackHomeButton } from "@/components/back-home-button";
 import type { Day } from "@/lib/programming";
 import { toDisplayBlocks } from "@/lib/session-format";
-import { isRestDay as isReposSeance } from "@/lib/ecm-engine";
+import { buildAdviceSession, type StoredAdvice } from "@/lib/advice-session";
+import { AdviceSessionPanel } from "./advice-session-panel";
 import { adaptDayForInjuries, detectInjuryAreas, reduceVolume, substitutionMessage } from "@/lib/session-adapt";
 import { minutesToHM, ETAT_LABELS, sleepPhaseBadge, trendColor } from "./dashboard-helpers";
 import { dashboardFontVariables } from "./dashboard-fonts";
@@ -120,6 +119,7 @@ export default async function DashboardPage() {
 
   // Sport hors ECM ou repos : même dashboard, seul le bloc séance change.
   const advice = real?.mode === "advice" ? real.advice : null;
+  const adviceSession = advice ? buildAdviceSession(todayCheckin?.seance ?? null, advice) : null;
   const generatedDay = real?.mode === "advice" ? undefined : real?.generatedDay;
 
   const checkinDates = recentCheckinRows.map((c) => c.date);
@@ -145,8 +145,16 @@ export default async function DashboardPage() {
   const weight = real?.weight ?? buildWeightInsight(fatigueScore);
   const stack = real?.stack ? normalizeStackOrder(real.stack, fatigueScore) : buildStack4Moments(fatigueScore);
   const baseAlerts = real?.alerts ?? buildAlerts(fatigueScore, sleep);
+  // Une alerte par problème : on retire les doublons de message et celle déjà
+  // affichée dans la carte sommeil (elle y apparaissait une 2e fois ici).
+  const sleepCardAlert = sleep.alerts[0];
+  const seenMessages = new Set<string>(sleepCardAlert ? [sleepCardAlert] : []);
   const alerts: Alert[] = [
-    ...baseAlerts,
+    ...baseAlerts.filter((a) => {
+      if (seenMessages.has(a.message)) return false;
+      seenMessages.add(a.message);
+      return true;
+    }),
     ...substitutions.map((s) => ({
       level: "info" as const,
       category: "injury" as const,
@@ -189,7 +197,7 @@ export default async function DashboardPage() {
               >
                 ✓ SÉANCE TERMINÉE{real.sessionMessageDuration ? ` · ${real.sessionMessageDuration}` : ""}
               </div>
-              <div style={{ fontFamily: "var(--font-dm-sans, sans-serif)", fontSize: 14, color: "#fff", lineHeight: 1.5 }}>
+              <div style={{ fontFamily: "var(--font-barlow, sans-serif)", fontSize: 14, color: "#fff", lineHeight: 1.5 }}>
                 {real.sessionMessage}
               </div>
             </div>
@@ -347,8 +355,34 @@ export default async function DashboardPage() {
           </div>
 
           {/* SÉANCE DU JOUR — contenu selon le check-in, structure identique */}
-          {advice ? (
-            <AdviceSession seance={todayCheckin?.seance ?? null} advice={advice} />
+          {adviceSession ? (
+            <>
+              <div className={styles.sdj}>
+                <div className={styles.sdjLabel}>
+                  {adviceSession.repos
+                    ? "[ REPOS ACTIF ]"
+                    : `[ SÉANCE DU JOUR — ${adviceSession.titre.toUpperCase()} ]`}
+                </div>
+                <div className={styles.sdjTitle}>
+                  {adviceSession.emoji ? `${adviceSession.emoji} ` : ""}
+                  {adviceSession.titre}
+                </div>
+                <div className={styles.sdjMeta}>
+                  <span>
+                    {adviceSession.dureeEstimee} · {adviceSession.blocks.length} blocs
+                  </span>
+                </div>
+                <Link href="/session" className={styles.sdjBtn}>
+                  <span className={styles.sdjBtnIcon}>▷</span>
+                  <span className={styles.sdjBtnText}>Démarrer la séance</span>
+                </Link>
+              </div>
+              <AdviceSessionPanel
+                nom={adviceSession.titre}
+                duree={adviceSession.dureeEstimee}
+                blocs={adviceSession.blocks}
+              />
+            </>
           ) : (
             <>
               <div className={styles.sdj}>
@@ -487,53 +521,6 @@ function CheckinPendingState({
       </Link>
     </section>
   );
-}
-
-/** Bloc séance d'un jour hors ECM (sport libre) ou de repos — remplace Séance A/B. */
-function AdviceSession({ seance, advice }: { seance: string | null; advice: Advice }) {
-  const repos = isReposSeance(seance);
-  const sport = seance ? stripLeadingEmoji(seance) : "";
-  const sections = repos
-    ? [
-        { label: "Récupération", tips: advice.warmupTips },
-        { label: "Points de vigilance", tips: advice.preventionTips },
-      ]
-    : [
-        { label: "Échauffement", tips: advice.warmupTips },
-        { label: "Prévention des blessures", tips: advice.preventionTips },
-      ];
-  return (
-    <>
-      <div className={styles.sdj}>
-        <div className={styles.sdjLabel}>{repos ? "[ REPOS ACTIF ]" : `[ SÉANCE DU JOUR — ${sport.toUpperCase()} ]`}</div>
-        <div className={styles.sdjTitle}>{repos ? "Récupération" : sport}</div>
-        <div className={styles.sdjMeta}>
-          <span>{repos ? "Récupération · vigilance · mindset" : "Échauffement · prévention · mindset"}</span>
-        </div>
-      </div>
-      {sections.map((sec) => (
-        <div key={sec.label} className={styles.snackCard} style={{ background: "var(--s)", borderColor: "var(--bd)" }}>
-          <div className={styles.snackTitle} style={{ color: "var(--w)" }}>
-            {sec.label}
-          </div>
-          <ul className={styles.snackContent} style={{ margin: 0, paddingLeft: 18 }}>
-            {sec.tips.map((tip, i) => (
-              <li key={i}>{tip}</li>
-            ))}
-          </ul>
-        </div>
-      ))}
-      <div className={styles.snackCard}>
-        <div className={styles.snackTitle}>{repos ? "Mindset récupération" : "Mindset"}</div>
-        <div className={styles.snackContent}>{advice.mindsetMessage}</div>
-      </div>
-    </>
-  );
-}
-
-/** "🥊 Boxe" → "Boxe" (libellés du <select> du check-in préfixés d'un emoji). */
-function stripLeadingEmoji(label: string): string {
-  return label.replace(/^[^\p{L}\p{N}]+/u, "").trim() || label;
 }
 
 function SleepPhaseRow({

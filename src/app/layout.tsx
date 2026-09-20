@@ -7,6 +7,7 @@ import { Nav } from "@/components/nav";
 import { Footer } from "@/components/footer";
 import { ChromeGate } from "@/components/chrome-gate";
 import { NavigationTracker } from "@/components/back-home-button";
+import { ecmFontVariables } from "@/app/signup/ecm-fonts";
 import "./globals.css";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
@@ -30,7 +31,7 @@ const clerkLocalization = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const shell = (
-    <html lang="fr" className={`${geistSans.variable} ${geistMono.variable}`}>
+    <html lang="fr" className={`${geistSans.variable} ${geistMono.variable} ${ecmFontVariables}`}>
       <body className="min-h-screen antialiased">
         <NavigationTracker />
         <ChromeGate>

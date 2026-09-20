@@ -233,7 +233,8 @@ export type EcmObjectifDetail = {
 
 export type EcmProfileCookie = {
   prenom: string;
-  age: string;
+  /** Date de naissance au format YYYY-MM-DD (l'âge en est déduit). */
+  dateNaissance: string;
   taille: string;
   poids: string;
   /** 0 à 2 objectifs sélectionnés (avec sous-catégorie/deadline/priorité) — persistés en objectif_1_* / objectif_2_*. */
@@ -316,12 +317,19 @@ export async function submitEcmSignup(
   return { ok: true, firstName };
 }
 
+/** "1990-04-23" → Date (UTC, sans heure) · chaîne vide ou invalide → null. */
+function parseDateNaissance(value: string): Date | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const date = new Date(`${value}T00:00:00.000Z`);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
 async function persistEcmProfile(profile: EcmProfileCookie): Promise<void> {
   const userId = await ensureUserId();
 
   const data = {
     prenom: profile.prenom,
-    age: parseInt(profile.age, 10) || 0,
+    dateNaissance: parseDateNaissance(profile.dateNaissance),
     taille: parseInt(profile.taille, 10) || 0,
     poids: parseFloat(profile.poids) || 0,
     objectif: profile.objectifs[0]?.type ?? "",
@@ -406,7 +414,7 @@ function emptyWeekCycleRow(): WeekCycle {
 function profileRowToCookie(row: Profile): EcmProfileCookie {
   return {
     prenom: row.prenom,
-    age: String(row.age),
+    dateNaissance: row.dateNaissance ? row.dateNaissance.toISOString().slice(0, 10) : "",
     taille: String(row.taille),
     poids: String(row.poids),
     objectifs: [

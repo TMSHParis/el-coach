@@ -10,8 +10,10 @@ import {
   buildWeightFromCheckins,
   generateEcmAnalysis,
   generateNonEcmAdvice,
+  generateMindsetMessage,
   extractMainLift,
   isRestDay,
+  type NonEcmAdvice,
   type EcmAnalysisResult,
   type EcmStateAnalysisResult,
 } from "@/lib/ecm-engine";
@@ -95,21 +97,39 @@ function isEcmProgram(seance: string | null | undefined): boolean {
   return Boolean(seance && SPORT_LABEL_TO_SLUG[seance]);
 }
 
-const FALLBACK_ADVICE = {
-  warmupTips: ["Échauffement articulaire général, 5 à 10 minutes.", "Monte l'intensité progressivement avant l'effort principal."],
-  preventionTips: ["Hydrate-toi avant et pendant l'effort.", "Arrête ou ralentis en cas de douleur inhabituelle."],
-  mindsetMessage: "Fais de ton mieux aujourd'hui, à ton rythme.",
+const FALLBACK_ADVICE: NonEcmAdvice = {
+  dureeEstimee: "45-60 min",
+  warmup: [
+    { nom: "Mobilité articulaire générale", duree: "5 min" },
+    { nom: "Montée progressive en intensité", duree: "5 min" },
+    { nom: "Activation gainage et fessiers", duree: "3 min" },
+  ],
+  prevention: ["Hydrate-toi avant et pendant l'effort.", "Arrête ou ralentis en cas de douleur inhabituelle."],
+  mindset: "Fais de ton mieux aujourd'hui, à ton rythme.",
 };
 
-const FALLBACK_REST_ADVICE = {
-  warmupTips: [
-    "Étirements doux 10 à 15 minutes, sans forcer.",
-    "Bois régulièrement dans la journée (au moins 2 litres).",
-    "Vise une nuit complète ce soir, écrans coupés une heure avant.",
+const FALLBACK_REST_ADVICE: NonEcmAdvice = {
+  dureeEstimee: "20-30 min",
+  warmup: [
+    { nom: "Étirements doux, sans forcer", duree: "10-15 min" },
+    { nom: "Marche tranquille", duree: "20 min" },
+    { nom: "Hydratation régulière sur la journée", duree: "2 L" },
   ],
-  preventionTips: ["Évite les efforts intenses aujourd'hui.", "Surveille toute douleur qui persiste au repos."],
-  mindsetMessage: "Le repos fait partie de l'entraînement. Tu progresses aussi aujourd'hui.",
+  prevention: ["Évite les efforts intenses aujourd'hui.", "Surveille toute douleur qui persiste au repos."],
+  mindset: "Le repos fait partie de l'entraînement. Tu progresses aussi aujourd'hui.",
 };
+
+/** Message mindset de repli (sans Claude) — ton calé sur l'énergie du check-in. */
+function fallbackMindset(prenom: string, payload: { energie: number | null; seance: string | null }): string {
+  const nom = prenom || "Athlète";
+  if (isRestDay(payload.seance)) {
+    return `Jour de repos, ${nom}. Récupère bien — c'est là que le vrai travail se fait.`;
+  }
+  const energie = payload.energie ?? 5;
+  if (energie >= 8) return `${nom}, t'es dans le vert aujourd'hui. Profites-en pour pousser les limites.`;
+  if (energie >= 5) return `Pas le meilleur jour, ${nom}. Mais tu t'es levé et tu vas le faire. C'est ça qui compte.`;
+  return `${nom}, ton corps est dans le rouge. Séance légère aujourd'hui. Pas d'ego.`;
+}
 
 /** Analyse déterministe (moteur mock) quand l'appel Claude échoue. */
 function fallbackAnalysis(fatigueScore: number, sleep: SleepInsight) {
@@ -252,6 +272,13 @@ async function persistCheckinAndGenerateDashboard(payload: CheckinPayload, fatig
   const sleep = buildSleepFromCheckins(recentCheckins);
   const weight = buildWeightFromCheckins(recentCheckins);
 
+  // Message mindset de la page intermédiaire post-check-in — best effort,
+  // repli déterministe si Claude échoue (la page ne doit jamais rester vide).
+  const mindsetPromise = generateMindsetMessage({ profile, checkin }).catch((err) => {
+    console.error("generateMindsetMessage a échoué, repli sur un message générique:", err);
+    return fallbackMindset(profile.prenom, checkin);
+  });
+
   // Activité hors des 5 programmes ECM (ou repos) → même dashboard complet
   // (score, stack, alertes, en-cas, sommeil, poids), seul le bloc séance change :
   // conseils échauffement/prévention/mindset (ou récupération/vigilance/mindset
@@ -270,6 +297,7 @@ async function persistCheckinAndGenerateDashboard(payload: CheckinPayload, fatig
     const output = {
       mode: "advice" as const,
       ...analysis,
+      mindsetMessage: await mindsetPromise,
       alerts: [...sleepAlertsFrom(sleep), ...analysis.alerts],
       sleep,
       weight,
@@ -315,6 +343,7 @@ async function persistCheckinAndGenerateDashboard(payload: CheckinPayload, fatig
 
   const output = {
     mode: "ecm" as const,
+    mindsetMessage: await mindsetPromise,
     ecm: analysis.ecm,
     recommendedVariant: analysis.recommendedVariant,
     recommendedReason: analysis.recommendedReason,

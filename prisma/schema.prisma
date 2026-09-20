@@ -12,7 +12,8 @@ model Profile {
   userId String @unique @map("user_id")
 
   prenom            String
-  age               Int
+  // Date de naissance (l'âge est calculé à la volée, plus jamais stocké).
+  dateNaissance     DateTime? @map("date_naissance") @db.Date
   taille            Int
   poids             Float
   objectif          String  @map("objectif_1")

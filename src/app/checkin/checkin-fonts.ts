@@ -1,4 +1,4 @@
-import { Bebas_Neue, DM_Sans } from "next/font/google";
+import { Bebas_Neue, Barlow, Barlow_Condensed } from "next/font/google";
 
 export const bebasNeue = Bebas_Neue({
   weight: "400",
@@ -6,10 +6,16 @@ export const bebasNeue = Bebas_Neue({
   variable: "--font-bebas",
 });
 
-export const dmSans = DM_Sans({
+export const barlow = Barlow({
   weight: ["400", "500", "600"],
   subsets: ["latin"],
-  variable: "--font-dm-sans",
+  variable: "--font-barlow",
 });
 
-export const checkinFontVariables = `${bebasNeue.variable} ${dmSans.variable}`;
+export const barlowCondensed = Barlow_Condensed({
+  weight: ["300", "400", "600", "700"],
+  subsets: ["latin"],
+  variable: "--font-barlow-condensed",
+});
+
+export const checkinFontVariables = `${bebasNeue.variable} ${barlow.variable} ${barlowCondensed.variable}`;

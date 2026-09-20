@@ -17,7 +17,7 @@
 
   background: var(--bg);
   color: var(--t);
-  font-family: var(--font-dm-sans);
+  font-family: var(--font-barlow);
   min-height: 100vh;
   overflow-x: hidden;
   -webkit-tap-highlight-color: transparent;
@@ -138,7 +138,7 @@
 .roundCounter span { color: var(--w); font-weight: 700; }
 
 .timerControls { display: flex; gap: 7px; }
-.tcBtn { flex: 1; padding: 13px 6px; border: none; border-radius: 4px; font-family: var(--font-dm-sans); font-size: 11px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; cursor: pointer; transition: all .2s; display: flex; align-items: center; justify-content: center; gap: 5px; }
+.tcBtn { flex: 1; padding: 13px 6px; border: none; border-radius: 4px; font-family: var(--font-barlow); font-size: 11px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; cursor: pointer; transition: all .2s; display: flex; align-items: center; justify-content: center; gap: 5px; }
 .tcBtn:active { transform: scale(.96); }
 .tcStart { background: var(--g); color: #000; }
 .tcStart:hover { background: var(--gl); }
@@ -167,7 +167,7 @@
 .bbStat { text-align: center; }
 .bbVal { font-family: var(--font-bebas); font-size: 22px; color: var(--w); line-height: 1; }
 .bbLabel { font-size: 9px; color: var(--m); text-transform: uppercase; letter-spacing: 1px; }
-.bbBtn { width: 100%; padding: 15px; border: none; border-radius: 4px; font-family: var(--font-dm-sans); font-size: 14px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; cursor: pointer; transition: all .2s; }
+.bbBtn { width: 100%; padding: 15px; border: none; border-radius: 4px; font-family: var(--font-barlow); font-size: 14px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; cursor: pointer; transition: all .2s; }
 .bbNext { background: var(--g); color: #000; }
 .bbFinish { background: var(--green); color: #000; }
 
@@ -183,4 +183,4 @@
 .ssCard { background: var(--s); border: 1px solid var(--bd); border-radius: 4px; padding: 16px 8px; text-align: center; }
 .ssVal { font-family: var(--font-bebas); font-size: 26px; color: var(--g); line-height: 1; }
 .ssLabel { font-size: 9px; color: var(--m); text-transform: uppercase; letter-spacing: 1px; margin-top: 4px; }
-.successBtn { width: 100%; max-width: 360px; padding: 17px; border: none; border-radius: 4px; font-family: var(--font-dm-sans); font-size: 14px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; background: var(--g); color: #000; cursor: pointer; text-decoration: none; display: inline-block; }
+.successBtn { width: 100%; max-width: 360px; padding: 17px; border: none; border-radius: 4px; font-family: var(--font-barlow); font-size: 14px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; background: var(--g); color: #000; cursor: pointer; text-decoration: none; display: inline-block; }
