@@ -20,6 +20,8 @@ export type SessionResultPayload = {
   blocs: SessionBlocResult[];
   /** Durée totale de la séance (secondes) — sert au message de félicitations. */
   durationSec: number;
+  /** Part des mouvements cochés (0 à 1). */
+  completionRate?: number;
 };
 
 function formatDurationLabel(totalSec: number): string {
@@ -30,14 +32,23 @@ function formatDurationLabel(totalSec: number): string {
 }
 
 /** Enregistre les résultats de la séance terminée — best effort, ne bloque jamais la fin de séance côté UI. */
-export async function saveSessionResult(payload: SessionResultPayload): Promise<{ ok: true } | { ok: false }> {
+export async function saveSessionResult(
+  payload: SessionResultPayload,
+): Promise<{ ok: true; message: string | null } | { ok: false }> {
   const userId = await getUserId();
   if (!userId) return { ok: false };
+  const row = {
+    variant: payload.variant,
+    completed: true,
+    data: { blocs: payload.blocs },
+    completionRate: payload.completionRate ?? null,
+    durationSec: payload.durationSec,
+  };
   try {
     await prisma.session.upsert({
       where: { userId_date: { userId, date: payload.date } },
-      create: { userId, date: payload.date, variant: payload.variant, completed: true, data: { blocs: payload.blocs } },
-      update: { variant: payload.variant, completed: true, data: { blocs: payload.blocs } },
+      create: { userId, date: payload.date, ...row },
+      update: row,
     });
   } catch (err) {
     console.error("saveSessionResult: échec de l'enregistrement de la séance:", err);
@@ -45,17 +56,17 @@ export async function saveSessionResult(payload: SessionResultPayload): Promise<
   }
 
   // Message de félicitations — best effort, une erreur ici ne doit jamais
-  // empêcher l'écran de fin de séance de s'afficher.
+  // empêcher l'écran de fin de séance de s'afficher (il est aussi affiché sur
+  // le dashboard, où il est stocké avec le plan du jour).
   try {
-    await generateAndStoreCongrats(userId, payload);
+    return { ok: true, message: await generateAndStoreCongrats(userId, payload) };
   } catch (err) {
     console.error("saveSessionResult: échec de la génération du message de félicitations:", err);
+    return { ok: true, message: null };
   }
-
-  return { ok: true };
 }
 
-async function generateAndStoreCongrats(userId: string, payload: SessionResultPayload): Promise<void> {
+async function generateAndStoreCongrats(userId: string, payload: SessionResultPayload): Promise<string | null> {
   const [profile, checkin, dashboardOutput, previousOutput] = await Promise.all([
     prisma.profile.findUnique({ where: { userId } }),
     prisma.checkin.findUnique({ where: { userId_date: { userId, date: payload.date } } }),
@@ -69,7 +80,7 @@ async function generateAndStoreCongrats(userId: string, payload: SessionResultPa
   // Pas de profil/checkin/dashboardOutput pour aujourd'hui = état incohérent
   // (ne devrait pas arriver, /session n'est accessible qu'après check-in) —
   // best effort, on abandonne silencieusement plutôt que de planter.
-  if (!profile || !checkin || !dashboardOutput) return;
+  if (!profile || !checkin || !dashboardOutput) return null;
 
   const previousMessage = (previousOutput?.output as { sessionMessage?: string } | null)?.sessionMessage ?? null;
   const durationLabel = formatDurationLabel(payload.durationSec);
@@ -91,4 +102,5 @@ async function generateAndStoreCongrats(userId: string, payload: SessionResultPa
     where: { userId_date: { userId, date: payload.date } },
     data: { output: output as Prisma.InputJsonValue },
   });
+  return message;
 }

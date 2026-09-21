@@ -283,7 +283,7 @@ export default async function DashboardPage() {
               </div>
             </div>
             <div className={styles.phases}>
-              <SleepPhaseRow color="#3B82F6" name="Sommeil lent" minutes={sleepLightMinutes(sleep.lastNight)} totalMinutes={sleep.lastNight.totalMinutes} kind="lent" />
+              <SleepPhaseRow color="#3B82F6" name="Sommeil lent" minutes={sleep.lastNight.lightMinutes} totalMinutes={sleep.lastNight.totalMinutes} kind="lent" />
               <SleepPhaseRow color="#38bdf8" name="Paradoxal (REM)" minutes={sleep.lastNight.remMinutes} totalMinutes={sleep.lastNight.totalMinutes} kind="rem" />
               <SleepPhaseRow color="#818cf8" name="Profond" minutes={sleep.lastNight.deepMinutes} totalMinutes={sleep.lastNight.totalMinutes} kind="profond" />
               <SleepPhaseRow color="#ef4444" name="Éveil" minutes={sleep.lastNight.awakeMinutes} totalMinutes={sleep.lastNight.totalMinutes} kind="eveil" />
@@ -549,10 +549,6 @@ function SleepPhaseRow({
       <div className={cx(styles.phBadge, styles[cls])}>{badge}</div>
     </div>
   );
-}
-
-function sleepLightMinutes(night: { totalMinutes: number; deepMinutes: number; remMinutes: number; awakeMinutes: number }): number {
-  return Math.max(0, night.totalMinutes - night.deepMinutes - night.remMinutes - night.awakeMinutes);
 }
 
 function alertCls(level: "info" | "warning" | "critical"): "alertRed" | "alertYellow" | "alertPurple" {

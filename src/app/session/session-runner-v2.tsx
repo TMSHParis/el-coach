@@ -1,12 +1,23 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { DisplayBlock } from "@/lib/session-format";
 import type { BlockType } from "@/lib/programming";
 import styles from "./session.module.css";
 import { SessionItemRow } from "../dashboard/session-item-row";
 import { saveSessionResult, type SessionBlocResult } from "./actions";
+import {
+  ensureAudio,
+  soundEnd,
+  soundRest,
+  soundStart,
+  soundTick,
+  soundTransition,
+  soundWork,
+  speak,
+  vibrate,
+} from "@/lib/session-audio";
 
 const cx = (...classes: (string | false | undefined)[]) => classes.filter(Boolean).join(" ");
 
@@ -20,51 +31,73 @@ const FORMAT_LABELS: Record<RuntimeFormat, string> = {
   tabata: "Tabata",
 };
 
-const TABATA_WORK = 20;
-const TABATA_REST = 10;
+const COUNTDOWN_SEC = 10;
+const TICK_MS = 200;
 
 /** Blocs où la saisie se fait par exercice (charge × reps, plusieurs séries). */
 const SERIES_RESULT_TYPES: BlockType[] = ["strength", "accessory", "skill"];
-/** Blocs où la saisie se fait une fois pour tout le bloc (temps/rounds/score). */
-const WOD_RESULT_TYPES: BlockType[] = ["wod", "conditioning", "endurance"];
+/** Blocs où la saisie se fait une fois pour tout le bloc (temps/rounds/reps bonus). */
+const WOD_RESULT_TYPES: BlockType[] = ["wod", "conditioning"];
+/** Blocs cardio : un temps par exercice. */
+const TIME_RESULT_TYPES: BlockType[] = ["endurance"];
 
 type ExerciseSerie = { charge: string; reps: string };
 
 type BlocState = {
-  sec: number;
+  /** Instant du dernier démarrage (ms epoch) — le chrono se recalcule depuis l'horloge,
+   * il continue donc à tourner quand l'app passe en arrière-plan. */
+  startedAt: number | null;
+  /** Temps déjà écoulé avant la pause en cours (ms). */
+  accumulatedMs: number;
   running: boolean;
   done: boolean;
-  finalTime: string;
+  finalSec: number;
   format: RuntimeFormat;
   durationMin: number;
+  workSec: number;
+  restSec: number;
   tabataRounds: number;
-  tabataPhase: "work" | "rest";
-  tabataRound: number;
-  tabataSec: number;
+  /** Fin du compte à rebours de départ (ms epoch), null hors compte à rebours. */
+  countdownEndsAt: number | null;
   open: boolean;
-  /** Séries (charge/reps) par exercice du bloc — uniquement pour les blocs SERIES_RESULT_TYPES. */
+  /** Mouvements cochés du bloc. */
+  checked: boolean[];
   exerciseSeries: ExerciseSerie[][];
-  /** Résultat global du bloc — uniquement pour les blocs WOD_RESULT_TYPES. */
+  exerciseTimes: string[];
   temps: string;
   rounds: string;
   score: string;
 };
 
 function fmtMS(totalSec: number): string {
-  const m = Math.floor(totalSec / 60);
-  const s = totalSec % 60;
+  const m = Math.floor(Math.max(0, totalSec) / 60);
+  const s = Math.max(0, totalSec) % 60;
   return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
 function fmtHMS(totalSec: number): string {
-  const h = Math.floor(totalSec / 3600);
-  const m = Math.floor((totalSec % 3600) / 60);
-  const s = totalSec % 60;
+  const t = Math.max(0, totalSec);
+  const h = Math.floor(t / 3600);
+  const m = Math.floor((t % 3600) / 60);
+  const s = t % 60;
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
-function vibrate(pattern: number[]) {
-  if (typeof navigator !== "undefined" && navigator.vibrate) navigator.vibrate(pattern);
+/** Temps écoulé du bloc, calculé depuis l'horloge (pas un compteur incrémenté). */
+function elapsedSec(b: BlocState, now: number): number {
+  const runningMs = b.running && b.startedAt ? now - b.startedAt : 0;
+  return Math.max(0, Math.floor((b.accumulatedMs + runningMs) / 1000));
+}
+
+type TabataView = { round: number; phase: "work" | "rest"; remaining: number; finished: boolean };
+
+function tabataView(b: BlocState, elapsed: number): TabataView {
+  const cycle = Math.max(1, b.workSec + b.restSec);
+  const round = Math.floor(elapsed / cycle) + 1;
+  const inCycle = elapsed % cycle;
+  const phase: "work" | "rest" = inCycle < b.workSec ? "work" : "rest";
+  const remaining = phase === "work" ? b.workSec - inCycle : cycle - inCycle;
+  return { round, phase, remaining, finished: round > b.tabataRounds };
 }
 
 export function SessionRunnerV2({
@@ -83,190 +116,289 @@ export function SessionRunnerV2({
   variant: "A" | "B";
 }) {
   const router = useRouter();
-  const [blocks, setBlocks] = useState<BlocState[]>(() =>
-    initial.map((cfg, i) => {
-      const type = blockData[i]?.type;
-      const isSeries = type && SERIES_RESULT_TYPES.includes(type);
-      return {
-        sec: 0,
-        running: false,
-        done: false,
-        finalTime: "",
-        format: cfg.format,
-        durationMin: cfg.durationMin,
-        tabataRounds: cfg.tabataRounds,
-        tabataPhase: "work",
-        tabataRound: 1,
-        tabataSec: TABATA_WORK,
-        open: i === 0,
-        exerciseSeries: isSeries ? blockData[i].items.map(() => [{ charge: "", reps: "" }]) : [],
-        temps: "",
-        rounds: "",
-        score: "",
-      };
-    }),
-  );
-  const [globalSec, setGlobalSec] = useState(0);
-  const [sessionDone, setSessionDone] = useState(false);
-  const [resultsSaved, setResultsSaved] = useState(false);
-  const intervalsRef = useRef<Record<number, ReturnType<typeof setInterval>>>({});
-  const blocRefs = useRef<Record<number, HTMLDivElement | null>>({});
+  const storageKey = `elc_session_${date}`;
 
-  // Chrono global
+  const makeInitial = useCallback(
+    (): BlocState[] =>
+      initial.map((cfg, i) => {
+        const type = blockData[i]?.type;
+        const items = blockData[i]?.items ?? [];
+        return {
+          startedAt: null,
+          accumulatedMs: 0,
+          running: false,
+          done: false,
+          finalSec: 0,
+          format: cfg.format,
+          durationMin: cfg.durationMin,
+          workSec: 20,
+          restSec: 10,
+          tabataRounds: cfg.tabataRounds,
+          countdownEndsAt: null,
+          open: i === 0,
+          checked: items.map(() => false),
+          exerciseSeries: type && SERIES_RESULT_TYPES.includes(type) ? items.map(() => [{ charge: "", reps: "" }]) : [],
+          exerciseTimes: items.map(() => ""),
+          temps: "",
+          rounds: "",
+          score: "",
+        };
+      }),
+    [blockData, initial],
+  );
+
+  const [blocks, setBlocks] = useState<BlocState[]>(makeInitial);
+  const [sessionStartedAt, setSessionStartedAt] = useState<number>(() => Date.now());
+  const [now, setNow] = useState<number>(() => Date.now());
+  const [restored, setRestored] = useState(false);
+  const [sessionDone, setSessionDone] = useState(false);
+  const [congrats, setCongrats] = useState<string | null>(null);
+  const blocRefs = useRef<Record<number, HTMLDivElement | null>>({});
+  const savedRef = useRef(false);
+
+  // Reprise après un retour dans l'app (ou un rechargement) : tout l'état du
+  // chrono est relu depuis localStorage, les timestamps font le reste.
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(storageKey);
+      if (raw) {
+        const saved = JSON.parse(raw) as { sessionStartedAt: number; blocks: BlocState[] };
+        if (saved.blocks?.length === initial.length && typeof saved.sessionStartedAt === "number") {
+          setBlocks(saved.blocks);
+          setSessionStartedAt(saved.sessionStartedAt);
+        }
+      }
+    } catch {
+      // Stockage indisponible — la séance démarre simplement à zéro.
+    }
+    setRestored(true);
+  }, [storageKey, initial.length]);
+
+  useEffect(() => {
+    if (!restored) return;
+    try {
+      localStorage.setItem(storageKey, JSON.stringify({ sessionStartedAt, blocks }));
+    } catch {
+      // Quota/mode privé — sans persistance, le chrono reste juste tant que l'onglet vit.
+    }
+  }, [blocks, sessionStartedAt, restored, storageKey]);
+
+  // Horloge unique : tous les affichages dérivent de `now`.
   useEffect(() => {
     if (sessionDone) return;
-    const id = setInterval(() => setGlobalSec((s) => s + 1), 1000);
+    const id = setInterval(() => setNow(Date.now()), TICK_MS);
     return () => clearInterval(id);
   }, [sessionDone]);
 
-  // Wake lock — écran allumé pendant la séance
+  // Wake lock — écran allumé pendant toute la séance, réactivé au retour dans l'app.
   useEffect(() => {
     let lock: WakeLockSentinel | null = null;
-    (async () => {
+    let released = false;
+
+    async function request() {
       try {
-        if ("wakeLock" in navigator) {
-          lock = await navigator.wakeLock.request("screen");
-        }
+        if ("wakeLock" in navigator) lock = await navigator.wakeLock.request("screen");
       } catch {
         // Wake Lock non supporté ou refusé — pas bloquant.
       }
-    })();
+    }
+    void request();
+
+    const onVisible = () => {
+      if (document.visibilityState === "visible" && !released) void request();
+    };
+    document.addEventListener("visibilitychange", onVisible);
     return () => {
+      released = true;
+      document.removeEventListener("visibilitychange", onVisible);
       lock?.release().catch(() => {});
     };
   }, []);
 
-  // Nettoyage des intervalles au démontage
-  useEffect(() => {
-    const intervals = intervalsRef.current;
-    return () => {
-      Object.values(intervals).forEach((id) => clearInterval(id));
-    };
+  const finishBloc = useCallback((i: number, endSec?: number) => {
+    setBlocks((prev) =>
+      prev.map((x, idx) => {
+        if (idx !== i) return x;
+        const sec = endSec ?? elapsedSec(x, Date.now());
+        return { ...x, running: false, startedAt: null, accumulatedMs: sec * 1000, done: true, finalSec: sec };
+      }),
+    );
   }, []);
 
-  function clearBlocInterval(i: number) {
-    const id = intervalsRef.current[i];
-    if (id) {
-      clearInterval(id);
-      delete intervalsRef.current[i];
-    }
-  }
+  // Compte à rebours, transitions sonores et fins automatiques.
+  const tickRef = useRef<Record<number, number>>({});
+  const minuteRef = useRef<Record<number, number>>({});
+  const tabataRef = useRef<Record<number, string>>({});
 
-  function startTimer(i: number) {
-    const b = blocks[i];
-    if (b.running || b.done) return;
-    setBlocks((prev) => prev.map((x, idx) => (idx === i ? { ...x, running: true } : x)));
+  useEffect(() => {
+    blocks.forEach((b, i) => {
+      if (b.countdownEndsAt) {
+        const remaining = Math.ceil((b.countdownEndsAt - now) / 1000);
+        if (remaining <= 0) {
+          tickRef.current[i] = -1;
+          soundStart();
+          speak("Go !");
+          vibrate([400]);
+          setBlocks((prev) =>
+            prev.map((x, idx) =>
+              idx === i ? { ...x, countdownEndsAt: null, running: true, startedAt: Date.now() } : x,
+            ),
+          );
+          return;
+        }
+        if (tickRef.current[i] !== remaining) {
+          tickRef.current[i] = remaining;
+          soundTick();
+          vibrate([40]);
+          if (remaining <= 3) speak(String(remaining));
+          else if (remaining === COUNTDOWN_SEC) speak(`Démarrage dans ${COUNTDOWN_SEC} secondes`);
+        }
+        return;
+      }
 
-    intervalsRef.current[i] = setInterval(() => {
-      setBlocks((prev) => {
-        const next = [...prev];
-        const t = { ...next[i] };
-        const fmt = t.format;
+      if (!b.running || b.done) return;
+      const elapsed = elapsedSec(b, now);
 
-        if (fmt === "nft" || fmt === "ft") {
-          t.sec++;
-        } else if (fmt === "amrap") {
-          t.sec++;
-          if (t.sec >= t.durationMin * 60) {
-            finishBloc(i, t);
-            next[i] = t;
-            return next;
-          }
-        } else if (fmt === "emom") {
-          t.sec++;
-          if (t.sec >= t.durationMin * 60) {
-            finishBloc(i, t);
-            next[i] = t;
-            return next;
-          }
-          if (t.sec % 60 === 0) vibrate([100, 50, 100]);
-        } else if (fmt === "tabata") {
-          t.tabataSec--;
-          if (t.tabataSec <= 0) {
-            if (t.tabataPhase === "work") {
-              t.tabataPhase = "rest";
-              t.tabataSec = TABATA_REST;
-              vibrate([50, 30, 50]);
-            } else {
-              t.tabataRound++;
-              if (t.tabataRound > t.tabataRounds) {
-                finishBloc(i, t);
-                next[i] = t;
-                return next;
-              }
-              t.tabataPhase = "work";
-              t.tabataSec = TABATA_WORK;
-              vibrate([100, 50, 100]);
-            }
+      if (b.format === "amrap") {
+        const total = b.durationMin * 60;
+        if (elapsed >= total) {
+          soundEnd();
+          speak("Temps écoulé ! Notez vos rounds.");
+          vibrate([600]);
+          finishBloc(i, total);
+        }
+        return;
+      }
+
+      if (b.format === "emom") {
+        const total = b.durationMin * 60;
+        if (elapsed >= total) {
+          soundEnd();
+          speak("EMOM terminé !");
+          vibrate([600]);
+          finishBloc(i, total);
+          return;
+        }
+        const minute = Math.floor(elapsed / 60) + 1;
+        if (minuteRef.current[i] === undefined) minuteRef.current[i] = minute;
+        else if (minute !== minuteRef.current[i]) {
+          minuteRef.current[i] = minute;
+          soundTransition();
+          speak("Minute suivante !");
+          vibrate([120]);
+        }
+        return;
+      }
+
+      if (b.format === "tabata") {
+        const view = tabataView(b, elapsed);
+        if (view.finished) {
+          soundEnd();
+          speak("Tabata terminé !");
+          vibrate([600]);
+          finishBloc(i, b.tabataRounds * (b.workSec + b.restSec));
+          return;
+        }
+        const key = `${view.round}-${view.phase}`;
+        if (tabataRef.current[i] === undefined) tabataRef.current[i] = key;
+        else if (tabataRef.current[i] !== key) {
+          tabataRef.current[i] = key;
+          vibrate([120]);
+          if (view.phase === "work") {
+            soundWork();
+            speak(view.round === b.tabataRounds ? "Dernier tour !" : "Travail !");
+          } else {
+            soundRest();
+            speak("Repos !");
           }
         }
-        next[i] = t;
-        return next;
-      });
-    }, 1000);
-  }
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [now]);
 
-  /** Marque un bloc terminé (appelé depuis le tick pour auto-finish, ou depuis le bouton). Mute `t` en place. */
-  function finishBloc(i: number, t: BlocState) {
-    clearBlocInterval(i);
-    t.running = false;
-    t.done = true;
-    t.finalTime = fmtMS(t.sec);
-    vibrate([200, 100, 200, 100, 400]);
+  function startTimer(i: number) {
+    ensureAudio(); // geste utilisateur : seul moment où le son peut être autorisé
+    setBlocks((prev) =>
+      prev.map((x, idx) => {
+        if (idx !== i || x.running || x.done || x.countdownEndsAt) return x;
+        // Reprise après pause : pas de nouveau compte à rebours.
+        if (x.accumulatedMs > 0) return { ...x, running: true, startedAt: Date.now() };
+        return { ...x, countdownEndsAt: Date.now() + COUNTDOWN_SEC * 1000 };
+      }),
+    );
   }
 
   function pauseTimer(i: number) {
-    clearBlocInterval(i);
-    setBlocks((prev) => prev.map((x, idx) => (idx === i ? { ...x, running: false } : x)));
+    setBlocks((prev) =>
+      prev.map((x, idx) => {
+        if (idx !== i || !x.running) return x;
+        const acc = x.accumulatedMs + (x.startedAt ? Date.now() - x.startedAt : 0);
+        return { ...x, running: false, startedAt: null, accumulatedMs: acc };
+      }),
+    );
   }
 
   function resetTimer(i: number) {
-    clearBlocInterval(i);
+    tickRef.current[i] = -1;
+    delete minuteRef.current[i];
+    delete tabataRef.current[i];
     setBlocks((prev) =>
       prev.map((x, idx) =>
         idx === i
-          ? { ...x, sec: 0, running: false, done: false, finalTime: "", tabataPhase: "work", tabataRound: 1, tabataSec: TABATA_WORK }
+          ? { ...x, startedAt: null, accumulatedMs: 0, running: false, done: false, finalSec: 0, countdownEndsAt: null }
           : x,
       ),
     );
   }
 
   function doneBloc(i: number) {
-    clearBlocInterval(i);
-    setBlocks((prev) =>
-      prev.map((x, idx) => (idx === i ? { ...x, running: false, done: true, finalTime: fmtMS(x.sec) } : x)),
-    );
-    vibrate([50, 30, 80]);
+    const b = blocks[i];
+    const sec = elapsedSec(b, Date.now());
+    if (b.format === "ft" && b.running) {
+      soundEnd();
+      speak(`Bien joué ! Temps : ${fmtMS(sec)}`);
+      vibrate([600]);
+    } else {
+      soundTransition();
+      vibrate([80]);
+    }
+    finishBloc(i, sec);
+  }
+
+  function cancelCountdown(i: number) {
+    tickRef.current[i] = -1;
+    setBlocks((prev) => prev.map((x, idx) => (idx === i ? { ...x, countdownEndsAt: null } : x)));
   }
 
   function changeFormat(i: number, fmt: RuntimeFormat) {
-    clearBlocInterval(i);
     setBlocks((prev) =>
       prev.map((x, idx) =>
-        idx === i
-          ? { ...x, format: fmt, sec: 0, running: false, tabataPhase: "work", tabataRound: 1, tabataSec: TABATA_WORK }
-          : x,
+        idx === i ? { ...x, format: fmt, startedAt: null, accumulatedMs: 0, running: false, countdownEndsAt: null } : x,
       ),
     );
   }
 
-  function setDurationMin(i: number, val: number) {
-    setBlocks((prev) => prev.map((x, idx) => (idx === i ? { ...x, durationMin: val || 10 } : x)));
-  }
-
-  function setTabataRounds(i: number, val: number) {
-    setBlocks((prev) => prev.map((x, idx) => (idx === i ? { ...x, tabataRounds: val || 8 } : x)));
+  function patchBloc(i: number, patch: Partial<BlocState>) {
+    setBlocks((prev) => prev.map((x, idx) => (idx === i ? { ...x, ...patch } : x)));
   }
 
   function toggleOpen(i: number) {
     setBlocks((prev) => prev.map((x, idx) => (idx === i ? { ...x, open: !x.open } : x)));
   }
 
-  function openBloc(i: number) {
+  const openBloc = useCallback((i: number) => {
     setBlocks((prev) => prev.map((x, idx) => ({ ...x, open: idx === i ? true : x.open })));
-    setTimeout(() => {
-      blocRefs.current[i]?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 100);
+    setTimeout(() => blocRefs.current[i]?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
+  }, []);
+
+  function toggleChecked(blocIdx: number, exIdx: number) {
+    setBlocks((prev) =>
+      prev.map((x, i) =>
+        i === blocIdx ? { ...x, checked: x.checked.map((c, j) => (j === exIdx ? !c : c)) } : x,
+      ),
+    );
+    vibrate([30]);
   }
 
   function addSerie(blocIdx: number, exIdx: number) {
@@ -304,39 +436,34 @@ export function SessionRunnerV2({
     );
   }
 
-  function setWodResult(blocIdx: number, patch: Partial<{ temps: string; rounds: string; score: string }>) {
-    setBlocks((prev) => prev.map((x, i) => (i === blocIdx ? { ...x, ...patch } : x)));
+  function setExerciseTime(blocIdx: number, exIdx: number, value: string) {
+    setBlocks((prev) =>
+      prev.map((x, i) =>
+        i === blocIdx ? { ...x, exerciseTimes: x.exerciseTimes.map((t, j) => (j === exIdx ? value : t)) } : x,
+      ),
+    );
   }
 
   const doneCount = blocks.filter((b) => b.done).length;
   const total = blocks.length;
+  const globalSec = Math.max(0, Math.floor((now - sessionStartedAt) / 1000));
 
-  // Passe au bloc suivant quand un bloc se termine (auto-finish ou bouton) + détecte la fin de séance.
+  const movementsTotal = useMemo(() => blockData.reduce((sum, b) => sum + b.items.length, 0), [blockData]);
+  const movementsDone = blocks.reduce((sum, b) => sum + b.checked.filter(Boolean).length, 0);
+  const completionRate = movementsTotal > 0 ? movementsDone / movementsTotal : 0;
+
+  // Ouvre le bloc suivant quand un bloc se termine, et détecte la fin de séance.
   const prevDoneRef = useRef<boolean[]>(blocks.map((b) => b.done));
   useEffect(() => {
     const prevDone = prevDoneRef.current;
     blocks.forEach((b, i) => {
-      if (b.done && !prevDone[i]) {
-        const nextIdx = i + 1;
-        if (nextIdx < blocks.length && !blocks[nextIdx].done) {
-          openBloc(nextIdx);
-        }
-      }
+      if (b.done && !prevDone[i] && i + 1 < blocks.length && !blocks[i + 1].done) openBloc(i + 1);
     });
     prevDoneRef.current = blocks.map((b) => b.done);
-    if (blocks.every((b) => b.done) && !sessionDone) {
-      setTimeout(() => setSessionDone(true), 600);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [blocks]);
+  }, [blocks, openBloc]);
 
-  function nextBloc() {
-    if (blocks.every((b) => b.done)) {
-      setSessionDone(true);
-      return;
-    }
-    const next = blocks.findIndex((b) => !b.done);
-    if (next >= 0) openBloc(next);
+  function endSession() {
+    setSessionDone(true);
   }
 
   function confirmBack() {
@@ -344,26 +471,23 @@ export function SessionRunnerV2({
       router.push("/dashboard");
       return;
     }
-    if (window.confirm("Quitter la séance ?")) {
-      Object.values(intervalsRef.current).forEach((id) => clearInterval(id));
-      router.push("/dashboard");
-    }
+    if (window.confirm("Quitter la séance ?")) router.push("/dashboard");
   }
 
-  // Enregistre les résultats (charge/reps, temps/rounds/score) une fois la séance
-  // terminée — best effort, ne bloque jamais l'écran de fin même en cas d'échec.
+  // Enregistrement des résultats — best effort, l'écran de fin s'affiche quoi qu'il arrive.
   useEffect(() => {
-    if (!sessionDone || resultsSaved) return;
-    setResultsSaved(true);
+    if (!sessionDone || savedRef.current) return;
+    savedRef.current = true;
     const blocs: SessionBlocResult[] = [];
     blockData.forEach((b, i) => {
       const state = blocks[i];
-      if (state.exerciseSeries.length > 0) {
-        b.items.forEach((it, j) => {
-          const series = (state.exerciseSeries[j] ?? []).filter((s) => s.charge.trim() || s.reps.trim());
-          if (series.length > 0) blocs.push({ bloc: i + 1, nom: it.name, series });
-        });
-      } else if (WOD_RESULT_TYPES.includes(b.type) && (state.temps || state.rounds || state.score)) {
+      b.items.forEach((it, j) => {
+        const series = (state.exerciseSeries[j] ?? []).filter((s) => s.charge.trim() || s.reps.trim());
+        const temps = state.exerciseTimes[j]?.trim();
+        if (series.length > 0) blocs.push({ bloc: i + 1, nom: it.name, series });
+        else if (temps) blocs.push({ bloc: i + 1, nom: it.name, temps });
+      });
+      if (state.temps || state.rounds || state.score) {
         blocs.push({
           bloc: i + 1,
           nom: b.titre,
@@ -373,13 +497,43 @@ export function SessionRunnerV2({
         });
       }
     });
-    saveSessionResult({ date, variant, blocs, durationSec: globalSec }).catch(() => {
-      // Silencieux — l'écran de fin de séance s'affiche quoi qu'il arrive.
-    });
+
+    saveSessionResult({ date, variant, blocs, durationSec: globalSec, completionRate })
+      .then((res) => {
+        if (res.ok && res.message) setCongrats(res.message);
+      })
+      .catch(() => {});
+    try {
+      localStorage.removeItem(storageKey);
+    } catch {
+      // Rien à nettoyer si le stockage est indisponible.
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionDone]);
 
   if (sessionDone) {
+    const results = blockData.flatMap((b, i) => {
+      const state = blocks[i];
+      const lines: string[] = [];
+      b.items.forEach((it, j) => {
+        const series = (state.exerciseSeries[j] ?? []).filter((s) => s.charge.trim() || s.reps.trim());
+        if (series.length > 0) {
+          lines.push(`${it.name} — ${series.map((s) => `${s.charge || "—"} kg × ${s.reps || "—"}`).join(" · ")}`);
+        }
+        const temps = state.exerciseTimes[j]?.trim();
+        if (temps) lines.push(`${it.name} — ${temps}`);
+      });
+      const blocLine = [
+        state.temps && `temps ${state.temps}`,
+        state.rounds && `${state.rounds} rounds`,
+        state.score && `${state.score} reps bonus`,
+      ]
+        .filter(Boolean)
+        .join(" · ");
+      if (blocLine) lines.push(`${b.titre} — ${blocLine}`);
+      return lines.length > 0 ? [{ titre: b.titre, lines }] : [];
+    });
+
     return (
       <div className={styles.sessRoot}>
         <div className={cx(styles.success, styles.show)}>
@@ -401,17 +555,36 @@ export function SessionRunnerV2({
             </div>
             <div className={styles.ssCard}>
               <div className={styles.ssVal}>
-                {doneCount}/{total}
+                {movementsDone}/{movementsTotal}
               </div>
-              <div className={styles.ssLabel}>Blocs</div>
+              <div className={styles.ssLabel}>Mouvements</div>
             </div>
             <div className={styles.ssCard}>
-              <div className={styles.ssVal}>—</div>
-              <div className={styles.ssLabel}>PR jour</div>
+              <div className={styles.ssVal}>{Math.round(completionRate * 100)}%</div>
+              <div className={styles.ssLabel}>Complété</div>
             </div>
           </div>
+
+          {congrats && <div className={styles.congrats}>{congrats}</div>}
+
+          {results.length > 0 && (
+            <div className={styles.summary}>
+              <div className={styles.summaryTitle}>Résultats saisis</div>
+              {results.map((r) => (
+                <div key={r.titre} className={styles.summaryBloc}>
+                  <div className={styles.summaryBlocTitle}>{r.titre}</div>
+                  {r.lines.map((l) => (
+                    <div key={l} className={styles.summaryLine}>
+                      {l}
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          )}
+
           <a href="/dashboard" className={styles.successBtn}>
-            Retour au dashboard →
+            Voir mon dashboard →
           </a>
         </div>
       </div>
@@ -460,18 +633,20 @@ export function SessionRunnerV2({
               currentIndex={blocks.findIndex((x) => !x.done)}
               block={b}
               state={blocks[i]}
+              now={now}
               onToggle={() => toggleOpen(i)}
               onChangeFormat={(fmt) => changeFormat(i, fmt)}
-              onSetDuration={(v) => setDurationMin(i, v)}
-              onSetRounds={(v) => setTabataRounds(i, v)}
+              onPatch={(patch) => patchBloc(i, patch)}
               onStart={() => startTimer(i)}
+              onCancelCountdown={() => cancelCountdown(i)}
               onPause={() => pauseTimer(i)}
               onReset={() => resetTimer(i)}
               onDone={() => doneBloc(i)}
+              onToggleChecked={(exIdx) => toggleChecked(i, exIdx)}
               onAddSerie={(exIdx) => addSerie(i, exIdx)}
               onUpdateSerie={(exIdx, serieIdx, patch) => updateSerie(i, exIdx, serieIdx, patch)}
               onRemoveSerie={(exIdx, serieIdx) => removeSerie(i, exIdx, serieIdx)}
-              onSetWodResult={(patch) => setWodResult(i, patch)}
+              onSetExerciseTime={(exIdx, value) => setExerciseTime(i, exIdx, value)}
             />
           ))}
         </div>
@@ -480,11 +655,13 @@ export function SessionRunnerV2({
       <div className={styles.bottombar}>
         <div className={styles.bbStats}>
           <div className={styles.bbStat}>
-            <div className={styles.bbVal}>{doneCount}</div>
-            <div className={styles.bbLabel}>Faits</div>
+            <div className={styles.bbVal}>{movementsDone}</div>
+            <div className={styles.bbLabel}>Mouvements</div>
           </div>
           <div className={styles.bbStat}>
-            <div className={styles.bbVal}>{total}</div>
+            <div className={styles.bbVal}>
+              {doneCount}/{total}
+            </div>
             <div className={styles.bbLabel}>Blocs</div>
           </div>
           <div className={styles.bbStat}>
@@ -492,11 +669,8 @@ export function SessionRunnerV2({
             <div className={styles.bbLabel}>Temps</div>
           </div>
         </div>
-        <button
-          className={cx(styles.bbBtn, doneCount === total ? styles.bbFinish : styles.bbNext)}
-          onClick={nextBloc}
-        >
-          {doneCount === total ? "⚡ Terminer la séance" : "Bloc suivant →"}
+        <button className={cx(styles.bbBtn, styles.bbFinish)} onClick={endSession}>
+          ⚡ Terminer la séance
         </button>
       </div>
     </div>
@@ -509,39 +683,45 @@ function BlocCard({
   currentIndex,
   block,
   state,
+  now,
   onToggle,
   onChangeFormat,
-  onSetDuration,
-  onSetRounds,
+  onPatch,
   onStart,
+  onCancelCountdown,
   onPause,
   onReset,
   onDone,
+  onToggleChecked,
   onAddSerie,
   onUpdateSerie,
   onRemoveSerie,
-  onSetWodResult,
+  onSetExerciseTime,
 }: {
   refCb: (el: HTMLDivElement | null) => void;
   index: number;
   currentIndex: number;
   block: DisplayBlock;
   state: BlocState;
+  now: number;
   onToggle: () => void;
   onChangeFormat: (fmt: RuntimeFormat) => void;
-  onSetDuration: (v: number) => void;
-  onSetRounds: (v: number) => void;
+  onPatch: (patch: Partial<BlocState>) => void;
   onStart: () => void;
+  onCancelCountdown: () => void;
   onPause: () => void;
   onReset: () => void;
   onDone: () => void;
+  onToggleChecked: (exIdx: number) => void;
   onAddSerie: (exIdx: number) => void;
   onUpdateSerie: (exIdx: number, serieIdx: number, patch: Partial<ExerciseSerie>) => void;
   onRemoveSerie: (exIdx: number, serieIdx: number) => void;
-  onSetWodResult: (patch: Partial<{ temps: string; rounds: string; score: string }>) => void;
+  onSetExerciseTime: (exIdx: number, value: string) => void;
 }) {
   const isDone = state.done;
   const isActive = index === currentIndex && !isDone;
+  const checkedCount = state.checked.filter(Boolean).length;
+  const itemCount = block.items.length;
 
   return (
     <div ref={refCb} className={cx(styles.bloc, isActive && styles.active, isDone && styles.done, state.open && styles.open)}>
@@ -559,35 +739,83 @@ function BlocCard({
         <TimerZone
           index={index}
           state={state}
+          now={now}
           onChangeFormat={onChangeFormat}
-          onSetDuration={onSetDuration}
-          onSetRounds={onSetRounds}
+          onPatch={onPatch}
           onStart={onStart}
+          onCancelCountdown={onCancelCountdown}
           onPause={onPause}
           onReset={onReset}
           onDone={onDone}
         />
-        <div className={styles.blocItems}>
-          {block.items.map((it, j) => (
-            <div key={`${it.movementName}-${j}`}>
-              <SessionItemRow
-                name={it.name}
-                qty={it.qty}
-                detail={it.detail}
-                movementName={it.movementName}
-                videoUrl={it.videoUrl}
-              />
-              {state.exerciseSeries[j] && (
-                <SerieInput
-                  series={state.exerciseSeries[j]}
-                  onAdd={() => onAddSerie(j)}
-                  onUpdate={(serieIdx, patch) => onUpdateSerie(j, serieIdx, patch)}
-                  onRemove={(serieIdx) => onRemoveSerie(j, serieIdx)}
-                />
-              )}
+
+        {itemCount > 0 && (
+          <div className={styles.blocProgress}>
+            <div className={styles.blocProgressLabel}>
+              {checkedCount} / {itemCount} mouvements
             </div>
-          ))}
+            <div className={styles.blocProgressTrack}>
+              <div className={styles.blocProgressFill} style={{ width: `${(checkedCount / itemCount) * 100}%` }} />
+            </div>
+          </div>
+        )}
+
+        <div className={styles.blocItems}>
+          {block.items.map((it, j) => {
+            const checked = state.checked[j] ?? false;
+            return (
+              <div key={`${it.movementName}-${j}`} className={cx(checked && styles.itemChecked)}>
+                <div className={styles.itemRow}>
+                  <button
+                    type="button"
+                    className={cx(styles.itemCheck, checked && styles.itemCheckOn)}
+                    onClick={() => onToggleChecked(j)}
+                    aria-label={checked ? `Décocher ${it.name}` : `Cocher ${it.name}`}
+                    aria-pressed={checked}
+                  >
+                    {checked ? "✓" : ""}
+                  </button>
+                  <div style={{ flex: 1 }}>
+                    <SessionItemRow
+                      name={it.name}
+                      qty={it.qty}
+                      detail={it.detail}
+                      movementName={it.movementName}
+                      videoUrl={it.videoUrl}
+                      noVideo={it.noVideo}
+                    />
+                  </div>
+                </div>
+
+                {checked && state.exerciseSeries[j] && (
+                  <SerieInput
+                    series={state.exerciseSeries[j]}
+                    onAdd={() => onAddSerie(j)}
+                    onUpdate={(serieIdx, patch) => onUpdateSerie(j, serieIdx, patch)}
+                    onRemove={(serieIdx) => onRemoveSerie(j, serieIdx)}
+                  />
+                )}
+
+                {checked && TIME_RESULT_TYPES.includes(block.type) && (
+                  <div className={styles.seriesWrap}>
+                    <div className={styles.serieRow}>
+                      <span className={styles.serieLabel}>Temps</span>
+                      <input
+                        className={styles.serieInput}
+                        type="text"
+                        inputMode="numeric"
+                        placeholder="MM:SS"
+                        value={state.exerciseTimes[j] ?? ""}
+                        onChange={(e) => onSetExerciseTime(j, e.target.value)}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
+
         {WOD_RESULT_TYPES.includes(block.type) && (
           <div className={styles.wodResultRow}>
             <div className={styles.wodResultField}>
@@ -596,7 +824,7 @@ function BlocCard({
                 type="text"
                 placeholder="MM:SS"
                 value={state.temps}
-                onChange={(e) => onSetWodResult({ temps: e.target.value })}
+                onChange={(e) => onPatch({ temps: e.target.value })}
               />
             </div>
             <div className={styles.wodResultField}>
@@ -605,16 +833,16 @@ function BlocCard({
                 type="text"
                 placeholder="—"
                 value={state.rounds}
-                onChange={(e) => onSetWodResult({ rounds: e.target.value })}
+                onChange={(e) => onPatch({ rounds: e.target.value })}
               />
             </div>
             <div className={styles.wodResultField}>
-              <label>Score</label>
+              <label>Reps bonus</label>
               <input
                 type="text"
                 placeholder="—"
                 value={state.score}
-                onChange={(e) => onSetWodResult({ score: e.target.value })}
+                onChange={(e) => onPatch({ score: e.target.value })}
               />
             </div>
           </div>
@@ -623,7 +851,7 @@ function BlocCard({
         {isDone && (
           <div className={styles.blocDoneOverlay}>
             <span>✅ Bloc complété</span>
-            <span className={styles.bdoTime}>{state.finalTime}</span>
+            <span className={styles.bdoTime}>{fmtMS(state.finalSec)}</span>
           </div>
         )}
       </div>
@@ -684,28 +912,67 @@ function SerieInput({
   );
 }
 
+/** Molette −/+ des réglages Tabata (travail, repos, tours). */
+function Stepper({
+  label,
+  value,
+  unit,
+  step,
+  min,
+  max,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  unit?: string;
+  step: number;
+  min: number;
+  max: number;
+  onChange: (v: number) => void;
+}) {
+  return (
+    <div className={styles.stepper}>
+      <button type="button" className={styles.stepBtn} onClick={() => onChange(Math.max(min, value - step))}>
+        −
+      </button>
+      <div className={styles.stepValue}>
+        {value}
+        {unit}
+      </div>
+      <button type="button" className={styles.stepBtn} onClick={() => onChange(Math.min(max, value + step))}>
+        +
+      </button>
+      <div className={styles.stepLabel}>{label}</div>
+    </div>
+  );
+}
+
 function TimerZone({
   index,
   state: t,
+  now,
   onChangeFormat,
-  onSetDuration,
-  onSetRounds,
+  onPatch,
   onStart,
+  onCancelCountdown,
   onPause,
   onReset,
   onDone,
 }: {
   index: number;
   state: BlocState;
+  now: number;
   onChangeFormat: (fmt: RuntimeFormat) => void;
-  onSetDuration: (v: number) => void;
-  onSetRounds: (v: number) => void;
+  onPatch: (patch: Partial<BlocState>) => void;
   onStart: () => void;
+  onCancelCountdown: () => void;
   onPause: () => void;
   onReset: () => void;
   onDone: () => void;
 }) {
   const fmt = t.format;
+  const elapsed = elapsedSec(t, now);
+  const countdown = t.countdownEndsAt ? Math.max(0, Math.ceil((t.countdownEndsAt - now) / 1000)) : null;
 
   let displayTime = "00:00";
   let displayClass = styles.idle;
@@ -713,42 +980,53 @@ function TimerZone({
   let infoText = FORMAT_LABELS[fmt].toUpperCase();
 
   if (t.done) {
-    displayTime = t.finalTime;
+    displayTime = fmtMS(t.finalSec);
     displayClass = styles.doneT;
     statusText = "✅ TERMINÉ";
   } else if (t.running) {
     statusText = "⏱ EN COURS";
     if (fmt === "ft" || fmt === "nft") {
-      displayTime = fmtMS(t.sec);
+      displayTime = fmtMS(elapsed);
       displayClass = fmt === "ft" ? styles.runningFt : styles.runningNft;
       infoText = fmt === "ft" ? "POUR LE TEMPS" : "SANS CHRONO";
     } else if (fmt === "amrap") {
-      const remaining = t.durationMin * 60 - t.sec;
-      displayTime = fmtMS(Math.max(0, remaining));
+      displayTime = fmtMS(t.durationMin * 60 - elapsed);
       displayClass = styles.runningAmrap;
       infoText = "TEMPS RESTANT";
     } else if (fmt === "emom") {
-      const minuteSec = 60 - (t.sec % 60);
-      displayTime = fmtMS(minuteSec === 60 ? 0 : minuteSec);
+      displayTime = fmtMS(60 - (elapsed % 60));
       displayClass = styles.runningEmom;
-      infoText = `MIN ${Math.floor(t.sec / 60) + 1} / ${t.durationMin}`;
+      infoText = `MINUTE ${Math.min(t.durationMin, Math.floor(elapsed / 60) + 1)} / ${t.durationMin}`;
     } else if (fmt === "tabata") {
-      displayTime = fmtMS(t.tabataSec);
-      displayClass = t.tabataPhase === "work" ? styles.runningTabataWork : styles.runningTabataRest;
-      infoText = t.tabataPhase === "work" ? "EFFORT" : "REPOS";
+      const view = tabataView(t, elapsed);
+      displayTime = fmtMS(view.remaining);
+      displayClass = view.phase === "work" ? styles.runningTabataWork : styles.runningTabataRest;
+      infoText = view.phase === "work" ? "EFFORT" : "REPOS";
     }
   } else if (fmt === "amrap" || fmt === "emom") {
     displayTime = fmtMS(t.durationMin * 60);
+  } else if (t.accumulatedMs > 0) {
+    displayTime = fmtMS(elapsed);
   }
 
-  const showFmtSelector = !t.done && !t.running;
-  const showDurRow = (fmt === "amrap" || fmt === "emom") && !t.running && !t.done;
-  const showTabataConfig = fmt === "tabata" && !t.running && !t.done;
-  const showEmomBar = fmt === "emom" && t.running;
-  const showTabataExtras = fmt === "tabata" && t.running;
+  const idle = !t.done && !t.running && countdown === null;
+  const showFmtSelector = idle;
+  const showDurRow = (fmt === "amrap" || fmt === "emom") && idle;
+  const showTabataConfig = fmt === "tabata" && idle;
+  const tabataRunning = fmt === "tabata" && t.running ? tabataView(t, elapsed) : null;
 
   return (
     <div className={styles.timerZone}>
+      {countdown !== null && (
+        <div className={styles.countdown}>
+          <div className={styles.countdownNum}>{countdown}</div>
+          <div className={styles.countdownLabel}>Départ dans…</div>
+          <button type="button" className={styles.countdownCancel} onClick={onCancelCountdown}>
+            Annuler
+          </button>
+        </div>
+      )}
+
       {showFmtSelector && (
         <div className={styles.fmtSelector}>
           {(Object.keys(FORMAT_LABELS) as RuntimeFormat[]).map((k) => (
@@ -773,43 +1051,36 @@ function TimerZone({
             min={1}
             max={60}
             value={t.durationMin}
-            onChange={(e) => onSetDuration(parseInt(e.target.value, 10))}
+            onChange={(e) => onPatch({ durationMin: parseInt(e.target.value, 10) || 10 })}
           />
           <span className={styles.durUnit}>min</span>
         </div>
       )}
 
       {showTabataConfig && (
-        <div className={styles.durInputRow}>
-          <span className={styles.durLabel}>Rounds</span>
-          <input
-            className={styles.roundsInput}
-            type="number"
-            min={1}
-            max={20}
-            value={t.tabataRounds}
-            onChange={(e) => onSetRounds(parseInt(e.target.value, 10))}
-          />
-          <span className={styles.durUnit}>rounds · 20s/10s</span>
+        <div className={styles.tabataConfig}>
+          <Stepper label="Travail" value={t.workSec} unit="s" step={5} min={5} max={120} onChange={(v) => onPatch({ workSec: v })} />
+          <Stepper label="Repos" value={t.restSec} unit="s" step={5} min={5} max={120} onChange={(v) => onPatch({ restSec: v })} />
+          <Stepper label="Tours" value={t.tabataRounds} step={1} min={1} max={30} onChange={(v) => onPatch({ tabataRounds: v })} />
         </div>
       )}
 
-      {showTabataExtras && (
+      {tabataRunning && (
         <>
-          <div className={cx(styles.tabataPhase, t.tabataPhase === "work" ? styles.work : styles.rest)}>
-            {t.tabataPhase === "work" ? "⚡ EFFORT — 20s" : "😮‍💨 REPOS — 10s"}
+          <div className={cx(styles.tabataPhase, tabataRunning.phase === "work" ? styles.work : styles.rest)}>
+            {tabataRunning.phase === "work" ? `⚡ EFFORT — ${t.workSec}s` : `😮‍💨 REPOS — ${t.restSec}s`}
           </div>
           <div className={styles.roundCounter}>
-            Round <span>{t.tabataRound}</span> / {t.tabataRounds}
+            Tour <span>{Math.min(tabataRunning.round, t.tabataRounds)}</span> / {t.tabataRounds}
           </div>
           <div className={styles.emomBarWrap}>
             <div
-              className={cx(styles.emomBar, t.tabataPhase === "work" ? styles.green : styles.orange)}
+              className={cx(styles.emomBar, tabataRunning.phase === "work" ? styles.green : styles.orange)}
               style={{
                 width: `${
-                  t.tabataPhase === "work"
-                    ? ((TABATA_WORK - t.tabataSec) / TABATA_WORK) * 100
-                    : ((TABATA_REST - t.tabataSec) / TABATA_REST) * 100
+                  tabataRunning.phase === "work"
+                    ? ((t.workSec - tabataRunning.remaining) / t.workSec) * 100
+                    : ((t.restSec - tabataRunning.remaining) / t.restSec) * 100
                 }%`,
               }}
             />
@@ -825,9 +1096,9 @@ function TimerZone({
         </div>
       </div>
 
-      {showEmomBar && (
+      {fmt === "emom" && t.running && (
         <div className={styles.emomBarWrap}>
-          <div className={cx(styles.emomBar, styles.blue)} style={{ width: `${((t.sec % 60) / 60) * 100}%` }} />
+          <div className={cx(styles.emomBar, styles.blue)} style={{ width: `${((elapsed % 60) / 60) * 100}%` }} />
         </div>
       )}
 
@@ -836,7 +1107,11 @@ function TimerZone({
           <button className={cx(styles.tcBtn, styles.tcReset)} style={{ flex: "none", width: "100%" }} onClick={onReset}>
             ↺ Refaire
           </button>
-        ) : !t.running && t.sec === 0 ? (
+        ) : countdown !== null ? (
+          <button className={cx(styles.tcBtn, styles.tcPause)} style={{ flex: "none", width: "100%" }} onClick={onCancelCountdown}>
+            ⏸ Annuler le départ
+          </button>
+        ) : !t.running && t.accumulatedMs === 0 ? (
           <>
             <button className={cx(styles.tcBtn, styles.tcStart)} onClick={onStart}>
               ▷ Démarrer

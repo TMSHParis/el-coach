@@ -70,6 +70,8 @@ export type SleepNight = {
   /** Étiquette courte type "Lun 12". */
   label: string;
   totalMinutes: number;
+  /** Sommeil lent — valeur indépendante (check-in), pas une soustraction des autres phases. */
+  lightMinutes: number;
   deepMinutes: number;
   remMinutes: number;
   awakeMinutes: number;
@@ -100,7 +102,8 @@ export function buildSleepInsight(fatigueScore: number): SleepInsight {
     const deepMinutes = Math.max(20, baseDeep + Math.round(Math.cos(i) * 8));
     const remMinutes = Math.max(40, baseRem + Math.round(Math.sin(i * 0.7) * 12));
     const awakeMinutes = Math.max(0, 15 + Math.round(Math.sin(i * 2) * 10) + fatigueScore);
-    return { label, totalMinutes, deepMinutes, remMinutes, awakeMinutes };
+    const lightMinutes = Math.max(60, Math.round(totalMinutes * 0.59));
+    return { label, totalMinutes, lightMinutes, deepMinutes, remMinutes, awakeMinutes };
   });
 
   const lastNight = nights[nights.length - 1];
@@ -109,8 +112,11 @@ export function buildSleepInsight(fatigueScore: number): SleepInsight {
   const trendMinutes = Math.round(last3 - first3);
 
   const alerts: string[] = [];
-  if (lastNight.deepMinutes < 40) alerts.push("Sommeil profond < 40 min cette nuit");
-  if (lastNight.remMinutes < 90) alerts.push("REM < 1h30 cette nuit");
+  const deepLow = lastNight.deepMinutes < 40;
+  const remLow = lastNight.remMinutes < 90;
+  if (deepLow && remLow) alerts.push("Sommeil profond et REM sous les seuils cette nuit");
+  else if (deepLow) alerts.push("Sommeil profond < 40 min cette nuit");
+  else if (remLow) alerts.push("REM < 1h30 cette nuit");
   if (lastNight.awakeMinutes > 120) alerts.push("Réveils > 2h cette nuit");
 
   return { nights, lastNight, trendMinutes, alerts };

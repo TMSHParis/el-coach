@@ -76,7 +76,10 @@ export function buildSleepFromCheckins(checkins: Checkin[]): SleepInsight {
     const deepMinutes = parseDurationToMinutes(photo?.profond) ?? Math.round(totalMinutes * 0.13);
     const remMinutes = parseDurationToMinutes(photo?.rem) ?? Math.round(totalMinutes * 0.23);
     const awakeMinutes = parseDurationToMinutes(photo?.eveil) ?? Math.round(totalMinutes * 0.05);
-    return { label: dateKeyToLabel(c.date), totalMinutes, deepMinutes, remMinutes, awakeMinutes };
+    // Phase indépendante : valeur du check-in si renseignée, sinon estimation —
+    // jamais total − (profond + REM + éveil), les phases ne totalisent pas 100 %.
+    const lightMinutes = parseDurationToMinutes(photo?.lent) ?? Math.round(totalMinutes * 0.59);
+    return { label: dateKeyToLabel(c.date), totalMinutes, lightMinutes, deepMinutes, remMinutes, awakeMinutes };
   });
 
   const lastNight = nights[nights.length - 1] ?? {

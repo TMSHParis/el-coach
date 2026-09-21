@@ -153,6 +153,10 @@ model Session {
   variant   String? // "A" | "B"
   completed Boolean @default(false)
   data      Json?
+  /** Part des mouvements cochés pendant la séance (0 à 1). */
+  completionRate Float? @map("completion_rate")
+  /** Durée totale de la séance, en secondes. */
+  durationSec    Int?   @map("duration_sec")
 
   createdAt DateTime @default(now()) @map("created_at")
 

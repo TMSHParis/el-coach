@@ -184,3 +184,37 @@
 .ssVal { font-family: var(--font-bebas); font-size: 26px; color: var(--g); line-height: 1; }
 .ssLabel { font-size: 9px; color: var(--m); text-transform: uppercase; letter-spacing: 1px; margin-top: 4px; }
 .successBtn { width: 100%; max-width: 360px; padding: 17px; border: none; border-radius: 4px; font-family: var(--font-barlow); font-size: 14px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; background: var(--g); color: #000; cursor: pointer; text-decoration: none; display: inline-block; }
+
+/* COMPTE À REBOURS DE DÉPART (10 s) */
+.countdown { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 18px 0 14px; }
+.countdownNum { font-family: var(--font-bebas); font-size: 72px; line-height: 1; color: #E8FF00; }
+.countdownLabel { font-size: 11px; letter-spacing: 3px; text-transform: uppercase; color: var(--m); }
+.countdownCancel { margin-top: 8px; background: none; border: 1px solid var(--bd); border-radius: 4px; color: var(--m); font-family: inherit; font-size: 11px; letter-spacing: 2px; text-transform: uppercase; padding: 8px 14px; cursor: pointer; }
+
+/* RÉGLAGES TABATA (travail · repos · tours) */
+.tabataConfig { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
+.stepper { background: var(--s); border: 1px solid var(--bd); border-radius: 4px; padding: 8px 6px; display: grid; grid-template-columns: 26px 1fr 26px; grid-template-rows: auto auto; align-items: center; justify-items: center; gap: 4px; }
+.stepBtn { width: 26px; height: 26px; border: 1px solid var(--bd); border-radius: 4px; background: var(--s2); color: var(--t); font-size: 16px; line-height: 1; cursor: pointer; }
+.stepValue { font-family: var(--font-bebas); font-size: 22px; color: var(--w); }
+.stepLabel { grid-column: 1 / -1; font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--m); }
+
+/* PROGRESSION DES MOUVEMENTS DU BLOC */
+.blocProgress { padding: 0 16px 8px; }
+.blocProgressLabel { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--m); margin-bottom: 6px; }
+.blocProgressTrack { height: 3px; background: var(--s2); border-radius: 2px; overflow: hidden; }
+.blocProgressFill { height: 100%; background: #E8FF00; transition: width .25s ease; }
+
+/* COCHE PAR MOUVEMENT */
+.itemRow { display: flex; align-items: center; gap: 10px; }
+.itemCheck { flex-shrink: 0; width: 24px; height: 24px; border: 1.5px solid var(--bd); border-radius: 4px; background: var(--s); color: #000; font-size: 13px; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.itemCheckOn { background: #E8FF00; border-color: #E8FF00; }
+.itemChecked .itemRow { opacity: .55; }
+.itemChecked .itemRow span, .itemChecked .itemRow div { text-decoration: line-through; }
+
+/* RÉSUMÉ DE FIN DE SÉANCE */
+.congrats { width: 100%; max-width: 360px; background: rgba(232, 255, 0, .05); border-left: 3px solid #E8FF00; border-radius: 8px; padding: 14px 16px; margin-bottom: 24px; font-size: 13px; line-height: 1.5; color: #fff; text-align: left; }
+.summary { width: 100%; max-width: 360px; text-align: left; margin-bottom: 28px; }
+.summaryTitle { font-size: 10px; letter-spacing: 3px; text-transform: uppercase; color: var(--m); margin-bottom: 10px; }
+.summaryBloc { background: var(--s); border: 1px solid var(--bd); border-radius: 4px; padding: 10px 12px; margin-bottom: 8px; }
+.summaryBlocTitle { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--g); margin-bottom: 6px; }
+.summaryLine { font-size: 12px; color: var(--t); line-height: 1.6; }

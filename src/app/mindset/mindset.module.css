@@ -2,28 +2,64 @@
   background: #080808;
   min-height: 100vh;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 40px;
-  text-align: center;
+  padding: 24px;
+}
+
+/* Même carte que le bloc Score ECM du dashboard — couleur selon l'état du jour. */
+.card {
+  width: 100%;
+  max-width: 480px;
+  border-radius: 8px;
+  padding: 28px 24px;
+  border: 1px solid;
+}
+
+.vert { background: rgba(34, 197, 94, 0.15); border-color: rgba(34, 197, 94, 0.3); }
+.jaune { background: rgba(234, 179, 8, 0.15); border-color: rgba(234, 179, 8, 0.3); }
+.rouge { background: rgba(239, 68, 68, 0.15); border-color: rgba(239, 68, 68, 0.3); }
+.repos { background: rgba(107, 114, 128, 0.15); border-color: rgba(107, 114, 128, 0.3); }
+
+.badgeRow { display: flex; align-items: center; gap: 8px; margin-bottom: 18px; }
+
+.badge {
+  font-family: var(--font-bebas, sans-serif);
+  font-size: 0.85rem;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: #8a8a8a;
+}
+
+.dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  animation: pulse 1.8s ease-in-out infinite;
+}
+
+.vert .dot { background: #22c55e; }
+.jaune .dot { background: #eab308; }
+.rouge .dot { background: #ef4444; }
+.repos .dot { background: #6b7280; }
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.45; transform: scale(0.82); }
 }
 
 .message {
   font-family: var(--font-bebas, sans-serif);
-  font-size: 2.5rem;
-  line-height: 1.1;
-  letter-spacing: 1px;
+  font-size: 1.8rem;
+  line-height: 1.15;
+  letter-spacing: 0.5px;
   color: #fff;
-  max-width: 640px;
-  margin: 0 auto;
+  margin: 0 0 28px;
 }
 
 .go {
-  position: fixed;
-  left: 50%;
-  bottom: 28px;
-  transform: translateX(-50%);
+  display: block;
+  width: 100%;
   background: #e8ff00;
   color: #000;
   border: none;
@@ -32,26 +68,10 @@
   font-size: 1.1rem;
   letter-spacing: 3px;
   text-transform: uppercase;
-  padding: 16px 32px;
+  padding: 16px 24px;
   cursor: pointer;
 }
 
-/* Barre de progression : s'écoule en 4 s, même durée que la redirection auto. */
-.progress {
-  position: fixed;
-  left: 0;
-  bottom: 0;
-  height: 3px;
-  background: #e8ff00;
-  width: 0;
-  animation: grow 4s linear forwards;
-}
-
-@keyframes grow {
-  from { width: 0; }
-  to { width: 100%; }
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .progress { animation: none; width: 100%; }
+  .dot { animation: none; }
 }
