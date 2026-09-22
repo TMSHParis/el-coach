@@ -86,6 +86,8 @@ export type CheckinPayload = {
   seanceEquipement: string;
   seanceIntensite: string;
   seanceNote: string;
+  /** Volume Block Hypertrophy : "upper" | "lower" | "full" (vide sinon). */
+  volumeBlockFocus: string;
 };
 
 // todayKey() vit dans lib/date-key.ts (pas ici) : un fichier "use server" ne
@@ -242,6 +244,7 @@ async function persistCheckinAndGenerateDashboard(payload: CheckinPayload, fatig
     seanceEquipement: payload.seanceEquipement || null,
     seanceIntensite: payload.seanceIntensite || null,
     seanceNote: payload.seanceNote || null,
+    volumeBlockFocus: payload.volumeBlockFocus || null,
   };
 
   const checkin = await prisma.checkin.upsert({

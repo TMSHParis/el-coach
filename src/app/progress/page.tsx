@@ -44,6 +44,28 @@ function computeStreaks(sortedDates: string[]): { current: number; best: number 
   return { current, best };
 }
 
+const VOLUME_FOCUS_LABELS: Record<string, string> = { upper: "Upper", lower: "Lower", full: "Full" };
+
+/** Nombre de séances et meilleure charge par focus Volume Block. */
+function buildVolumeStats(
+  checkins: { date: string; volumeBlockFocus: string | null }[],
+  sessions: { date: string; bestResult: unknown }[],
+): { focus: string; label: string; seances: number; meilleureCharge: number | null }[] {
+  const byDate = new Map(sessions.map((s) => [s.date, s.bestResult as { charge?: number } | null]));
+  return Object.entries(VOLUME_FOCUS_LABELS).map(([focus, label]) => {
+    const dates = checkins.filter((c) => c.volumeBlockFocus === focus).map((c) => c.date);
+    const charges = dates
+      .map((d) => byDate.get(d)?.charge)
+      .filter((c): c is number => typeof c === "number" && c > 0);
+    return {
+      focus,
+      label,
+      seances: dates.filter((d) => byDate.has(d)).length,
+      meilleureCharge: charges.length ? Math.max(...charges) : null,
+    };
+  });
+}
+
 export default async function ProgressPage() {
   const userId = await getUserId();
   if (!userId) {
@@ -72,6 +94,20 @@ export default async function ProgressPage() {
     prisma.checkin.count({ where: { userId } }),
   ]);
 
+  // Volume Block : progression suivie séparément pour chaque focus (haut, bas, complet).
+  const volumeCheckins = await prisma.checkin.findMany({
+    where: { userId, volumeBlockFocus: { not: null } },
+    select: { date: true, volumeBlockFocus: true },
+    orderBy: { date: "asc" },
+  });
+  const volumeSessions = volumeCheckins.length
+    ? await prisma.session.findMany({
+        where: { userId, completed: true, date: { in: volumeCheckins.map((c) => c.date) } },
+        select: { date: true, bestResult: true },
+      })
+    : [];
+  const volumeStats = buildVolumeStats(volumeCheckins, volumeSessions);
+
   const weightData: WeightPoint[] = checkins30
     .filter((c) => c.poids && Number(c.poids) > 0)
     .map((c) => ({ date: c.date, kg: Number(c.poids) }));
@@ -99,6 +135,41 @@ export default async function ProgressPage() {
         scoreData={scoreData}
         stats={{ checkinsTotal, sessionsCompleted, currentStreak: current, bestStreak: best }}
       />
+
+      {volumeStats.some((v) => v.seances > 0) && (
+        <div style={{ maxWidth: 480, margin: "0 auto", padding: "0 20px 40px" }}>
+          <div
+            style={{
+              fontSize: 11,
+              letterSpacing: 4,
+              textTransform: "uppercase",
+              color: "#8a8a8a",
+              margin: "8px 0 10px",
+            }}
+          >
+            Volume Block par focus
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+            {volumeStats.map((v) => (
+              <div
+                key={v.focus}
+                style={{ background: "#111", border: "1px solid #1f1f1f", borderRadius: 4, padding: "12px 10px" }}
+              >
+                <div style={{ fontSize: 10, letterSpacing: 2, textTransform: "uppercase", color: "#8a8a8a" }}>
+                  {v.label}
+                </div>
+                <div style={{ fontFamily: "var(--font-bebas, sans-serif)", fontSize: 26, color: "#fff", lineHeight: 1.2 }}>
+                  {v.seances}
+                </div>
+                <div style={{ fontSize: 10, color: "#8a8a8a" }}>séance{v.seances > 1 ? "s" : ""}</div>
+                <div style={{ fontSize: 11, color: "#E8FF00", marginTop: 6 }}>
+                  {v.meilleureCharge ? `${v.meilleureCharge} kg max` : "—"}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

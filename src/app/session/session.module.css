@@ -218,3 +218,36 @@
 .summaryBloc { background: var(--s); border: 1px solid var(--bd); border-radius: 4px; padding: 10px 12px; margin-bottom: 8px; }
 .summaryBlocTitle { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--g); margin-bottom: 6px; }
 .summaryLine { font-size: 12px; color: var(--t); line-height: 1.6; }
+
+/* RÉGLAGE DU VOLUME */
+.volumeRow { display: flex; align-items: center; gap: 10px; margin-top: 14px; }
+.volumeLabel { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--m); }
+.volumeSlider { flex: 1; accent-color: #E8FF00; }
+.volumeValue { font-size: 11px; color: var(--t); min-width: 34px; text-align: right; }
+
+/* BOUTONS DE BLOC (rounds AMRAP · plein écran) */
+.roundBtn { width: 100%; margin-bottom: 8px; padding: 14px; border: none; border-radius: 4px; background: var(--orange); color: #000; font-family: inherit; font-size: 13px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; cursor: pointer; }
+.roundBtn span { margin-left: 8px; background: rgba(0,0,0,.2); border-radius: 3px; padding: 2px 8px; }
+.fsOpenBtn { width: 100%; margin-bottom: 8px; padding: 10px; border: 1px solid var(--bd); border-radius: 4px; background: none; color: var(--m); font-family: inherit; font-size: 11px; letter-spacing: 2px; text-transform: uppercase; cursor: pointer; }
+.paused { color: var(--yellow); }
+
+/* CHRONO PLEIN ÉCRAN */
+.fsRoot { position: fixed; inset: 0; z-index: 200; display: flex; flex-direction: column; justify-content: space-between; padding: 28px 20px calc(24px + env(safe-area-inset-bottom)); backdrop-filter: blur(2px); background-color: #080808; }
+.fsTop { text-align: center; }
+.fsFormat { font-family: var(--font-bebas); font-size: 1.4rem; letter-spacing: 6px; text-transform: uppercase; color: #fff; }
+.fsBloc { font-size: 11px; letter-spacing: 3px; text-transform: uppercase; color: var(--m); margin-top: 4px; }
+.fsCenter { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; flex: 1; }
+.fsTime { font-family: var(--font-bebas); font-size: 6rem; line-height: 1; color: #fff; letter-spacing: 2px; }
+.fsInfo { font-size: 13px; letter-spacing: 3px; text-transform: uppercase; color: #e0e0e0; }
+.fsPaused { font-size: 12px; letter-spacing: 3px; text-transform: uppercase; color: var(--yellow); }
+.fsRoundBtn { margin-top: 18px; padding: 18px 36px; border: none; border-radius: 6px; background: #E8FF00; color: #000; font-family: var(--font-bebas); font-size: 1.4rem; letter-spacing: 4px; text-transform: uppercase; cursor: pointer; }
+.fsBottom { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.fsBtn { padding: 14px 16px; border: 1px solid rgba(255,255,255,.25); border-radius: 4px; background: rgba(0,0,0,.35); color: #fff; font-family: inherit; font-size: 11px; letter-spacing: 2px; text-transform: uppercase; cursor: pointer; }
+.fsGlobal { font-family: var(--font-bebas); font-size: 1.1rem; letter-spacing: 2px; color: var(--m); }
+
+/* RPE ET RAPPEL DE LA DERNIÈRE SÉANCE */
+.rpeRow { display: flex; align-items: center; gap: 8px; padding: 2px 0 8px 52px; }
+.rpeLabel { font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--m); min-width: 52px; }
+.rpeSlider { flex: 1; accent-color: var(--g); max-width: 140px; }
+.rpeHint { font-size: 9px; color: var(--m); font-style: italic; }
+.lastResult { font-size: 11px; color: var(--g); padding: 2px 0 6px; }

@@ -108,13 +108,24 @@ export default async function DashboardPage() {
 
   const fatigueScore = demo.fatigueScore ?? 3;
 
-  const [dbOutput, todayCheckin, recentCheckinRows] = userId
+  const [dbOutput, todayCheckin, recentCheckinRows, todaySession] = userId
     ? await Promise.all([
         prisma.dashboardOutput.findUnique({ where: { userId_date: { userId, date: todayKey() } } }),
         prisma.checkin.findUnique({ where: { userId_date: { userId, date: todayKey() } } }),
         prisma.checkin.findMany({ where: { userId }, select: { date: true }, orderBy: { date: "desc" }, take: 60 }),
+        prisma.session.findUnique({ where: { userId_date: { userId, date: todayKey() } } }),
       ])
-    : [null, null, []];
+    : [null, null, [], null];
+
+  // Séance du jour terminée : le bloc "Démarrer la séance" laisse place au compte rendu.
+  const finishedSession = todaySession?.completed
+    ? {
+        durationSec: todaySession.durationSec ?? 0,
+        completionRate: todaySession.completionRate ?? 0,
+        rating: todaySession.sessionRating ?? 0,
+        best: todaySession.bestResult as { nom: string; charge: number; reps: string } | null,
+      }
+    : null;
   const real = dbOutput ? (dbOutput.output as unknown as DashboardOutputJson) : null;
 
   // Sport hors ECM ou repos : même dashboard, seul le bloc séance change.
@@ -355,7 +366,9 @@ export default async function DashboardPage() {
           </div>
 
           {/* SÉANCE DU JOUR — contenu selon le check-in, structure identique */}
-          {adviceSession ? (
+          {finishedSession ? (
+            <SessionRecapCard {...finishedSession} />
+          ) : adviceSession ? (
             <>
               <div className={styles.sdj}>
                 <div className={styles.sdjLabel}>
@@ -520,6 +533,44 @@ function CheckinPendingState({
         {everCheckedIn ? "Faire mon check-in maintenant" : "Commencer mon premier check-in"}
       </Link>
     </section>
+  );
+}
+
+/** Compte rendu du jour, à la place du bloc "Démarrer la séance" une fois la séance faite. */
+function SessionRecapCard({
+  durationSec,
+  completionRate,
+  rating,
+  best,
+}: {
+  durationSec: number;
+  completionRate: number;
+  rating: number;
+  best: { nom: string; charge: number; reps: string } | null;
+}) {
+  const percent = Math.round(completionRate * 100);
+  return (
+    <div className={styles.sdj}>
+      <div className={styles.sdjLabel}>[ SÉANCE TERMINÉE ]</div>
+      <div className={styles.sdjTitle}>{durationSec < 60 ? `${durationSec}s` : minutesToHM(Math.round(durationSec / 60))}</div>
+      <div className={styles.sdjMeta}>
+        <span>
+          {percent}% des mouvements{rating > 0 ? ` · ${"★".repeat(rating)}${"☆".repeat(5 - rating)}` : ""}
+        </span>
+      </div>
+      {best && (
+        <div className={styles.snackCard} style={{ marginTop: 4 }}>
+          <div className={styles.snackTitle}>Meilleur résultat du jour</div>
+          <div className={styles.snackContent}>
+            {best.nom} — {best.charge} kg × {best.reps || "—"}
+          </div>
+        </div>
+      )}
+      <Link href="/session/recap" className={styles.sdjBtn} style={{ marginTop: 12 }}>
+        <span className={styles.sdjBtnIcon}>✓</span>
+        <span className={styles.sdjBtnText}>Voir le détail complet</span>
+      </Link>
+    </div>
   );
 }
 

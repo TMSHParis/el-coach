@@ -8,6 +8,7 @@ import { adaptDayForInjuries, detectInjuryAreas, reduceVolume } from "@/lib/sess
 import { toDisplayBlocks, defaultRuntimeFormat, defaultDurationMinutes } from "@/lib/session-format";
 import { minutesToHM } from "../dashboard/dashboard-helpers";
 import { buildAdviceSession, type StoredAdvice } from "@/lib/advice-session";
+import { buildLastResults } from "@/lib/last-results";
 import { SessionRunnerV2 } from "./session-runner-v2";
 import { sessionFontVariables } from "./session-fonts";
 
@@ -28,13 +29,21 @@ export default async function SessionPage({
   if (!today) redirect("/dashboard");
 
   const userId = await getUserId();
-  const [profile, todayCheckin, dbOutput] = userId
+  const [profile, todayCheckin, dbOutput, pastSessions] = userId
     ? await Promise.all([
         prisma.profile.findUnique({ where: { userId } }),
         prisma.checkin.findUnique({ where: { userId_date: { userId, date: todayKey() } } }),
         prisma.dashboardOutput.findUnique({ where: { userId_date: { userId, date: todayKey() } } }),
+        // Dernières séances : servent à rappeler "dernière fois : 100 kg × 5" et à suggérer la charge.
+        prisma.session.findMany({
+          where: { userId, date: { lt: todayKey() } },
+          orderBy: { date: "desc" },
+          take: 12,
+        }),
       ])
-    : [null, null, null];
+    : [null, null, null, []];
+
+  const lastResults = buildLastResults(pastSessions);
 
   const output = dbOutput?.output as { generatedDay?: Day; mode?: string; advice?: StoredAdvice } | null;
 
@@ -51,6 +60,7 @@ export default async function SessionPage({
           initial={advice.blocks.map(() => ({ format: "nft" as const, durationMin: 10, tabataRounds: 8 }))}
           date={todayKey()}
           variant="A"
+          lastResults={lastResults}
         />
       </div>
     );
@@ -90,6 +100,7 @@ export default async function SessionPage({
         initial={initial}
         date={todayKey()}
         variant={variant === "b" ? "B" : "A"}
+        lastResults={lastResults}
       />
     </div>
   );

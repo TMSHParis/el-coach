@@ -119,6 +119,8 @@ model Checkin {
   seanceEquipement  String?  @map("seance_equipement")
   seanceIntensite   String?  @map("seance_intensite")
   seanceNote        String?  @map("seance_note")
+  /** Volume Block Hypertrophy : focus du jour — "upper" | "lower" | "full". */
+  volumeBlockFocus String? @map("volume_block_focus")
 
   createdAt DateTime @default(now()) @map("created_at")
 
@@ -157,6 +159,10 @@ model Session {
   completionRate Float? @map("completion_rate")
   /** Durée totale de la séance, en secondes. */
   durationSec    Int?   @map("duration_sec")
+  /** Note de séance donnée par l'athlète (1 à 5 étoiles). */
+  sessionRating  Int?   @map("session_rating")
+  /** Meilleure série du jour (mouvement, charge, reps) pour le compte rendu. */
+  bestResult     Json?  @map("best_result")
 
   createdAt DateTime @default(now()) @map("created_at")
 

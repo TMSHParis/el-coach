@@ -31,6 +31,25 @@ const SEANCE_GROUPS: { label: string; options: string[] }[] = [
 ];
 
 const FOCUS_OPTIONS = ["Force", "Cardio", "Technique", "Mobilité", "Récupération active"];
+
+const VOLUME_BLOCK_LABEL = "💪 Volume Block Hypertrophy";
+const VOLUME_FOCUS_OPTIONS: { value: string; label: string }[] = [
+  { value: "upper", label: "Upper Body" },
+  { value: "lower", label: "Lower Body" },
+  { value: "full", label: "Full Body" },
+];
+
+function isVolumeBlock(seance: string): boolean {
+  return seance === VOLUME_BLOCK_LABEL;
+}
+
+/** Rotation suggérée sur la semaine : lundi haut, mardi bas, jeudi complet, etc. */
+function suggestedVolumeFocus(): string {
+  const day = new Date().getDay(); // 0 = dimanche
+  if (day === 1 || day === 5) return "upper";
+  if (day === 2 || day === 6) return "lower";
+  return "full";
+}
 const DUREE_OPTIONS = ["30 min", "45 min", "1h", "1h30", "2h+"];
 const EQUIPEMENT_OPTIONS = ["Salle complète", "Maison", "Extérieur", "Salle limitée"];
 const INTENSITE_OPTIONS = ["Légère", "Modérée", "Intense", "Maximum"];
@@ -68,6 +87,7 @@ type FormState = {
   seanceEquipement: string;
   seanceIntensite: string;
   seanceNote: string;
+  volumeBlockFocus: string;
 };
 
 const INITIAL_STATE: FormState = {
@@ -103,6 +123,7 @@ const INITIAL_STATE: FormState = {
   seanceEquipement: "",
   seanceIntensite: "",
   seanceNote: "",
+  volumeBlockFocus: "",
 };
 
 const DATE_STR = new Date().toLocaleDateString("fr-FR", {
@@ -218,6 +239,7 @@ export function CheckinForm() {
       seanceEquipement: d.seanceEquipement,
       seanceIntensite: d.seanceIntensite,
       seanceNote: d.seanceNote,
+      volumeBlockFocus: isVolumeBlock(d.seance) ? d.volumeBlockFocus || suggestedVolumeFocus() : "",
     });
     if (!result.ok) {
       setSubmitting(false);
@@ -501,6 +523,25 @@ export function CheckinForm() {
             ))}
           </select>
         </div>
+
+        {isVolumeBlock(d.seance) && (
+          <div className={cx(styles.qc, d.volumeBlockFocus && (isH ? styles.onH : styles.onF))}>
+            <div className={styles.ql}>
+              <i>🎯</i> Focus Volume Block <span className={isH ? styles.bh : styles.bf}>Requis</span>
+            </div>
+            <OptRow
+              gender={g}
+              options={VOLUME_FOCUS_OPTIONS.map((o) => o.label)}
+              value={VOLUME_FOCUS_OPTIONS.find((o) => o.value === (d.volumeBlockFocus || suggestedVolumeFocus()))?.label ?? ""}
+              onChange={(label) =>
+                set({ volumeBlockFocus: VOLUME_FOCUS_OPTIONS.find((o) => o.label === label)?.value ?? "" })
+              }
+            />
+            <div className={styles.dl} style={{ marginTop: 8 }}>
+              Suggestion du jour : {VOLUME_FOCUS_OPTIONS.find((o) => o.value === suggestedVolumeFocus())?.label}
+            </div>
+          </div>
+        )}
 
         <div className={cx(styles.qc, styles.opt)}>
           <div className={styles.ql}>

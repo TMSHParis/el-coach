@@ -7,8 +7,11 @@ import type { BlockType } from "@/lib/programming";
 import styles from "./session.module.css";
 import { SessionItemRow } from "../dashboard/session-item-row";
 import { saveSessionResult, type SessionBlocResult } from "./actions";
+import type { LastResult } from "@/lib/last-results";
 import {
-  ensureAudio,
+  getVolume,
+  releaseAudio,
+  setVolume,
   soundEnd,
   soundRest,
   soundStart,
@@ -16,6 +19,8 @@ import {
   soundTransition,
   soundWork,
   speak,
+  speakEn,
+  unlockAudio,
   vibrate,
 } from "@/lib/session-audio";
 
@@ -32,6 +37,15 @@ const FORMAT_LABELS: Record<RuntimeFormat, string> = {
 };
 
 const COUNTDOWN_SEC = 10;
+
+/** Fond du chrono plein écran selon le format (Tabata : selon la phase). */
+const FS_BACKGROUND: Record<RuntimeFormat, string> = {
+  amrap: "rgba(249,115,22,0.15)",
+  ft: "rgba(239,68,68,0.15)",
+  emom: "rgba(59,130,246,0.15)",
+  tabata: "rgba(239,68,68,0.15)",
+  nft: "rgba(107,114,128,0.15)",
+};
 const TICK_MS = 200;
 
 /** Blocs où la saisie se fait par exercice (charge × reps, plusieurs séries). */
@@ -41,7 +55,7 @@ const WOD_RESULT_TYPES: BlockType[] = ["wod", "conditioning"];
 /** Blocs cardio : un temps par exercice. */
 const TIME_RESULT_TYPES: BlockType[] = ["endurance"];
 
-type ExerciseSerie = { charge: string; reps: string };
+type ExerciseSerie = { charge: string; reps: string; rpe?: string };
 
 type BlocState = {
   /** Instant du dernier démarrage (ms epoch) — le chrono se recalcule depuis l'horloge,
@@ -62,6 +76,8 @@ type BlocState = {
   open: boolean;
   /** Mouvements cochés du bloc. */
   checked: boolean[];
+  /** Rounds comptés en direct pendant un AMRAP (bouton "+ Round"). */
+  amrapRounds: number;
   exerciseSeries: ExerciseSerie[][];
   exerciseTimes: string[];
   temps: string;
@@ -107,6 +123,7 @@ export function SessionRunnerV2({
   initial,
   date,
   variant,
+  lastResults = {},
 }: {
   sessionName: string;
   sessionMeta: string;
@@ -114,6 +131,8 @@ export function SessionRunnerV2({
   initial: { format: RuntimeFormat; durationMin: number; tabataRounds: number }[];
   date: string;
   variant: "A" | "B";
+  /** Dernier résultat connu par mouvement — rappel et charge suggérée. */
+  lastResults?: Record<string, LastResult>;
 }) {
   const router = useRouter();
   const storageKey = `elc_session_${date}`;
@@ -137,6 +156,7 @@ export function SessionRunnerV2({
           countdownEndsAt: null,
           open: i === 0,
           checked: items.map(() => false),
+          amrapRounds: 0,
           exerciseSeries: type && SERIES_RESULT_TYPES.includes(type) ? items.map(() => [{ charge: "", reps: "" }]) : [],
           exerciseTimes: items.map(() => ""),
           temps: "",
@@ -152,9 +172,16 @@ export function SessionRunnerV2({
   const [now, setNow] = useState<number>(() => Date.now());
   const [restored, setRestored] = useState(false);
   const [sessionDone, setSessionDone] = useState(false);
-  const [congrats, setCongrats] = useState<string | null>(null);
+  /** Bloc affiché en chrono plein écran (null = liste des mouvements). */
+  const [fullscreen, setFullscreen] = useState<number | null>(null);
+  const [volume, setVolumeState] = useState(0.8);
   const blocRefs = useRef<Record<number, HTMLDivElement | null>>({});
   const savedRef = useRef(false);
+
+  useEffect(() => {
+    setVolumeState(getVolume());
+    return () => releaseAudio();
+  }, []);
 
   // Reprise après un retour dans l'app (ou un rechargement) : tout l'état du
   // chrono est relu depuis localStorage, les timestamps font le reste.
@@ -229,16 +256,33 @@ export function SessionRunnerV2({
   const tickRef = useRef<Record<number, number>>({});
   const minuteRef = useRef<Record<number, number>>({});
   const tabataRef = useRef<Record<number, string>>({});
+  /** Annonces déjà passées (mi-temps, 10 s...) — une seule fois par bloc. */
+  const spokenRef = useRef<Record<number, Set<string>>>({});
 
   useEffect(() => {
     blocks.forEach((b, i) => {
+      const spoken = (spokenRef.current[i] ??= new Set<string>());
+      const once = (key: string, fn: () => void) => {
+        if (spoken.has(key)) return;
+        spoken.add(key);
+        fn();
+      };
+      /** Bip une seule fois par seconde restante (3 · 2 · 1). */
+      const beepSecond = (secondsLeft: number) => {
+        if (tickRef.current[i] === secondsLeft) return;
+        tickRef.current[i] = secondsLeft;
+        soundTick();
+        vibrate([40]);
+      };
+
       if (b.countdownEndsAt) {
         const remaining = Math.ceil((b.countdownEndsAt - now) / 1000);
         if (remaining <= 0) {
           tickRef.current[i] = -1;
           soundStart();
-          speak("Go !");
+          speakEn("Let's Go!");
           vibrate([400]);
+          setFullscreen(i);
           setBlocks((prev) =>
             prev.map((x, idx) =>
               idx === i ? { ...x, countdownEndsAt: null, running: true, startedAt: Date.now() } : x,
@@ -246,13 +290,7 @@ export function SessionRunnerV2({
           );
           return;
         }
-        if (tickRef.current[i] !== remaining) {
-          tickRef.current[i] = remaining;
-          soundTick();
-          vibrate([40]);
-          if (remaining <= 3) speak(String(remaining));
-          else if (remaining === COUNTDOWN_SEC) speak(`Démarrage dans ${COUNTDOWN_SEC} secondes`);
-        }
+        if (remaining <= 3) beepSecond(remaining);
         return;
       }
 
@@ -261,12 +299,24 @@ export function SessionRunnerV2({
 
       if (b.format === "amrap") {
         const total = b.durationMin * 60;
-        if (elapsed >= total) {
+        const remaining = total - elapsed;
+        if (remaining <= 0) {
           soundEnd();
           speak("Temps écoulé ! Notez vos rounds.");
           vibrate([600]);
           finishBloc(i, total);
+          return;
         }
+        if (elapsed >= Math.floor(total / 2)) once("half", () => speakEn("Half Time!"));
+        if (remaining <= 10) once("ten", () => speakEn("Ten seconds!"));
+        if (remaining <= 3) beepSecond(remaining);
+        return;
+      }
+
+      if (b.format === "ft") {
+        // Mi-parcours calculé sur la durée estimée du bloc.
+        const estimated = b.durationMin * 60;
+        if (estimated > 0 && elapsed >= Math.floor(estimated / 2)) once("half", () => speakEn("Half Time!"));
         return;
       }
 
@@ -280,12 +330,20 @@ export function SessionRunnerV2({
           return;
         }
         const minute = Math.floor(elapsed / 60) + 1;
+        const secondsLeftInMinute = 60 - (elapsed % 60);
+        if (secondsLeftInMinute <= 3) beepSecond(secondsLeftInMinute);
         if (minuteRef.current[i] === undefined) minuteRef.current[i] = minute;
         else if (minute !== minuteRef.current[i]) {
           minuteRef.current[i] = minute;
           soundTransition();
-          speak("Minute suivante !");
           vibrate([120]);
+          // Mouvements pas tous cochés à la fin de la minute → alerte.
+          const allChecked = b.checked.length > 0 && b.checked.every(Boolean);
+          if (allChecked) speakEn(`Round ${minute}`);
+          else {
+            soundTick();
+            speakEn("Next round!");
+          }
         }
         return;
       }
@@ -299,6 +357,15 @@ export function SessionRunnerV2({
           finishBloc(i, b.tabataRounds * (b.workSec + b.restSec));
           return;
         }
+        if (view.remaining <= 3) beepSecond(view.remaining);
+        // Mi-temps de la phase travail.
+        if (view.phase === "work" && view.remaining <= Math.ceil(b.workSec / 2)) {
+          once(`half-${view.round}`, () => soundTick());
+        }
+        // Dernier tour annoncé pendant le repos qui le précède.
+        if (view.phase === "rest" && view.round === b.tabataRounds - 1) {
+          once("last-round", () => speak("Dernier round !"));
+        }
         const key = `${view.round}-${view.phase}`;
         if (tabataRef.current[i] === undefined) tabataRef.current[i] = key;
         else if (tabataRef.current[i] !== key) {
@@ -306,10 +373,10 @@ export function SessionRunnerV2({
           vibrate([120]);
           if (view.phase === "work") {
             soundWork();
-            speak(view.round === b.tabataRounds ? "Dernier tour !" : "Travail !");
+            speakEn(`Round ${view.round}`);
           } else {
             soundRest();
-            speak("Repos !");
+            speakEn("Rest!");
           }
         }
       }
@@ -318,7 +385,7 @@ export function SessionRunnerV2({
   }, [now]);
 
   function startTimer(i: number) {
-    ensureAudio(); // geste utilisateur : seul moment où le son peut être autorisé
+    unlockAudio(); // geste utilisateur : seul moment où iOS autorise le son
     setBlocks((prev) =>
       prev.map((x, idx) => {
         if (idx !== i || x.running || x.done || x.countdownEndsAt) return x;
@@ -343,6 +410,7 @@ export function SessionRunnerV2({
     tickRef.current[i] = -1;
     delete minuteRef.current[i];
     delete tabataRef.current[i];
+    delete spokenRef.current[i];
     setBlocks((prev) =>
       prev.map((x, idx) =>
         idx === i
@@ -357,12 +425,13 @@ export function SessionRunnerV2({
     const sec = elapsedSec(b, Date.now());
     if (b.format === "ft" && b.running) {
       soundEnd();
-      speak(`Bien joué ! Temps : ${fmtMS(sec)}`);
+      speakEn(`Well done! Time: ${Math.floor(sec / 60)} minutes ${sec % 60}`);
       vibrate([600]);
     } else {
       soundTransition();
       vibrate([80]);
     }
+    setFullscreen(null);
     finishBloc(i, sec);
   }
 
@@ -392,6 +461,22 @@ export function SessionRunnerV2({
     setTimeout(() => blocRefs.current[i]?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
   }, []);
 
+  /** AMRAP : un tap = un round complété (compté en direct, repris dans les résultats). */
+  function addAmrapRound(i: number) {
+    soundTransition();
+    vibrate([60]);
+    setBlocks((prev) =>
+      prev.map((x, idx) =>
+        idx === i ? { ...x, amrapRounds: x.amrapRounds + 1, rounds: String(x.amrapRounds + 1) } : x,
+      ),
+    );
+  }
+
+  function changeVolume(value: number) {
+    setVolumeState(value);
+    setVolume(value);
+  }
+
   function toggleChecked(blocIdx: number, exIdx: number) {
     setBlocks((prev) =>
       prev.map((x, i) =>
@@ -401,11 +486,19 @@ export function SessionRunnerV2({
     vibrate([30]);
   }
 
+  /** Nouvelle série pré-remplie avec les valeurs de la précédente. */
   function addSerie(blocIdx: number, exIdx: number) {
     setBlocks((prev) =>
       prev.map((x, i) =>
         i === blocIdx
-          ? { ...x, exerciseSeries: x.exerciseSeries.map((es, j) => (j === exIdx ? [...es, { charge: "", reps: "" }] : es)) }
+          ? {
+              ...x,
+              exerciseSeries: x.exerciseSeries.map((es, j) => {
+                if (j !== exIdx) return es;
+                const last = es[es.length - 1];
+                return [...es, { charge: last?.charge ?? "", reps: last?.reps ?? "", rpe: last?.rpe }];
+              }),
+            }
           : x,
       ),
     );
@@ -474,7 +567,8 @@ export function SessionRunnerV2({
     if (window.confirm("Quitter la séance ?")) router.push("/dashboard");
   }
 
-  // Enregistrement des résultats — best effort, l'écran de fin s'affiche quoi qu'il arrive.
+  // Enregistrement des résultats puis compte rendu — best effort : même si
+  // l'enregistrement échoue, on emmène l'athlète sur la page de compte rendu.
   useEffect(() => {
     if (!sessionDone || savedRef.current) return;
     savedRef.current = true;
@@ -482,7 +576,7 @@ export function SessionRunnerV2({
     blockData.forEach((b, i) => {
       const state = blocks[i];
       b.items.forEach((it, j) => {
-        const series = (state.exerciseSeries[j] ?? []).filter((s) => s.charge.trim() || s.reps.trim());
+        const series = (state.exerciseSeries[j] ?? []).filter((x) => x.charge.trim() || x.reps.trim());
         const temps = state.exerciseTimes[j]?.trim();
         if (series.length > 0) blocs.push({ bloc: i + 1, nom: it.name, series });
         else if (temps) blocs.push({ bloc: i + 1, nom: it.name, temps });
@@ -498,11 +592,10 @@ export function SessionRunnerV2({
       }
     });
 
+    releaseAudio();
     saveSessionResult({ date, variant, blocs, durationSec: globalSec, completionRate })
-      .then((res) => {
-        if (res.ok && res.message) setCongrats(res.message);
-      })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => router.replace("/session/recap"));
     try {
       localStorage.removeItem(storageKey);
     } catch {
@@ -512,28 +605,8 @@ export function SessionRunnerV2({
   }, [sessionDone]);
 
   if (sessionDone) {
-    const results = blockData.flatMap((b, i) => {
-      const state = blocks[i];
-      const lines: string[] = [];
-      b.items.forEach((it, j) => {
-        const series = (state.exerciseSeries[j] ?? []).filter((s) => s.charge.trim() || s.reps.trim());
-        if (series.length > 0) {
-          lines.push(`${it.name} — ${series.map((s) => `${s.charge || "—"} kg × ${s.reps || "—"}`).join(" · ")}`);
-        }
-        const temps = state.exerciseTimes[j]?.trim();
-        if (temps) lines.push(`${it.name} — ${temps}`);
-      });
-      const blocLine = [
-        state.temps && `temps ${state.temps}`,
-        state.rounds && `${state.rounds} rounds`,
-        state.score && `${state.score} reps bonus`,
-      ]
-        .filter(Boolean)
-        .join(" · ");
-      if (blocLine) lines.push(`${b.titre} — ${blocLine}`);
-      return lines.length > 0 ? [{ titre: b.titre, lines }] : [];
-    });
-
+    // Le compte rendu complet vit sur /session/recap (généré côté serveur) —
+    // ici on patiente pendant l'enregistrement et la génération du message.
     return (
       <div className={styles.sessRoot}>
         <div className={cx(styles.success, styles.show)}>
@@ -546,53 +619,31 @@ export function SessionRunnerV2({
           <div className={styles.successSub}>
             <strong>{sessionName}</strong>
             <br />
-            Complétée en {fmtHMS(globalSec)}
+            {fmtHMS(globalSec)} · {movementsDone}/{movementsTotal} mouvements
           </div>
-          <div className={styles.successStats}>
-            <div className={styles.ssCard}>
-              <div className={styles.ssVal}>{fmtMS(globalSec)}</div>
-              <div className={styles.ssLabel}>Durée</div>
-            </div>
-            <div className={styles.ssCard}>
-              <div className={styles.ssVal}>
-                {movementsDone}/{movementsTotal}
-              </div>
-              <div className={styles.ssLabel}>Mouvements</div>
-            </div>
-            <div className={styles.ssCard}>
-              <div className={styles.ssVal}>{Math.round(completionRate * 100)}%</div>
-              <div className={styles.ssLabel}>Complété</div>
-            </div>
-          </div>
-
-          {congrats && <div className={styles.congrats}>{congrats}</div>}
-
-          {results.length > 0 && (
-            <div className={styles.summary}>
-              <div className={styles.summaryTitle}>Résultats saisis</div>
-              {results.map((r) => (
-                <div key={r.titre} className={styles.summaryBloc}>
-                  <div className={styles.summaryBlocTitle}>{r.titre}</div>
-                  {r.lines.map((l) => (
-                    <div key={l} className={styles.summaryLine}>
-                      {l}
-                    </div>
-                  ))}
-                </div>
-              ))}
-            </div>
-          )}
-
-          <a href="/dashboard" className={styles.successBtn}>
-            Voir mon dashboard →
-          </a>
+          <div className={styles.successSub}>Préparation de ton compte rendu…</div>
         </div>
       </div>
     );
   }
 
+  const fsIndex = fullscreen !== null && blocks[fullscreen] && !blocks[fullscreen].done ? fullscreen : null;
+
   return (
     <div className={styles.sessRoot}>
+      {fsIndex !== null && (
+        <FullscreenTimer
+          block={blockData[fsIndex]}
+          state={blocks[fsIndex]}
+          now={now}
+          globalLabel={fmtHMS(globalSec)}
+          onPause={() => pauseTimer(fsIndex)}
+          onResume={() => startTimer(fsIndex)}
+          onAddRound={() => addAmrapRound(fsIndex)}
+          onDone={() => doneBloc(fsIndex)}
+          onClose={() => setFullscreen(null)}
+        />
+      )}
       <div className={styles.topbar}>
         <div className={styles.tbLeft}>
           <button className={styles.tbBack} onClick={confirmBack} aria-label="Retour">
@@ -620,6 +671,19 @@ export function SessionRunnerV2({
           <div className={styles.sessLabel}>[ SÉANCE EN COURS ]</div>
           <div className={styles.sessName}>{sessionName}</div>
           <div className={styles.sessMeta}>{sessionMeta}</div>
+          <label className={styles.volumeRow}>
+            <span className={styles.volumeLabel}>🔊 Volume</span>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={Math.round(volume * 100)}
+              onChange={(e) => changeVolume(Number(e.target.value) / 100)}
+              className={styles.volumeSlider}
+              aria-label="Volume des signaux sonores"
+            />
+            <span className={styles.volumeValue}>{Math.round(volume * 100)}%</span>
+          </label>
         </div>
 
         <div>
@@ -634,6 +698,7 @@ export function SessionRunnerV2({
               block={b}
               state={blocks[i]}
               now={now}
+              lastResults={lastResults}
               onToggle={() => toggleOpen(i)}
               onChangeFormat={(fmt) => changeFormat(i, fmt)}
               onPatch={(patch) => patchBloc(i, patch)}
@@ -642,6 +707,8 @@ export function SessionRunnerV2({
               onPause={() => pauseTimer(i)}
               onReset={() => resetTimer(i)}
               onDone={() => doneBloc(i)}
+              onAddRound={() => addAmrapRound(i)}
+              onOpenFullscreen={() => setFullscreen(i)}
               onToggleChecked={(exIdx) => toggleChecked(i, exIdx)}
               onAddSerie={(exIdx) => addSerie(i, exIdx)}
               onUpdateSerie={(exIdx, serieIdx, patch) => updateSerie(i, exIdx, serieIdx, patch)}
@@ -684,6 +751,7 @@ function BlocCard({
   block,
   state,
   now,
+  lastResults,
   onToggle,
   onChangeFormat,
   onPatch,
@@ -692,6 +760,8 @@ function BlocCard({
   onPause,
   onReset,
   onDone,
+  onAddRound,
+  onOpenFullscreen,
   onToggleChecked,
   onAddSerie,
   onUpdateSerie,
@@ -704,6 +774,7 @@ function BlocCard({
   block: DisplayBlock;
   state: BlocState;
   now: number;
+  lastResults: Record<string, LastResult>;
   onToggle: () => void;
   onChangeFormat: (fmt: RuntimeFormat) => void;
   onPatch: (patch: Partial<BlocState>) => void;
@@ -712,6 +783,8 @@ function BlocCard({
   onPause: () => void;
   onReset: () => void;
   onDone: () => void;
+  onAddRound: () => void;
+  onOpenFullscreen: () => void;
   onToggleChecked: (exIdx: number) => void;
   onAddSerie: (exIdx: number) => void;
   onUpdateSerie: (exIdx: number, serieIdx: number, patch: Partial<ExerciseSerie>) => void;
@@ -747,6 +820,8 @@ function BlocCard({
           onPause={onPause}
           onReset={onReset}
           onDone={onDone}
+          onAddRound={onAddRound}
+          onOpenFullscreen={onOpenFullscreen}
         />
 
         {itemCount > 0 && (
@@ -790,6 +865,7 @@ function BlocCard({
                 {checked && state.exerciseSeries[j] && (
                   <SerieInput
                     series={state.exerciseSeries[j]}
+                    last={lastResults[it.name] ?? lastResults[it.movementName]}
                     onAdd={() => onAddSerie(j)}
                     onUpdate={(serieIdx, patch) => onUpdateSerie(j, serieIdx, patch)}
                     onRemove={(serieIdx) => onRemoveSerie(j, serieIdx)}
@@ -865,11 +941,13 @@ function capitalize(s: string) {
 
 function SerieInput({
   series,
+  last,
   onAdd,
   onUpdate,
   onRemove,
 }: {
   series: ExerciseSerie[];
+  last?: LastResult;
   onAdd: () => void;
   onUpdate: (serieIdx: number, patch: Partial<ExerciseSerie>) => void;
   onRemove: (serieIdx: number) => void;
@@ -877,13 +955,14 @@ function SerieInput({
   return (
     <div className={styles.seriesWrap}>
       {series.map((s, k) => (
-        <div key={k} className={styles.serieRow}>
+        <div key={k}>
+        <div className={styles.serieRow}>
           <span className={styles.serieLabel}>Série {k + 1}</span>
           <input
             className={styles.serieInput}
             type="number"
             inputMode="decimal"
-            placeholder="—"
+            placeholder={last ? String(last.suggestion) : "—"}
             value={s.charge}
             onChange={(e) => onUpdate(k, { charge: e.target.value })}
           />
@@ -904,7 +983,27 @@ function SerieInput({
             </button>
           )}
         </div>
+        <div className={styles.rpeRow}>
+          <span className={styles.rpeLabel}>RPE {s.rpe || "—"}</span>
+          <input
+            className={styles.rpeSlider}
+            type="range"
+            min={1}
+            max={10}
+            step={1}
+            value={s.rpe ? Number(s.rpe) : 5}
+            onChange={(e) => onUpdate(k, { rpe: e.target.value })}
+            aria-label={`RPE série ${k + 1}`}
+          />
+          <span className={styles.rpeHint}>facultatif</span>
+        </div>
+        </div>
       ))}
+      {last && (
+        <div className={styles.lastResult}>
+          Dernière fois : {last.charge} kg × {last.reps || "—"} · suggéré {last.suggestion} kg
+        </div>
+      )}
       <button type="button" className={styles.addSerieBtn} onClick={onAdd}>
         + Ajouter une série
       </button>
@@ -958,6 +1057,8 @@ function TimerZone({
   onPause,
   onReset,
   onDone,
+  onAddRound,
+  onOpenFullscreen,
 }: {
   index: number;
   state: BlocState;
@@ -969,6 +1070,8 @@ function TimerZone({
   onPause: () => void;
   onReset: () => void;
   onDone: () => void;
+  onAddRound: () => void;
+  onOpenFullscreen: () => void;
 }) {
   const fmt = t.format;
   const elapsed = elapsedSec(t, now);
@@ -1003,10 +1106,14 @@ function TimerZone({
       displayClass = view.phase === "work" ? styles.runningTabataWork : styles.runningTabataRest;
       infoText = view.phase === "work" ? "EFFORT" : "REPOS";
     }
+  } else if (t.accumulatedMs > 0) {
+    // Chrono en pause : on garde le temps atteint sous les yeux.
+    displayTime =
+      fmt === "amrap" ? fmtMS(t.durationMin * 60 - elapsed) : fmt === "emom" ? fmtMS(60 - (elapsed % 60)) : fmtMS(elapsed);
+    statusText = "⏸ EN PAUSE";
+    displayClass = styles.paused;
   } else if (fmt === "amrap" || fmt === "emom") {
     displayTime = fmtMS(t.durationMin * 60);
-  } else if (t.accumulatedMs > 0) {
-    displayTime = fmtMS(elapsed);
   }
 
   const idle = !t.done && !t.running && countdown === null;
@@ -1065,6 +1172,12 @@ function TimerZone({
         </div>
       )}
 
+      {fmt === "emom" && t.running && (
+        <div className={styles.roundCounter}>
+          Round <span>{Math.min(t.durationMin, Math.floor(elapsed / 60) + 1)}</span> / {t.durationMin}
+        </div>
+      )}
+
       {tabataRunning && (
         <>
           <div className={cx(styles.tabataPhase, tabataRunning.phase === "work" ? styles.work : styles.rest)}>
@@ -1100,6 +1213,18 @@ function TimerZone({
         <div className={styles.emomBarWrap}>
           <div className={cx(styles.emomBar, styles.blue)} style={{ width: `${((elapsed % 60) / 60) * 100}%` }} />
         </div>
+      )}
+
+      {t.running && fmt === "amrap" && (
+        <button type="button" className={styles.roundBtn} onClick={onAddRound}>
+          + Round <span>{t.amrapRounds}</span>
+        </button>
+      )}
+
+      {t.running && (
+        <button type="button" className={styles.fsOpenBtn} onClick={onOpenFullscreen}>
+          ⛶ Chrono plein écran
+        </button>
       )}
 
       <div className={styles.timerControls} id={`tc-${index}`}>
@@ -1145,6 +1270,90 @@ function TimerZone({
             </button>
           </>
         )}
+      </div>
+    </div>
+  );
+}
+
+
+/** Chrono plein écran pendant un bloc en cours — format, temps, infos, pause. */
+function FullscreenTimer({
+  block,
+  state: t,
+  now,
+  globalLabel,
+  onPause,
+  onResume,
+  onAddRound,
+  onDone,
+  onClose,
+}: {
+  block: DisplayBlock;
+  state: BlocState;
+  now: number;
+  globalLabel: string;
+  onPause: () => void;
+  onResume: () => void;
+  onAddRound: () => void;
+  onDone: () => void;
+  onClose: () => void;
+}) {
+  const fmt = t.format;
+  const elapsed = elapsedSec(t, now);
+  const countdown = t.countdownEndsAt ? Math.max(0, Math.ceil((t.countdownEndsAt - now) / 1000)) : null;
+  const tabata = fmt === "tabata" ? tabataView(t, elapsed) : null;
+
+  let time = fmtMS(elapsed);
+  let info = "";
+  if (fmt === "amrap") {
+    time = fmtMS(t.durationMin * 60 - elapsed);
+    info = `${t.amrapRounds} round${t.amrapRounds > 1 ? "s" : ""} complété${t.amrapRounds > 1 ? "s" : ""}`;
+  } else if (fmt === "emom") {
+    time = fmtMS(60 - (elapsed % 60));
+    info = `Round ${Math.min(t.durationMin, Math.floor(elapsed / 60) + 1)} / ${t.durationMin}`;
+  } else if (tabata) {
+    time = fmtMS(tabata.remaining);
+    info = `${tabata.phase === "work" ? "Travail" : "Repos"} · Round ${Math.min(tabata.round, t.tabataRounds)} / ${t.tabataRounds}`;
+  } else if (fmt === "ft") {
+    info = "Pour le temps";
+  } else {
+    info = "Sans chrono";
+  }
+
+  // Teinte du format posée sur le noir opaque (sinon la page défile derrière).
+  const tint = tabata && tabata.phase === "rest" ? "rgba(34,197,94,0.15)" : FS_BACKGROUND[fmt];
+
+  return (
+    <div className={styles.fsRoot} style={{ backgroundImage: `linear-gradient(${tint}, ${tint})` }}>
+      <div className={styles.fsTop}>
+        <div className={styles.fsFormat}>{FORMAT_LABELS[fmt]}</div>
+        <div className={styles.fsBloc}>{block.titre}</div>
+      </div>
+
+      <div className={styles.fsCenter}>
+        <div className={styles.fsTime}>{countdown !== null ? countdown : time}</div>
+        <div className={styles.fsInfo}>{countdown !== null ? "Départ dans…" : info}</div>
+        {!t.running && t.accumulatedMs > 0 && countdown === null && <div className={styles.fsPaused}>⏸ En pause</div>}
+        {fmt === "amrap" && t.running && (
+          <button type="button" className={styles.fsRoundBtn} onClick={onAddRound}>
+            + Round
+          </button>
+        )}
+        {fmt === "ft" && t.running && (
+          <button type="button" className={styles.fsRoundBtn} onClick={onDone}>
+            Done !
+          </button>
+        )}
+      </div>
+
+      <div className={styles.fsBottom}>
+        <button type="button" className={styles.fsBtn} onClick={t.running ? onPause : onResume}>
+          {t.running ? "⏸ Pause" : "▷ Reprendre"}
+        </button>
+        <div className={styles.fsGlobal}>{globalLabel}</div>
+        <button type="button" className={styles.fsBtn} onClick={onClose}>
+          ← Mouvements
+        </button>
       </div>
     </div>
   );

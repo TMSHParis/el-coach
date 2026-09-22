@@ -8,7 +8,7 @@ import { generateSessionCongrats } from "@/lib/ecm-engine";
 export type SessionBlocResult = {
   bloc: number;
   nom: string;
-  series?: { charge: string; reps: string }[];
+  series?: { charge: string; reps: string; rpe?: string }[];
   temps?: string;
   rounds?: string;
   score?: string;
@@ -23,6 +23,22 @@ export type SessionResultPayload = {
   /** Part des mouvements cochés (0 à 1). */
   completionRate?: number;
 };
+
+/** Meilleure série du jour — mise en avant sur le compte rendu. */
+export type BestResult = { nom: string; charge: number; reps: string } | null;
+
+/** Meilleure série (charge la plus lourde) parmi les résultats saisis. */
+function computeBestResult(blocs: SessionBlocResult[]): BestResult {
+  let best: BestResult = null;
+  for (const bloc of blocs) {
+    for (const serie of bloc.series ?? []) {
+      const charge = parseFloat(serie.charge);
+      if (!Number.isFinite(charge) || charge <= 0) continue;
+      if (!best || charge > best.charge) best = { nom: bloc.nom, charge, reps: serie.reps };
+    }
+  }
+  return best;
+}
 
 function formatDurationLabel(totalSec: number): string {
   const h = Math.floor(totalSec / 3600);
@@ -43,6 +59,7 @@ export async function saveSessionResult(
     data: { blocs: payload.blocs },
     completionRate: payload.completionRate ?? null,
     durationSec: payload.durationSec,
+    bestResult: computeBestResult(payload.blocs) as Prisma.InputJsonValue,
   };
   try {
     await prisma.session.upsert({
@@ -103,4 +120,21 @@ async function generateAndStoreCongrats(userId: string, payload: SessionResultPa
     data: { output: output as Prisma.InputJsonValue },
   });
   return message;
+}
+
+
+/** Note de séance (1 à 5 étoiles) donnée depuis le compte rendu. */
+export async function rateSession(date: string, rating: number): Promise<{ ok: boolean }> {
+  const userId = await getUserId();
+  if (!userId || rating < 1 || rating > 5) return { ok: false };
+  try {
+    await prisma.session.update({
+      where: { userId_date: { userId, date } },
+      data: { sessionRating: Math.round(rating) },
+    });
+    return { ok: true };
+  } catch (err) {
+    console.error("rateSession: échec de l'enregistrement de la note:", err);
+    return { ok: false };
+  }
 }
