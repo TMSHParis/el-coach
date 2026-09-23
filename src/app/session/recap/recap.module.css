@@ -108,3 +108,4 @@
 .resultValue { color: #8a8a8a; text-align: right; }
 
 .cta { display: flex; align-items: center; justify-content: center; width: 100%; background: #E8FF00; color: #000; font-family: var(--font-bebas, sans-serif); font-size: 1.1rem; letter-spacing: 3px; text-transform: uppercase; padding: 16px 24px; border-radius: 4px; text-decoration: none; }
+.calAuto { margin-top: 10px; font-size: 11px; letter-spacing: 1px; color: #E8FF00; }

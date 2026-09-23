@@ -23,6 +23,13 @@ const isProtected = createRouteMatcher([
 
 // Redirection maison vers /signin?redirect=<page demandée> (page ECM, pas la
 // page Clerk hébergée /sign-in) — cf. note "Signup & Connexion" du produit.
+//
+// Abonnement : aucune vérification ici pour l'instant, être connecté suffit.
+// Quand Stripe sera branché (P3), le contrôle d'abonnement se pose dans
+// `hasFullAccess()` (src/lib/access.ts) et **nulle part ailleurs** — cette
+// fonction court-circuite déjà les comptes admin (publicMetadata.role ===
+// "admin", posé à la main dans Clerk). Un compte admin ne doit jamais être
+// renvoyé vers /checkout ni voir un message d'essai ou d'expiration.
 const clerkHandler = clerkMiddleware(async (auth, req) => {
   if (!isProtected(req)) return;
   const { userId } = await auth();

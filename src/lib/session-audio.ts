@@ -8,7 +8,7 @@
 // évite qu'iOS reprenne la main. C'est la technique des apps de chrono type
 // Interval Timer / Seconds Pro.
 
-export type SoundName = "tick" | "go" | "transition" | "end" | "work" | "rest" | "strong" | "triple";
+export type SoundName = "tick" | "go" | "transition" | "end" | "work" | "rest" | "count" | "triple";
 
 const FILES: Record<SoundName, string> = {
   tick: "/sounds/beep-tick.mp3",
@@ -17,7 +17,7 @@ const FILES: Record<SoundName, string> = {
   end: "/sounds/beep-end.mp3",
   work: "/sounds/beep-work.mp3",
   rest: "/sounds/beep-rest.mp3",
-  strong: "/sounds/beep-strong.mp3",
+  count: "/sounds/beep-count.mp3",
   triple: "/sounds/beep-triple.mp3",
 };
 
@@ -56,6 +56,7 @@ export function setVolume(value: number): void {
 export function unlockAudio(): void {
   if (typeof window === "undefined") return;
   getVolume();
+  unlockSpeech();
 
   if (!unlocked) {
     pool = {};
@@ -126,30 +127,87 @@ export const soundStart = () => play("go");
 export const soundTransition = () => play("transition");
 /** Fin de bloc : grave et long. */
 export const soundEnd = () => play("end");
-/** Bip imposant (240 Hz + sub 120 Hz, 0,3 s) — compte à rebours 3 · 2 · 1. */
-export const soundStrong = () => play("strong");
-/** Les 3 bips imposants du départ et de la fin de chaque chrono. */
+/** Décompte 3 · 2 · 1 : aigu et court (880 Hz, 0,15 s) — "ça va partir". */
+export const soundCount = () => play("count");
+/** Les 3 bips de fin de chrono (300 Hz × 3). */
 export const soundTriple = () => play("triple");
 /** Tabata : début de phase travail (aigu) / repos (grave). */
 export const soundWork = () => play("work");
 export const soundRest = () => play("rest");
 
+// --- Synthèse vocale ---------------------------------------------------
+//
+// Safari iOS ne laisse parler la synthèse que si une première énonciation a
+// été lancée depuis un vrai geste utilisateur. Sans ce déblocage, toutes les
+// annonces déclenchées par le chrono (qui n'est pas un geste) sont ignorées
+// en silence : on entend les bips mais aucune voix. C'est pour ça que
+// `unlockSpeech()` est appelé depuis `unlockAudio()`, lui-même appelé dans le
+// handler du bouton "Démarrer".
+
+let speechUnlocked = false;
+let voices: SpeechSynthesisVoice[] = [];
+
+function loadVoices(): void {
+  if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
+  voices = window.speechSynthesis.getVoices();
+}
+
+/** Meilleure voix disponible pour une langue — null si la liste est vide. */
+function pickVoice(lang: string): SpeechSynthesisVoice | null {
+  if (voices.length === 0) loadVoices();
+  const prefix = lang.slice(0, 2).toLowerCase();
+  return (
+    voices.find((v) => v.lang.toLowerCase() === lang.toLowerCase()) ??
+    voices.find((v) => v.lang.toLowerCase().startsWith(prefix)) ??
+    null
+  );
+}
+
+/**
+ * À appeler depuis un handler de clic. Énonce un blanc inaudible : c'est ce
+ * qui autorise iOS à parler ensuite depuis un timer.
+ */
+export function unlockSpeech(): void {
+  if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
+  loadVoices();
+  // La liste de voix arrive de façon asynchrone sur Chrome et Safari.
+  window.speechSynthesis.onvoiceschanged = loadVoices;
+  if (speechUnlocked) return;
+  try {
+    const primer = new SpeechSynthesisUtterance(" ");
+    primer.volume = 0;
+    window.speechSynthesis.speak(primer);
+    speechUnlocked = true;
+  } catch {
+    // Synthèse indisponible — les bips et vibrations restent.
+  }
+}
+
 /** Annonce vocale — ignorée si le navigateur ne sait pas parler. */
 export function speak(text: string, lang = "fr-FR"): void {
   if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
   try {
+    const synth = window.speechSynthesis;
+    // iOS laisse parfois la synthèse en pause après un passage en arrière-plan.
+    if (synth.paused) synth.resume();
+    // `cancel()` systématique tue l'énoncé qu'on vient d'ajouter sur iOS : on
+    // ne coupe que s'il y a vraiment une annonce en cours à remplacer.
+    if (synth.speaking || synth.pending) synth.cancel();
+
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = lang;
-    utterance.rate = 1.05;
-    utterance.volume = Math.max(0.1, volume);
-    window.speechSynthesis.cancel();
-    window.speechSynthesis.speak(utterance);
+    const voice = pickVoice(lang);
+    if (voice) utterance.voice = voice;
+    utterance.rate = 1.1;
+    // Volume plein : la voix doit passer par-dessus la musique de l'athlète.
+    utterance.volume = 1;
+    synth.speak(utterance);
   } catch {
     // Synthèse vocale indisponible — les bips et vibrations suffisent.
   }
 }
 
-/** Annonces en anglais du cahier des charges ("Let's Go !", "Half Time !"...). */
+/** Annonces en anglais du cahier des charges ("Let's Go!", "Ten seconds!"...). */
 export const speakEn = (text: string) => speak(text, "en-US");
 
 export function vibrate(pattern: number | number[]): void {

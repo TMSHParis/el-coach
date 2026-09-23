@@ -167,8 +167,10 @@ model Session {
   sessionFeeling String? @map("session_feeling")
   /** Note libre facultative laissée sur le compte rendu. */
   sessionNote    String? @map("session_note")
-  /** Calories brûlées, relevées à la main sur la montre. */
+  /** Calories brûlées, relevées sur la montre. */
   caloriesBrulees Int?   @map("calories_brulees")
+  /** Origine de la valeur : "manuel" (saisie) ou "photo_auto" (lue par Claude). */
+  caloriesSource String? @map("calories_source")
   /** URLs Vercel Blob des photos de séance (2 max). */
   photos         String[] @default([])
   /** Meilleure série du jour (mouvement, charge, reps) pour le compte rendu. */

@@ -40,6 +40,7 @@ export function RecapView({
   feeling: initialFeeling,
   note: initialNote,
   calories: initialCalories,
+  caloriesSource: initialCaloriesSource,
   photos: initialPhotos,
   photosEnabled,
   best,
@@ -54,6 +55,7 @@ export function RecapView({
   feeling: string | null;
   note: string | null;
   calories: number | null;
+  caloriesSource: string | null;
   photos: string[];
   /** Vercel Blob configuré — sinon le bouton photo est masqué. */
   photosEnabled: boolean;
@@ -65,6 +67,7 @@ export function RecapView({
   const [feeling, setFeeling] = useState(initialFeeling);
   const [note, setNote] = useState(initialNote ?? "");
   const [calories, setCalories] = useState(initialCalories === null ? "" : String(initialCalories));
+  const [caloriesSource, setCaloriesSource] = useState(initialCaloriesSource);
   const [photos, setPhotos] = useState(initialPhotos);
   const percent = Math.round(completionRate * 100);
 
@@ -80,12 +83,13 @@ export function RecapView({
       void updateSessionRecap(date, {
         note,
         calories: calories.trim() === "" ? null : Number(calories),
+        caloriesSource: caloriesSource === "photo_auto" ? "photo_auto" : "manuel",
       });
     }, 700);
     return () => {
       if (saveTimer.current) clearTimeout(saveTimer.current);
     };
-  }, [note, calories, date, initialNote, initialCalories]);
+  }, [note, calories, caloriesSource, date, initialNote, initialCalories]);
 
   function chooseFeeling(value: string) {
     setFeeling(value);
@@ -95,6 +99,14 @@ export function RecapView({
   function changePhotos(next: string[]) {
     setPhotos(next);
     void updateSessionRecap(date, { photos: next });
+  }
+
+  /** Calories lues par Claude sur la photo — on ne remplace jamais une saisie manuelle. */
+  function handleExtracted(detected: number) {
+    if (calories.trim() !== "") return;
+    setCalories(String(detected));
+    setCaloriesSource("photo_auto");
+    void updateSessionRecap(date, { calories: detected, caloriesSource: "photo_auto" });
   }
 
   return (
@@ -164,10 +176,15 @@ export function RecapView({
           </div>
           <div className={styles.calUnit}>KCAL</div>
         </div>
+        {caloriesSource === "photo_auto" && (
+          <div className={styles.calAuto}>Valeur détectée automatiquement ✓ — corrige-la si besoin</div>
+        )}
         {photosEnabled && (
           <div className={styles.photoZone}>
-            <div className={styles.calLabel}>Photos de la séance (2 max)</div>
-            <SessionPhotos photos={photos} onChange={changePhotos} />
+            <div className={styles.calLabel}>
+              Photos de la séance (2 max) — les calories s&apos;y lisent toutes seules
+            </div>
+            <SessionPhotos photos={photos} onChange={changePhotos} onExtracted={handleExtracted} />
           </div>
         )}
       </div>

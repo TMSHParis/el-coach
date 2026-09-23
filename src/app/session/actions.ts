@@ -134,6 +134,8 @@ export type SessionRecapPatch = {
   feeling?: string;
   note?: string;
   calories?: number | null;
+  /** "manuel" (saisie) ou "photo_auto" (lue sur la photo par Claude). */
+  caloriesSource?: "manuel" | "photo_auto";
   photos?: string[];
 };
 
@@ -145,6 +147,7 @@ export async function updateSessionRecap(date: string, patch: SessionRecapPatch)
     sessionFeeling?: string;
     sessionNote?: string | null;
     caloriesBrulees?: number | null;
+    caloriesSource?: string | null;
     photos?: string[];
   } = {};
   if (patch.feeling !== undefined) {
@@ -154,10 +157,13 @@ export async function updateSessionRecap(date: string, patch: SessionRecapPatch)
   if (patch.note !== undefined) data.sessionNote = patch.note.trim().slice(0, 1000) || null;
   if (patch.calories !== undefined) {
     // Une montre ne renvoie jamais 20 000 kcal — on borne pour éviter les fautes de frappe.
-    data.caloriesBrulees =
+    const clean =
       patch.calories === null || !Number.isFinite(patch.calories)
         ? null
         : Math.min(5000, Math.max(0, Math.round(patch.calories)));
+    data.caloriesBrulees = clean;
+    // Champ vidé → l'origine n'a plus de sens.
+    data.caloriesSource = clean === null ? null : (patch.caloriesSource ?? "manuel");
   }
   if (patch.photos !== undefined) data.photos = patch.photos.slice(0, MAX_SESSION_PHOTOS);
   if (Object.keys(data).length === 0) return { ok: true };

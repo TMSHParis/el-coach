@@ -13,8 +13,8 @@ import {
   getVolume,
   releaseAudio,
   setVolume,
+  soundCount,
   soundRest,
-  soundStrong,
   soundTick,
   soundTransition,
   soundTriple,
@@ -190,6 +190,16 @@ export function SessionRunnerV2({
     return () => releaseAudio();
   }, []);
 
+  // Filet de sécurité iOS : le son et la voix ne se débloquent que depuis un
+  // vrai geste. "Démarrer" le fait déjà, mais pas une séance reprise après un
+  // rechargement (le chrono tournait déjà) — d'où ce déblocage au premier tap,
+  // où qu'il tombe sur la page.
+  useEffect(() => {
+    const onFirstTap = () => unlockAudio();
+    window.addEventListener("pointerdown", onFirstTap, { once: true });
+    return () => window.removeEventListener("pointerdown", onFirstTap);
+  }, []);
+
   // Reprise après un retour dans l'app (ou un rechargement) : tout l'état du
   // chrono est relu depuis localStorage, les timestamps font le reste.
   useEffect(() => {
@@ -274,11 +284,11 @@ export function SessionRunnerV2({
         spoken.add(key);
         fn();
       };
-      /** Bip imposant une seule fois par seconde restante (3 · 2 · 1). */
+      /** Décompte : un bip aigu par seconde restante (3 · 2 · 1). */
       const beepSecond = (secondsLeft: number) => {
         if (tickRef.current[i] === secondsLeft) return;
         tickRef.current[i] = secondsLeft;
-        soundStrong();
+        soundCount();
         vibrate([60]);
       };
       /** Alerte des 10 dernières secondes — une fois par `key` (par minute sur l'EMOM). */
@@ -355,9 +365,11 @@ export function SessionRunnerV2({
           tickRef.current[i] = -1;
           soundTransition();
           vibrate([120]);
-          // Mouvements pas tous cochés à la fin de la minute → on le signale au lieu du round.
+          speakEn(`Let's Go! Round ${minute}`);
+          // Mouvements pas tous cochés à la fin de la minute : un bip de rappel
+          // en plus, sans remplacer l'annonce du round.
           const allChecked = b.checked.length > 0 && b.checked.every(Boolean);
-          speakEn(allChecked ? `Let's Go! Round ${minute}` : "Next round!");
+          if (!allChecked) soundTick();
         }
         return;
       }
@@ -371,6 +383,12 @@ export function SessionRunnerV2({
         }
         // Bips sur les 3 dernières secondes, aussi bien en travail qu'en repos.
         if (view.remaining <= 3) beepSecond(view.remaining);
+        // "Ten seconds!" seulement sur une phase assez longue : sur un repos de
+        // 10 s l'annonce tomberait pile au démarrage de la phase.
+        const phaseSec = view.phase === "work" ? b.workSec : b.restSec;
+        if (phaseSec > 12 && view.remaining <= 10) {
+          tenSeconds(`ten-${view.round}-${view.phase}`);
+        }
         // Mi-temps de la phase travail : un bip sec.
         if (view.phase === "work" && view.remaining <= Math.ceil(b.workSec / 2)) {
           once(`half-${view.round}`, () => soundTick());

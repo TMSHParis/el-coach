@@ -58,6 +58,7 @@ export default async function RecapPage() {
         feeling={session.sessionFeeling}
         note={session.sessionNote}
         calories={session.caloriesBrulees}
+        caloriesSource={session.caloriesSource}
         photos={session.photos}
         photosEnabled={blobEnabled}
         best={best}

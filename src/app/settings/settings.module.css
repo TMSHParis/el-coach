@@ -89,3 +89,8 @@
 
 /* Photo du compte Clerk à la place de l'initiale. */
 .avatarImg { width: 56px; height: 56px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
+
+/* Compte admin : accès illimité, pas d'abonnement. */
+.adminCard { border-color: rgba(232, 255, 0, .35); background: rgba(232, 255, 0, .05); }
+.adminCard .subName { color: #E8FF00; }
+.profileBadgeAdmin { background: rgba(232, 255, 0, .1); border-color: rgba(232, 255, 0, .35); color: #E8FF00; }

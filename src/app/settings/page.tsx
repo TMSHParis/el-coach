@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { PROGRAM_BASE_PRICE_CENTS } from "@/lib/data";
 import { formatPrice } from "@/lib/utils";
 import { stripeEnabled } from "@/lib/stripe";
+import { isAdmin } from "@/lib/access";
 import { ecmFontVariables } from "@/app/signup/ecm-fonts";
 import { SettingsView } from "./settings-view";
 
@@ -10,6 +11,7 @@ export const metadata = { title: "Réglages — EL COACH METHOD" };
 
 export default async function SettingsPage() {
   const userId = await getUserId();
+  const admin = await isAdmin();
   const profile = userId ? await prisma.profile.findUnique({ where: { userId } }) : null;
 
   if (!profile) {
@@ -38,6 +40,7 @@ export default async function SettingsPage() {
         }}
         priceLabel={`${formatPrice(PROGRAM_BASE_PRICE_CENTS)} / mois`}
         stripeEnabled={stripeEnabled}
+        isAdmin={admin}
       />
     </div>
   );

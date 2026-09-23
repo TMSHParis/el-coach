@@ -30,6 +30,25 @@ async function compress(file: File): Promise<Blob> {
 }
 
 /**
+ * Lecture automatique des calories sur la photo (Claude vision). Silencieuse :
+ * si rien n'est lisible ou si l'appel échoue, la saisie manuelle prend le relais.
+ */
+async function extractCalories(photoUrl: string, onExtracted: (calories: number) => void): Promise<void> {
+  try {
+    const res = await fetch("/api/extract-photo-data", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ photoUrl }),
+    });
+    if (!res.ok) return;
+    const data = (await res.json()) as { calories?: number | null };
+    if (typeof data.calories === "number") onExtracted(data.calories);
+  } catch {
+    // Lecture automatique indisponible — le champ reste à remplir à la main.
+  }
+}
+
+/**
  * Ajout de 1 à 2 photos de séance, envoyées sur Vercel Blob. `onChange` reçoit
  * la liste d'URLs à chaque ajout/suppression — c'est à l'appelant de la
  * persister (Server Action).
@@ -37,10 +56,13 @@ async function compress(file: File): Promise<Blob> {
 export function SessionPhotos({
   photos,
   onChange,
+  onExtracted,
   accent = "#E8FF00",
 }: {
   photos: string[];
   onChange: (next: string[]) => void;
+  /** Calories lues par Claude sur la photo — appelé seulement si un chiffre est trouvé. */
+  onExtracted?: (calories: number) => void;
   accent?: string;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -64,6 +86,7 @@ export function SessionPhotos({
         return;
       }
       onChange([...photos, data.url]);
+      if (onExtracted) void extractCalories(data.url, onExtracted);
     } catch {
       setError("Envoi impossible — vérifie ta connexion.");
     } finally {

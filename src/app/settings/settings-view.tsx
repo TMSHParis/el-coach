@@ -41,10 +41,13 @@ export function SettingsView({
   profile,
   priceLabel,
   stripeEnabled,
+  isAdmin,
 }: {
   profile: SettingsProfile;
   priceLabel: string;
   stripeEnabled: boolean;
+  /** Compte admin : accès illimité, aucun abonnement à afficher. */
+  isAdmin: boolean;
 }) {
   const router = useRouter();
   const goBack = useSmartBack();
@@ -134,7 +137,9 @@ export function SettingsView({
         <div>
           <div className={styles.profileName}>{profile.prenom}</div>
           <div className={styles.profileEmail}>{email}</div>
-          <div className={styles.profileBadge}>⚡ Coaching Adaptatif · Actif</div>
+          <div className={cx(styles.profileBadge, isAdmin && styles.profileBadgeAdmin)}>
+            {isAdmin ? "⚡ Compte admin · Accès illimité" : "⚡ Coaching Adaptatif · Actif"}
+          </div>
         </div>
       </div>
 
@@ -161,15 +166,23 @@ export function SettingsView({
         <Row icon="🚪" title="Déconnexion" sub="Retour à la page d'accueil" onClick={handleLogout} />
       </div>
 
-      {/* ABONNEMENT */}
-      <div className={styles.sectionLabel}>Abonnement</div>
-      <div className={styles.subCard}>
-        <div className={styles.subName}>COACHING ADAPTATIF</div>
-        <div className={styles.subPrice}>{priceLabel}</div>
-        <div className={styles.subRenew}>
-          {stripeEnabled ? "Prochain renouvellement : —" : "Paiement pas encore configuré — Free Trial active."}
+      {/* ABONNEMENT — masqué pour un compte admin, qui n'en a pas. */}
+      <div className={styles.sectionLabel}>{isAdmin ? "Accès" : "Abonnement"}</div>
+      {isAdmin ? (
+        <div className={cx(styles.subCard, styles.adminCard)}>
+          <div className={styles.subName}>⚡ COMPTE ADMIN</div>
+          <div className={styles.subPrice}>Accès illimité</div>
+          <div className={styles.subRenew}>Toutes les fonctionnalités · aucune échéance</div>
         </div>
-      </div>
+      ) : (
+        <div className={styles.subCard}>
+          <div className={styles.subName}>COACHING ADAPTATIF</div>
+          <div className={styles.subPrice}>{priceLabel}</div>
+          <div className={styles.subRenew}>
+            {stripeEnabled ? "Prochain renouvellement : —" : "Paiement pas encore configuré — Free Trial active."}
+          </div>
+        </div>
+      )}
 
       {/* NOTIFICATIONS */}
       <div className={styles.sectionLabel}>Notifications</div>
