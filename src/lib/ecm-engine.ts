@@ -886,3 +886,115 @@ Réponds uniquement via l'appel à l'outil, sans texte additionnel.`;
 
   return (toolUse.input as { message: string }).message;
 }
+
+const TOMORROW_TOOL = {
+  name: "emit_tomorrow_preview",
+  description: "Aperçu de la séance de demain, d'après la semaine type et l'état du jour.",
+  input_schema: {
+    type: "object" as const,
+    properties: {
+      titre: {
+        type: "string",
+        description: 'Titre court en majuscules avec un emoji, ex: "🏋️ DEMAIN — CROSSFIT PURE" ou "😴 DEMAIN — REPOS".',
+      },
+      lignes: {
+        type: "array",
+        items: { type: "string" },
+        description:
+          "2 à 4 lignes très courtes, chacune commençant par un emoji. Ce qui est prévu, comment s'y préparer ce soir, et l'adaptation à prévoir si blessure ou énergie basse.",
+      },
+    },
+    required: ["titre", "lignes"],
+  },
+};
+
+/** Jour de la semaine de demain, dans les clés de `profile.weekCycle`. */
+const WEEK_CYCLE_KEYS = ["dim", "lun", "mar", "mer", "jeu", "ven", "sam"] as const;
+const WEEK_CYCLE_LABELS: Record<(typeof WEEK_CYCLE_KEYS)[number], string> = {
+  lun: "lundi",
+  mar: "mardi",
+  mer: "mercredi",
+  jeu: "jeudi",
+  ven: "vendredi",
+  sam: "samedi",
+  dim: "dimanche",
+};
+
+type WeekCycleSlot = { sport: string; heure: string; duree: string; niveau: string };
+type WeekCycleDay = { repos: boolean; slots: WeekCycleSlot[] };
+
+export type TomorrowPreview = { titre: string; lignes: string[] };
+
+/** Ce que la semaine type prévoit demain — null si elle n'est pas renseignée. */
+export function tomorrowFromWeekCycle(
+  weekCycle: unknown,
+  today = new Date(),
+): { jour: string; repos: boolean; slots: WeekCycleSlot[] } | null {
+  if (!weekCycle || typeof weekCycle !== "object") return null;
+  const tomorrow = new Date(today);
+  tomorrow.setDate(today.getDate() + 1);
+  const key = WEEK_CYCLE_KEYS[tomorrow.getDay()];
+  const day = (weekCycle as Record<string, WeekCycleDay | undefined>)[key];
+  if (!day) return null;
+  return { jour: WEEK_CYCLE_LABELS[key], repos: day.repos, slots: day.slots ?? [] };
+}
+
+/**
+ * Aperçu de la séance de demain : ce que dit la semaine type, revu à la lumière
+ * de l'état du jour (énergie, douleur du check-in, blessures du profil). Généré
+ * au check-in et stocké avec le plan du jour — pas d'appel Claude au rendu du
+ * dashboard.
+ */
+export async function generateTomorrowPreview(input: {
+  profile: Profile;
+  checkin: Checkin;
+}): Promise<TomorrowPreview> {
+  const { profile, checkin } = input;
+  const demain = tomorrowFromWeekCycle(profile.weekCycle);
+  if (!demain) throw new Error("Pas de semaine type renseignée — aperçu de demain impossible.");
+
+  const seances = demain.repos
+    ? "Repos prévu."
+    : demain.slots.length === 0
+      ? "Rien de planifié à cette date dans la semaine type."
+      : demain.slots
+          .map((s) => `${s.sport} à ${s.heure || "heure libre"} · durée ${s.duree || "—"} · niveau ${s.niveau || "—"}`)
+          .join(" ; ");
+
+  const blessures = [
+    profile.blessures ? profile.blessuresDetail : null,
+    checkin.douleur ? checkin.douleurDetail : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  const client = getAnthropicClient();
+  const prompt = `Demain c'est ${demain.jour}.
+Séance prévue selon la semaine type : ${seances}
+État du jour (check-in de ce matin) : énergie ${checkin.energie ?? "—"}/10 · motivation ${checkin.motivation ?? "—"}/10 · mental ${checkin.mental ?? "—"} · stress ${checkin.stress ?? "—"}.
+Blessures déclarées : ${blessures || "aucune"}.
+Génère un aperçu de la séance de demain en tenant compte de ces données.
+${blessures ? "Une blessure est déclarée : adapte explicitement les conseils pour demain (mouvements à éviter, substitution, amplitude)." : ""}
+${(checkin.energie ?? 10) <= 4 ? "L'énergie est très basse aujourd'hui : dis clairement de récupérer ce soir pour être prêt demain." : ""}
+Rappelle toujours le check-in du matin. Style coaching direct, très court, pas de phrase creuse.
+Réponds uniquement via l'appel à l'outil, sans texte additionnel.`;
+
+  const response = await client.messages.create(
+    {
+      model: ECM_ANALYSIS_MODEL,
+      max_tokens: 400,
+      tools: [TOMORROW_TOOL],
+      tool_choice: { type: "tool", name: "emit_tomorrow_preview" },
+      messages: [{ role: "user", content: prompt }],
+    },
+    { timeout: 15_000 },
+  );
+
+  const toolUse = response.content.find(
+    (block) => block.type === "tool_use" && block.name === "emit_tomorrow_preview",
+  ) as Anthropic.ToolUseBlock | undefined;
+  if (!toolUse) throw new Error("Claude n'a pas renvoyé d'aperçu de demain (pas de tool_use).");
+
+  const { titre, lignes } = toolUse.input as TomorrowPreview;
+  return { titre, lignes: lignes.slice(0, 4) };
+}

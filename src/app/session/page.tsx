@@ -9,6 +9,7 @@ import { toDisplayBlocks, defaultRuntimeFormat, defaultDurationMinutes } from "@
 import { minutesToHM } from "../dashboard/dashboard-helpers";
 import { buildAdviceSession, type StoredAdvice } from "@/lib/advice-session";
 import { buildLastResults } from "@/lib/last-results";
+import { blobEnabled } from "@/lib/blob";
 import { SessionRunnerV2 } from "./session-runner-v2";
 import { sessionFontVariables } from "./session-fonts";
 
@@ -29,7 +30,7 @@ export default async function SessionPage({
   if (!today) redirect("/dashboard");
 
   const userId = await getUserId();
-  const [profile, todayCheckin, dbOutput, pastSessions] = userId
+  const [profile, todayCheckin, dbOutput, pastSessions, todaySession] = userId
     ? await Promise.all([
         prisma.profile.findUnique({ where: { userId } }),
         prisma.checkin.findUnique({ where: { userId_date: { userId, date: todayKey() } } }),
@@ -40,8 +41,9 @@ export default async function SessionPage({
           orderBy: { date: "desc" },
           take: 12,
         }),
+        prisma.session.findUnique({ where: { userId_date: { userId, date: todayKey() } } }),
       ])
-    : [null, null, null, []];
+    : [null, null, null, [], null];
 
   const lastResults = buildLastResults(pastSessions);
 
@@ -61,6 +63,8 @@ export default async function SessionPage({
           date={todayKey()}
           variant="A"
           lastResults={lastResults}
+          initialPhotos={todaySession?.photos ?? []}
+          photosEnabled={blobEnabled}
         />
       </div>
     );
@@ -101,6 +105,8 @@ export default async function SessionPage({
         date={todayKey()}
         variant={variant === "b" ? "B" : "A"}
         lastResults={lastResults}
+        initialPhotos={todaySession?.photos ?? []}
+        photosEnabled={blobEnabled}
       />
     </div>
   );

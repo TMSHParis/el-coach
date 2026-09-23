@@ -7,6 +7,7 @@ import { Nav } from "@/components/nav";
 import { Footer } from "@/components/footer";
 import { ChromeGate } from "@/components/chrome-gate";
 import { NavigationTracker } from "@/components/back-home-button";
+import { SupportChat } from "@/components/support-chat";
 import { ecmFontVariables } from "@/app/signup/ecm-fonts";
 import "./globals.css";
 
@@ -29,6 +30,8 @@ const clerkLocalization = {
   },
 };
 
+const crispWebsiteId = process.env.NEXT_PUBLIC_CRISP_WEBSITE_ID ?? "";
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const shell = (
     <html lang="fr" className={`${geistSans.variable} ${geistMono.variable} ${ecmFontVariables}`}>
@@ -41,6 +44,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ChromeGate>
           <Footer />
         </ChromeGate>
+        {/* Tchat de support : abonnés connectés seulement, et rien tant que
+            l'ID Crisp n'est pas renseigné. */}
+        {clerkEnabled && crispWebsiteId && <SupportChat websiteId={crispWebsiteId} />}
       </body>
     </html>
   );

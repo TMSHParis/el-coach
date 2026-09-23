@@ -8,7 +8,7 @@
 // évite qu'iOS reprenne la main. C'est la technique des apps de chrono type
 // Interval Timer / Seconds Pro.
 
-export type SoundName = "tick" | "go" | "transition" | "end" | "work" | "rest";
+export type SoundName = "tick" | "go" | "transition" | "end" | "work" | "rest" | "strong" | "triple";
 
 const FILES: Record<SoundName, string> = {
   tick: "/sounds/beep-tick.mp3",
@@ -17,6 +17,8 @@ const FILES: Record<SoundName, string> = {
   end: "/sounds/beep-end.mp3",
   work: "/sounds/beep-work.mp3",
   rest: "/sounds/beep-rest.mp3",
+  strong: "/sounds/beep-strong.mp3",
+  triple: "/sounds/beep-triple.mp3",
 };
 
 const VOLUME_KEY = "elc_session_volume";
@@ -124,6 +126,10 @@ export const soundStart = () => play("go");
 export const soundTransition = () => play("transition");
 /** Fin de bloc : grave et long. */
 export const soundEnd = () => play("end");
+/** Bip imposant (240 Hz + sub 120 Hz, 0,3 s) — compte à rebours 3 · 2 · 1. */
+export const soundStrong = () => play("strong");
+/** Les 3 bips imposants du départ et de la fin de chaque chrono. */
+export const soundTriple = () => play("triple");
 /** Tabata : début de phase travail (aigu) / repos (grave). */
 export const soundWork = () => play("work");
 export const soundRest = () => play("rest");

@@ -11,11 +11,13 @@ import {
   generateEcmAnalysis,
   generateNonEcmAdvice,
   generateMindsetMessage,
+  generateTomorrowPreview,
   extractMainLift,
   isRestDay,
   type NonEcmAdvice,
   type EcmAnalysisResult,
   type EcmStateAnalysisResult,
+  type TomorrowPreview,
 } from "@/lib/ecm-engine";
 import { SPORT_LABEL_TO_SLUG } from "@/lib/ecm-programs";
 import {
@@ -282,6 +284,15 @@ async function persistCheckinAndGenerateDashboard(payload: CheckinPayload, fatig
     return fallbackMindset(profile.prenom, checkin);
   });
 
+  // Aperçu de demain d'après la semaine type — best effort : sans semaine type
+  // renseignée (ou si Claude échoue), le dashboard retombe sur le programme fixe.
+  const tomorrowPromise: Promise<TomorrowPreview | null> = generateTomorrowPreview({ profile, checkin }).catch(
+    (err) => {
+      console.error("generateTomorrowPreview a échoué, repli sur le programme fixe:", err);
+      return null;
+    },
+  );
+
   // Activité hors des 5 programmes ECM (ou repos) → même dashboard complet
   // (score, stack, alertes, en-cas, sommeil, poids), seul le bloc séance change :
   // conseils échauffement/prévention/mindset (ou récupération/vigilance/mindset
@@ -305,6 +316,7 @@ async function persistCheckinAndGenerateDashboard(payload: CheckinPayload, fatig
       sleep,
       weight,
       advice,
+      tomorrow: await tomorrowPromise,
       generatedAt: new Date().toISOString(),
     };
     await prisma.dashboardOutput.upsert({
@@ -356,6 +368,7 @@ async function persistCheckinAndGenerateDashboard(payload: CheckinPayload, fatig
     sleep,
     weight,
     generatedDay: analysis.generatedDay,
+    tomorrow: await tomorrowPromise,
     generatedAt: new Date().toISOString(),
   };
 

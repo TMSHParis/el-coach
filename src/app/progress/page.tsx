@@ -5,6 +5,7 @@ import { BackHomeButton } from "@/components/back-home-button";
 import { ecmFontVariables } from "@/app/signup/ecm-fonts";
 import type { EcmScore } from "@/lib/coaching-adaptatif-mock";
 import { ProgressCharts, type WeightPoint, type ScorePoint } from "./progress-charts";
+import { feelingBadge } from "@/lib/session-feeling";
 
 export const metadata = { title: "Ma progression — EL COACH METHOD" };
 
@@ -45,6 +46,19 @@ function computeStreaks(sortedDates: string[]): { current: number; best: number 
 }
 
 const VOLUME_FOCUS_LABELS: Record<string, string> = { upper: "Upper", lower: "Lower", full: "Full" };
+
+/** Titres de section — même traitement que le dashboard (Bebas + trait d'accent). */
+const sectionTitleStyle: React.CSSProperties = {
+  fontFamily: "var(--font-bebas, sans-serif)",
+  fontSize: 22,
+  lineHeight: 1,
+  letterSpacing: 4,
+  textTransform: "uppercase",
+  color: "#fff",
+  margin: "8px 0 14px",
+  paddingBottom: 8,
+  borderBottom: "2px solid #E8FF00",
+};
 
 /** Nombre de séances et meilleure charge par focus Volume Block. */
 function buildVolumeStats(
@@ -94,6 +108,14 @@ export default async function ProgressPage() {
     prisma.checkin.count({ where: { userId } }),
   ]);
 
+  // Dernières séances terminées — ressenti, calories et photos du compte rendu.
+  const recentSessions = await prisma.session.findMany({
+    where: { userId, completed: true },
+    select: { date: true, sessionFeeling: true, sessionNote: true, caloriesBrulees: true, photos: true },
+    orderBy: { date: "desc" },
+    take: 8,
+  });
+
   // Volume Block : progression suivie séparément pour chaque focus (haut, bas, complet).
   const volumeCheckins = await prisma.checkin.findMany({
     where: { userId, volumeBlockFocus: { not: null } },
@@ -136,19 +158,47 @@ export default async function ProgressPage() {
         stats={{ checkinsTotal, sessionsCompleted, currentStreak: current, bestStreak: best }}
       />
 
+      {recentSessions.length > 0 && (
+        <div style={{ maxWidth: 480, margin: "0 auto", padding: "0 20px 32px" }}>
+          <div style={sectionTitleStyle}>Dernières séances</div>
+          {recentSessions.map((s) => {
+            const badge = feelingBadge(s.sessionFeeling);
+            return (
+              <div
+                key={s.date}
+                style={{ background: "#111", border: "1px solid #1f1f1f", borderRadius: 8, padding: "12px 14px", marginBottom: 8 }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "baseline" }}>
+                  <span style={{ color: "#fff", fontSize: 13, fontWeight: 600 }}>{s.date}</span>
+                  <span style={{ fontSize: 12, color: "#E8FF00" }}>
+                    {[badge, s.caloriesBrulees ? `🔥 ${s.caloriesBrulees} kcal` : null].filter(Boolean).join(" · ") || "—"}
+                  </span>
+                </div>
+                {s.sessionNote && (
+                  <div style={{ fontSize: 12, color: "#8a8a8a", marginTop: 6, lineHeight: 1.5 }}>{s.sessionNote}</div>
+                )}
+                {s.photos.length > 0 && (
+                  <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                    {s.photos.map((url) => (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        key={url}
+                        src={url}
+                        alt={`Séance du ${s.date}`}
+                        style={{ width: 76, height: 76, objectFit: "cover", borderRadius: 6 }}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       {volumeStats.some((v) => v.seances > 0) && (
         <div style={{ maxWidth: 480, margin: "0 auto", padding: "0 20px 40px" }}>
-          <div
-            style={{
-              fontSize: 11,
-              letterSpacing: 4,
-              textTransform: "uppercase",
-              color: "#8a8a8a",
-              margin: "8px 0 10px",
-            }}
-          >
-            Volume Block par focus
-          </div>
+          <div style={sectionTitleStyle}>Volume Block par focus</div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
             {volumeStats.map((v) => (
               <div

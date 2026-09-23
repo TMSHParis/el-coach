@@ -6,19 +6,19 @@ import type { DisplayBlock } from "@/lib/session-format";
 import type { BlockType } from "@/lib/programming";
 import styles from "./session.module.css";
 import { SessionItemRow } from "../dashboard/session-item-row";
-import { saveSessionResult, type SessionBlocResult } from "./actions";
+import { saveSessionResult, updateSessionRecap, type SessionBlocResult } from "./actions";
+import { SessionPhotos } from "@/components/session-photos";
 import type { LastResult } from "@/lib/last-results";
 import {
   getVolume,
   releaseAudio,
   setVolume,
-  soundEnd,
   soundRest,
-  soundStart,
+  soundStrong,
   soundTick,
   soundTransition,
+  soundTriple,
   soundWork,
-  speak,
   speakEn,
   unlockAudio,
   vibrate,
@@ -124,6 +124,8 @@ export function SessionRunnerV2({
   date,
   variant,
   lastResults = {},
+  initialPhotos = [],
+  photosEnabled = false,
 }: {
   sessionName: string;
   sessionMeta: string;
@@ -133,6 +135,10 @@ export function SessionRunnerV2({
   variant: "A" | "B";
   /** Dernier résultat connu par mouvement — rappel et charge suggérée. */
   lastResults?: Record<string, LastResult>;
+  /** Photos déjà enregistrées pour la séance du jour. */
+  initialPhotos?: string[];
+  /** Vercel Blob configuré — sinon le bouton photo reste masqué. */
+  photosEnabled?: boolean;
 }) {
   const router = useRouter();
   const storageKey = `elc_session_${date}`;
@@ -175,6 +181,7 @@ export function SessionRunnerV2({
   /** Bloc affiché en chrono plein écran (null = liste des mouvements). */
   const [fullscreen, setFullscreen] = useState<number | null>(null);
   const [volume, setVolumeState] = useState(0.8);
+  const [photos, setPhotos] = useState<string[]>(initialPhotos);
   const blocRefs = useRef<Record<number, HTMLDivElement | null>>({});
   const savedRef = useRef(false);
 
@@ -267,19 +274,27 @@ export function SessionRunnerV2({
         spoken.add(key);
         fn();
       };
-      /** Bip une seule fois par seconde restante (3 · 2 · 1). */
+      /** Bip imposant une seule fois par seconde restante (3 · 2 · 1). */
       const beepSecond = (secondsLeft: number) => {
         if (tickRef.current[i] === secondsLeft) return;
         tickRef.current[i] = secondsLeft;
-        soundTick();
-        vibrate([40]);
+        soundStrong();
+        vibrate([60]);
+      };
+      /** Alerte des 10 dernières secondes — une fois par `key` (par minute sur l'EMOM). */
+      const tenSeconds = (key: string) => once(key, () => speakEn("Ten seconds!"));
+      /** Fin d'un chrono : 3 bips imposants, vibration longue et annonce. */
+      const finish = (phrase: string) => {
+        soundTriple();
+        speakEn(phrase);
+        vibrate([600]);
       };
 
       if (b.countdownEndsAt) {
         const remaining = Math.ceil((b.countdownEndsAt - now) / 1000);
         if (remaining <= 0) {
           tickRef.current[i] = -1;
-          soundStart();
+          // Les 3 bips imposants viennent d'être joués (3 · 2 · 1) — la voix suit.
           speakEn("Let's Go!");
           vibrate([400]);
           setFullscreen(i);
@@ -301,49 +316,48 @@ export function SessionRunnerV2({
         const total = b.durationMin * 60;
         const remaining = total - elapsed;
         if (remaining <= 0) {
-          soundEnd();
-          speak("Temps écoulé ! Notez vos rounds.");
-          vibrate([600]);
+          finish("Time's up!");
           finishBloc(i, total);
           return;
         }
         if (elapsed >= Math.floor(total / 2)) once("half", () => speakEn("Half Time!"));
-        if (remaining <= 10) once("ten", () => speakEn("Ten seconds!"));
+        if (remaining <= 10) tenSeconds("ten");
         if (remaining <= 3) beepSecond(remaining);
         return;
       }
 
       if (b.format === "ft") {
-        // Mi-parcours calculé sur la durée estimée du bloc.
+        // Pas de fin imposée : les repères sont calés sur la durée estimée du bloc.
         const estimated = b.durationMin * 60;
-        if (estimated > 0 && elapsed >= Math.floor(estimated / 2)) once("half", () => speakEn("Half Time!"));
+        if (estimated <= 0) return;
+        const remaining = estimated - elapsed;
+        if (elapsed >= Math.floor(estimated / 2)) once("half", () => speakEn("Half Time!"));
+        if (remaining <= 10 && remaining > 0) tenSeconds("ten");
+        if (remaining <= 3 && remaining > 0) beepSecond(remaining);
         return;
       }
 
       if (b.format === "emom") {
         const total = b.durationMin * 60;
         if (elapsed >= total) {
-          soundEnd();
-          speak("EMOM terminé !");
-          vibrate([600]);
+          finish("Well done!");
           finishBloc(i, total);
           return;
         }
         const minute = Math.floor(elapsed / 60) + 1;
         const secondsLeftInMinute = 60 - (elapsed % 60);
+        // Une alerte des 10 s et un compte à rebours par minute.
+        if (secondsLeftInMinute <= 10) tenSeconds(`ten-${minute}`);
         if (secondsLeftInMinute <= 3) beepSecond(secondsLeftInMinute);
         if (minuteRef.current[i] === undefined) minuteRef.current[i] = minute;
         else if (minute !== minuteRef.current[i]) {
           minuteRef.current[i] = minute;
+          tickRef.current[i] = -1;
           soundTransition();
           vibrate([120]);
-          // Mouvements pas tous cochés à la fin de la minute → alerte.
+          // Mouvements pas tous cochés à la fin de la minute → on le signale au lieu du round.
           const allChecked = b.checked.length > 0 && b.checked.every(Boolean);
-          if (allChecked) speakEn(`Round ${minute}`);
-          else {
-            soundTick();
-            speakEn("Next round!");
-          }
+          speakEn(allChecked ? `Let's Go! Round ${minute}` : "Next round!");
         }
         return;
       }
@@ -351,25 +365,25 @@ export function SessionRunnerV2({
       if (b.format === "tabata") {
         const view = tabataView(b, elapsed);
         if (view.finished) {
-          soundEnd();
-          speak("Tabata terminé !");
-          vibrate([600]);
+          finish("Well done!");
           finishBloc(i, b.tabataRounds * (b.workSec + b.restSec));
           return;
         }
+        // Bips sur les 3 dernières secondes, aussi bien en travail qu'en repos.
         if (view.remaining <= 3) beepSecond(view.remaining);
-        // Mi-temps de la phase travail.
+        // Mi-temps de la phase travail : un bip sec.
         if (view.phase === "work" && view.remaining <= Math.ceil(b.workSec / 2)) {
           once(`half-${view.round}`, () => soundTick());
         }
         // Dernier tour annoncé pendant le repos qui le précède.
         if (view.phase === "rest" && view.round === b.tabataRounds - 1) {
-          once("last-round", () => speak("Dernier round !"));
+          once("last-round", () => speakEn("Last round!"));
         }
         const key = `${view.round}-${view.phase}`;
         if (tabataRef.current[i] === undefined) tabataRef.current[i] = key;
         else if (tabataRef.current[i] !== key) {
           tabataRef.current[i] = key;
+          tickRef.current[i] = -1;
           vibrate([120]);
           if (view.phase === "work") {
             soundWork();
@@ -424,7 +438,8 @@ export function SessionRunnerV2({
     const b = blocks[i];
     const sec = elapsedSec(b, Date.now());
     if (b.format === "ft" && b.running) {
-      soundEnd();
+      // Fin d'un For Time : les 3 bips imposants, puis le temps réalisé.
+      soundTriple();
       speakEn(`Well done! Time: ${Math.floor(sec / 60)} minutes ${sec % 60}`);
       vibrate([600]);
     } else {
@@ -470,6 +485,12 @@ export function SessionRunnerV2({
         idx === i ? { ...x, amrapRounds: x.amrapRounds + 1, rounds: String(x.amrapRounds + 1) } : x,
       ),
     );
+  }
+
+  /** Photos ajoutées pendant la séance — enregistrées tout de suite (upsert). */
+  function changePhotos(next: string[]) {
+    setPhotos(next);
+    void updateSessionRecap(date, { photos: next });
   }
 
   function changeVolume(value: number) {
@@ -717,6 +738,13 @@ export function SessionRunnerV2({
             />
           ))}
         </div>
+
+        {photosEnabled && (
+          <div className={styles.photoBar}>
+            <div className={styles.photoBarLabel}>Photos de la séance (2 max)</div>
+            <SessionPhotos photos={photos} onChange={changePhotos} />
+          </div>
+        )}
       </div>
 
       <div className={styles.bottombar}>

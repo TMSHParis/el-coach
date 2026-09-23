@@ -33,6 +33,10 @@ type EcmDashboardOutput = {
   /** Séance composée par le moteur de génération dynamique (ecm-engine.ts) — absente si la
    * génération a échoué ou si l'utilisateur n'a pas encore de profil ECM (mode démo). */
   generatedDay?: Day;
+  /** Aperçu de la séance de demain d'après la semaine type du profil et l'état
+   * du jour — null si la semaine type n'est pas renseignée ou si la génération
+   * a échoué (le dashboard retombe alors sur le programme fixe). */
+  tomorrow?: TomorrowPreview | null;
   /** Message de félicitations post-séance (généré une fois à la fin de /session,
    * absent tant qu'aucune séance n'a été terminée aujourd'hui). */
   sessionMessage?: string;
@@ -49,9 +53,10 @@ type AdviceDashboardOutput = Partial<Omit<EcmDashboardOutput, "mode" | "generate
 };
 
 type DashboardOutputJson = EcmDashboardOutput | AdviceDashboardOutput;
-import { BackHomeButton } from "@/components/back-home-button";
 import type { Day } from "@/lib/programming";
 import { toDisplayBlocks } from "@/lib/session-format";
+import { feelingBadge, shouldRecommendLightSession } from "@/lib/session-feeling";
+import type { TomorrowPreview } from "@/lib/ecm-engine";
 import { buildAdviceSession, type StoredAdvice } from "@/lib/advice-session";
 import { AdviceSessionPanel } from "./advice-session-panel";
 import { adaptDayForInjuries, detectInjuryAreas, reduceVolume, substitutionMessage } from "@/lib/session-adapt";
@@ -108,21 +113,30 @@ export default async function DashboardPage() {
 
   const fatigueScore = demo.fatigueScore ?? 3;
 
-  const [dbOutput, todayCheckin, recentCheckinRows, todaySession] = userId
+  const [dbOutput, todayCheckin, recentCheckinRows, todaySession, recentSessions] = userId
     ? await Promise.all([
         prisma.dashboardOutput.findUnique({ where: { userId_date: { userId, date: todayKey() } } }),
         prisma.checkin.findUnique({ where: { userId_date: { userId, date: todayKey() } } }),
         prisma.checkin.findMany({ where: { userId }, select: { date: true }, orderBy: { date: "desc" }, take: 60 }),
         prisma.session.findUnique({ where: { userId_date: { userId, date: todayKey() } } }),
+        // Deux dernières séances terminées — deux "difficile" d'affilée font
+        // basculer la recommandation sur la séance B.
+        prisma.session.findMany({
+          where: { userId, completed: true, date: { lt: todayKey() } },
+          select: { sessionFeeling: true },
+          orderBy: { date: "desc" },
+          take: 2,
+        }),
       ])
-    : [null, null, [], null];
+    : [null, null, [], null, []];
 
   // Séance du jour terminée : le bloc "Démarrer la séance" laisse place au compte rendu.
   const finishedSession = todaySession?.completed
     ? {
         durationSec: todaySession.durationSec ?? 0,
         completionRate: todaySession.completionRate ?? 0,
-        rating: todaySession.sessionRating ?? 0,
+        feeling: todaySession.sessionFeeling,
+        calories: todaySession.caloriesBrulees,
         best: todaySession.bestResult as { nom: string; charge: number; reps: string } | null,
       }
     : null;
@@ -174,58 +188,43 @@ export default async function DashboardPage() {
     })),
   ];
   const snack = real?.snack ?? buildSnack(fatigueScore);
-  const variant =
+  const baseVariant =
     real?.recommendedVariant && real.recommendedReason
       ? { recommended: real.recommendedVariant, reason: real.recommendedReason }
       : recommendVariant(ecm);
+  // Deux séances ressenties "difficile" de suite → on allège, quel que soit le score.
+  const variant = shouldRecommendLightSession(recentSessions.map((s) => s.sessionFeeling))
+    ? { recommended: "B" as const, reason: "deux séances difficiles d'affilée" }
+    : baseVariant;
   const etat = ETAT_LABELS[ecm.state];
   const isRestDay = (!generatedDay && today.needsFatigueInput) || baseDay.blocks.length === 0;
 
-  const tomorrow = buildTomorrowPreview(today, fatigueScore);
+  // La semaine type prime : l'aperçu généré au check-in tient compte de l'état
+  // du jour et des blessures. Sinon, repli sur le programme fixe hebdomadaire.
+  const tomorrow = real?.tomorrow ?? buildTomorrowPreview(today, fatigueScore);
 
   return (
     <div className={dashboardFontVariables}>
       <div className={styles.dashRoot}>
         <div className={styles.header}>
-          <BackHomeButton style={{ marginBottom: 14 }} />
+          {/* Retour toujours vers l'accueil (pas d'historique : /session/recap
+              renvoie ici, un retour "intelligent" y repartirait en boucle). */}
+          <Link href="/" className={styles.backLink}>
+            ← Accueil
+          </Link>
           <div className={styles.salut}>Salut {userFirstName ?? "Athlète"}.</div>
         </div>
 
         <div className={styles.wrap}>
           {real?.sessionMessage && (
-            <div
-              style={{
-                background: "rgba(232,255,0,0.05)",
-                borderLeft: "3px solid var(--color-accent, #E8FF00)",
-                borderRadius: 8,
-                padding: "16px 20px",
-                marginBottom: 20,
-              }}
-            >
-              <div
-                className="label"
-                style={{ color: "var(--color-accent, #E8FF00)", marginBottom: 8 }}
-              >
-                ✓ SÉANCE TERMINÉE{real.sessionMessageDuration ? ` · ${real.sessionMessageDuration}` : ""}
-              </div>
-              <div style={{ fontFamily: "var(--font-barlow, sans-serif)", fontSize: 14, color: "#fff", lineHeight: 1.5 }}>
-                {real.sessionMessage}
-              </div>
+            <div className={styles.doneBanner}>
+              <div className={styles.doneTitle}>🏆 Séance terminée</div>
+              {real.sessionMessageDuration && <div className={styles.doneMeta}>{real.sessionMessageDuration}</div>}
+              <div className={styles.doneText}>{real.sessionMessage}</div>
             </div>
           )}
           <CalendarWeek checkinDates={checkinDates} />
-          <Link
-            href="/progress"
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 6,
-              fontSize: 11,
-              letterSpacing: 1,
-              color: "var(--m)",
-              margin: "8px 0 20px",
-            }}
-          >
+          <Link href="/progress" className={styles.progressLink}>
             📈 Voir ma progression →
           </Link>
 
@@ -481,7 +480,11 @@ export default async function DashboardPage() {
           </div>
           <div className={styles.demainCard}>
             <div className={styles.demainTitle}>{tomorrow.titre}</div>
-            <div className={styles.demainContent} dangerouslySetInnerHTML={{ __html: tomorrow.contenu }} />
+            <div className={styles.demainContent}>
+              {tomorrow.lignes.map((ligne, i) => (
+                <div key={i}>{ligne}</div>
+              ))}
+            </div>
           </div>
 
           <div className={styles.spacer} />
@@ -540,23 +543,28 @@ function CheckinPendingState({
 function SessionRecapCard({
   durationSec,
   completionRate,
-  rating,
+  feeling,
+  calories,
   best,
 }: {
   durationSec: number;
   completionRate: number;
-  rating: number;
+  feeling: string | null;
+  calories: number | null;
   best: { nom: string; charge: number; reps: string } | null;
 }) {
   const percent = Math.round(completionRate * 100);
+  const meta = [
+    `${percent}% des mouvements`,
+    feelingBadge(feeling),
+    calories ? `🔥 ${calories} kcal` : null,
+  ].filter(Boolean);
   return (
-    <div className={styles.sdj}>
-      <div className={styles.sdjLabel}>[ SÉANCE TERMINÉE ]</div>
+    <div className={styles.sdjDone}>
+      <div className={styles.sdjDoneLabel}>🏆 Séance terminée</div>
       <div className={styles.sdjTitle}>{durationSec < 60 ? `${durationSec}s` : minutesToHM(Math.round(durationSec / 60))}</div>
       <div className={styles.sdjMeta}>
-        <span>
-          {percent}% des mouvements{rating > 0 ? ` · ${"★".repeat(rating)}${"☆".repeat(5 - rating)}` : ""}
-        </span>
+        <span>{meta.join(" · ")}</span>
       </div>
       {best && (
         <div className={styles.snackCard} style={{ marginTop: 4 }}>
@@ -685,10 +693,11 @@ function sessionTags(blocks: { format?: string }[]): { label: string; cls: "tagB
   return formats.map((f) => ({ label: f, cls: clsFor(f) }));
 }
 
+/** Repli quand la semaine type n'est pas renseignée : le programme fixe hebdomadaire. */
 function buildTomorrowPreview(
   today: NonNullable<Awaited<ReturnType<typeof resolveTodaySession>>>,
   fatigueScore: number,
-): { titre: string; contenu: string } {
+): TomorrowPreview {
   const tomorrowNum = today.dayNumber >= 7 ? 1 : today.dayNumber + 1;
   const week = today.template.weeks[0];
   const tomorrowDay = week.days.find((d) => d.day === tomorrowNum);
@@ -696,13 +705,17 @@ function buildTomorrowPreview(
   if (!tomorrowDay || tomorrowDay.blocks.length === 0) {
     return {
       titre: "😴 DEMAIN — REPOS",
-      contenu: "📸 <strong>Envoie ton check-in ECM</strong> dès le réveil<br>🧘 Récupération complète · sommeil prioritaire",
+      lignes: ["📸 Envoie ton check-in ECM dès le réveil", "🧘 Récupération complète · sommeil prioritaire"],
     };
   }
 
   const bedtime = fatigueScore >= 7 ? "22h00" : "22h30";
   return {
     titre: `🏋️ DEMAIN — ${today.template.name.toUpperCase()}`,
-    contenu: `📸 <strong>Envoie ton check-in ECM</strong> dès le réveil<br>💪 Séance focus <strong>${tomorrowDay.focus}</strong><br>🕕 ${tomorrowDay.estimatedMinutes}min prévues · Dors avant <strong>${bedtime}</strong>`,
+    lignes: [
+      "📸 Envoie ton check-in ECM dès le réveil",
+      `💪 Séance focus ${tomorrowDay.focus}`,
+      `🕕 ${tomorrowDay.estimatedMinutes} min prévues · dors avant ${bedtime}`,
+    ],
   };
 }

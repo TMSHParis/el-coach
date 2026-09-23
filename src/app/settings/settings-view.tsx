@@ -3,11 +3,11 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useUser, useClerk } from "@clerk/nextjs";
-import { programTemplates } from "@/lib/programming";
+import { SPORT_LABEL_TO_SLUG } from "@/lib/ecm-programs";
 import { validatePassword } from "@/app/signup/ecm-shared";
 import {
   updateRecordsRm,
-  updateProgramme,
+  updateProgrammes,
   updateNotifPrefs,
   updateLangue,
   deleteAccount,
@@ -20,7 +20,8 @@ const cx = (...c: (string | false | undefined)[]) => c.filter(Boolean).join(" ")
 
 type SettingsProfile = {
   prenom: string;
-  programme: string;
+  /** Programmes actifs simultanés (libellés ECM). */
+  programmes: string[];
   recordsRm: Record<string, string>;
   notifCheckinOn: boolean;
   notifCheckinTime: string;
@@ -52,7 +53,7 @@ export function SettingsView({
   const [modal, setModal] = useState<string | null>(null);
 
   const [records, setRecords] = useState<RecordsRm>(profile.recordsRm);
-  const [programme, setProgramme] = useState(profile.programme);
+  const [programmes, setProgrammes] = useState<string[]>(profile.programmes);
   const [notifCheckinOn, setNotifCheckinOn] = useState(profile.notifCheckinOn);
   const [notifCheckinTime, setNotifCheckinTime] = useState(profile.notifCheckinTime);
   const [notifSeance, setNotifSeance] = useState(profile.notifSeance);
@@ -80,15 +81,21 @@ export function SettingsView({
     }
   }
 
-  async function handleSaveProgramme(slug: string) {
-    setBusy(true);
-    const res = await updateProgramme(slug);
-    setBusy(false);
-    if (res.ok) {
-      setProgramme(res.name);
-      flash("Programme mis à jour");
-      setModal(null);
+  /** Un clic ajoute ou retire le programme — au moins un doit rester actif. */
+  async function handleToggleProgramme(name: string) {
+    const next = programmes.includes(name)
+      ? programmes.filter((p) => p !== name)
+      : [...programmes, name];
+    if (next.length === 0) {
+      flash("Garde au moins un programme actif");
+      return;
     }
+    setProgrammes(next);
+    setBusy(true);
+    const res = await updateProgrammes(next);
+    setBusy(false);
+    if (res.ok) flash("Choix de programme mis à jour");
+    else setProgrammes(programmes);
   }
 
   async function handleSaveNotifs() {
@@ -118,7 +125,12 @@ export function SettingsView({
       </div>
 
       <div className={styles.profileHero}>
-        <div className={styles.avatar}>{initial}</div>
+        {user?.hasImage ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={user.imageUrl} alt={profile.prenom} className={styles.avatarImg} />
+        ) : (
+          <div className={styles.avatar}>{initial}</div>
+        )}
         <div>
           <div className={styles.profileName}>{profile.prenom}</div>
           <div className={styles.profileEmail}>{email}</div>
@@ -133,7 +145,12 @@ export function SettingsView({
       <div className={styles.group}>
         <Row icon="👤" title="Modifier mon profil athlète" sub="Programme · Niveau · Objectifs · Compléments · Blessures" onClick={() => router.push("/profile/edit")} />
         <Row icon="🏆" title="Mes records personnels (RM)" sub="Back Squat · Deadlift · Bench Press · Clean..." onClick={() => setModal("records")} />
-        <Row icon="⚡" title="Changer de programme" sub={programme} onClick={() => setModal("programme")} />
+        <Row
+          icon="⚡"
+          title="Choix de programme"
+          sub={programmes.join(" · ") || "Aucun programme actif"}
+          onClick={() => setModal("programme")}
+        />
       </div>
 
       {/* COMPTE & SÉCURITÉ */}
@@ -219,12 +236,15 @@ export function SettingsView({
       )}
 
       {modal === "programme" && (
-        <Modal title="Changer de programme" onClose={() => setModal(null)}>
-          <p className={styles.modalInfo}>Le changement prend effet dès ton prochain check-in.</p>
-          {programTemplates.map((t) => (
-            <div key={t.slug} className={styles.langOpt} onClick={() => handleSaveProgramme(t.slug)}>
-              <span className={styles.langName}>{t.name}</span>
-              {programme === t.name && <div className={styles.langCheck}>✓</div>}
+        <Modal title="Choix de programme" onClose={() => setModal(null)}>
+          <p className={styles.modalInfo}>
+            Tu peux en garder plusieurs actifs : ils te sont proposés au check-in pour choisir celui du
+            jour. Le changement prend effet dès ton prochain check-in.
+          </p>
+          {Object.keys(SPORT_LABEL_TO_SLUG).map((label) => (
+            <div key={label} className={styles.langOpt} onClick={() => handleToggleProgramme(label)}>
+              <span className={styles.langName}>{label}</span>
+              {programmes.includes(label) && <div className={styles.langCheck}>✓</div>}
             </div>
           ))}
         </Modal>

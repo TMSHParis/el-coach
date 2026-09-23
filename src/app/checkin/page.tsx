@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { isCheckinDoneToday } from "./actions";
+import { getUserId } from "@/lib/user-id";
+import { prisma } from "@/lib/prisma";
 import { CheckinForm } from "./checkin-form";
 import { checkinFontVariables } from "./checkin-fonts";
 import styles from "./checkin.module.css";
@@ -8,6 +10,16 @@ export const metadata = { title: "Check-in du jour — EL COACH METHOD" };
 
 export default async function CheckinPage() {
   const doneToday = await isCheckinDoneToday();
+  const userId = await getUserId();
+  const profile = userId
+    ? await prisma.profile.findUnique({ where: { userId }, select: { programme: true, programmes: true } })
+    : null;
+  // Programmes actifs choisis dans /settings — proposés en tête du choix de séance.
+  const programmes = profile
+    ? profile.programmes.length > 0
+      ? profile.programmes
+      : [profile.programme].filter(Boolean)
+    : [];
 
   if (doneToday) {
     return (
@@ -37,7 +49,7 @@ export default async function CheckinPage() {
 
   return (
     <div className={checkinFontVariables}>
-      <CheckinForm />
+      <CheckinForm programmes={programmes} />
     </div>
   );
 }

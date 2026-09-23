@@ -11,12 +11,11 @@ const cx = (...classes: (string | false | undefined)[]) => classes.filter(Boolea
 const ENERGIE_LABELS = ["", "Très bas", "Bas", "Faible", "Moyen−", "Moyen", "Moyen+", "Bien", "Très bien", "Excellent", "⚡ Max"];
 const MOTIV_LABELS = ["", "Nulle", "Très basse", "Basse", "Faible", "Moyenne", "Correcte", "Bonne", "Très bonne", "Excellente", "🔥 Max"];
 
+const ECM_PROGRAM_OPTIONS = ["⚡ CrossFit Pure", "🔥 Hybrid Engine", "🏁 Hyrox Pure", "💪 Volume Block Hypertrophy", "🏠 At Home"];
+
 const SEANCE_GROUPS: { label: string; options: string[] }[] = [
   { label: "🛋️ REPOS", options: ["🛋️ Repos complet", "🚶 Récupération active"] },
-  {
-    label: "⚡ PROGRAMMATIONS ECM",
-    options: ["⚡ CrossFit Pure", "🔥 Hybrid Engine", "🏁 Hyrox Pure", "💪 Volume Block Hypertrophy", "🏠 At Home"],
-  },
+  { label: "⚡ PROGRAMMATIONS ECM", options: ECM_PROGRAM_OPTIONS },
   {
     label: "🏃 COURS COLLECTIFS",
     options: ["Step", "CrossTraining", "CAF — Cuisse Abdo Fessier", "HIIT", "Cardio Boxe"],
@@ -29,6 +28,15 @@ const SEANCE_GROUPS: { label: string; options: string[] }[] = [
   { label: "⚽ SPORTS COLLECTIFS", options: ["⚽ Football", "🏀 Basketball", "🏈 Rugby", "🎾 Tennis / Padel"] },
   { label: "🧘 MOBILITÉ", options: ["🧘 Yoga / Pilates", "🤸 Calisthénie", "🧗 Escalade"] },
 ];
+
+/** Groupes du <select> "Séance du jour", avec les programmes actifs en tête. */
+function buildSeanceGroups(programmes: string[]): { label: string; options: string[] }[] {
+  const actifs = programmes.filter((p) => ECM_PROGRAM_OPTIONS.includes(p));
+  if (actifs.length === 0) return SEANCE_GROUPS;
+  return SEANCE_GROUPS.map((g) =>
+    g.options === ECM_PROGRAM_OPTIONS ? { label: "⚡ MES PROGRAMMES", options: actifs } : g,
+  );
+}
 
 const FOCUS_OPTIONS = ["Force", "Cardio", "Technique", "Mobilité", "Récupération active"];
 
@@ -133,8 +141,11 @@ const DATE_STR = new Date().toLocaleDateString("fr-FR", {
   year: "numeric",
 });
 
-export function CheckinForm() {
+export function CheckinForm({ programmes = [] }: { programmes?: string[] }) {
   const router = useRouter();
+  // Le groupe "Programmations ECM" se réduit aux programmes actifs de l'athlète
+  // (choisis dans /settings) ; sans sélection enregistrée, le catalogue complet.
+  const seanceGroups = buildSeanceGroups(programmes);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [d, setD] = useState<FormState>(INITIAL_STATE);
   const [submitting, setSubmitting] = useState(false);
@@ -512,7 +523,7 @@ export function CheckinForm() {
             <option value="" disabled>
               Choisir ta séance...
             </option>
-            {SEANCE_GROUPS.map((group) => (
+            {seanceGroups.map((group) => (
               <optgroup key={group.label} label={group.label}>
                 {group.options.map((o) => (
                   <option key={o} value={o}>

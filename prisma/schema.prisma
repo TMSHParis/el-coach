@@ -29,7 +29,11 @@ model Profile {
   objectif2Deadline String? @map("objectif_2_deadline")
   objectif2Priorite String? @map("objectif_2_priorite")
   objectif2Event    String? @map("objectif_2_event")
+  // Programme "principal" (compat : lu partout où un seul programme est attendu).
   programme         String
+  // Programmes actifs simultanés (page /settings · "Choix de programme"). Vide
+  // sur les comptes antérieurs à sept. 2026 → repli sur [programme].
+  programmes        String[] @default([])
   niveau            String
   sportPrincipal    String   @map("sport_principal")
   // Semaine type enrichie (multi-jours, multi-créneaux) — remplace sportSecondaire/joursS1.../niveauS2.
@@ -159,8 +163,14 @@ model Session {
   completionRate Float? @map("completion_rate")
   /** Durée totale de la séance, en secondes. */
   durationSec    Int?   @map("duration_sec")
-  /** Note de séance donnée par l'athlète (1 à 5 étoiles). */
-  sessionRating  Int?   @map("session_rating")
+  /** Ressenti de la séance : "difficile" | "moyen" | "correct" | "bon" | "excellent". */
+  sessionFeeling String? @map("session_feeling")
+  /** Note libre facultative laissée sur le compte rendu. */
+  sessionNote    String? @map("session_note")
+  /** Calories brûlées, relevées à la main sur la montre. */
+  caloriesBrulees Int?   @map("calories_brulees")
+  /** URLs Vercel Blob des photos de séance (2 max). */
+  photos         String[] @default([])
   /** Meilleure série du jour (mouvement, charge, reps) pour le compte rendu. */
   bestResult     Json?  @map("best_result")
 

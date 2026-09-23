@@ -3,6 +3,7 @@ import { getUserId } from "@/lib/user-id";
 import { prisma } from "@/lib/prisma";
 import { todayKey } from "@/lib/date-key";
 import { buildLastResults } from "@/lib/last-results";
+import { blobEnabled } from "@/lib/blob";
 import type { SessionBlocResult } from "../actions";
 import { sessionFontVariables } from "../session-fonts";
 import { RecapView } from "./recap-view";
@@ -54,7 +55,11 @@ export default async function RecapPage() {
         sport={checkin?.seance ?? "Séance"}
         durationSec={session.durationSec ?? 0}
         completionRate={session.completionRate ?? 0}
-        rating={session.sessionRating ?? 0}
+        feeling={session.sessionFeeling}
+        note={session.sessionNote}
+        calories={session.caloriesBrulees}
+        photos={session.photos}
+        photosEnabled={blobEnabled}
         best={best}
         comparisons={comparisons}
         blocs={blocs}

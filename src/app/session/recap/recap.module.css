@@ -19,11 +19,76 @@
 .progressTrack { height: 6px; background: #1c1c1c; border-radius: 3px; overflow: hidden; margin-bottom: 22px; }
 .progressFill { height: 100%; background: #E8FF00; }
 
-.ratingRow { display: flex; align-items: center; justify-content: space-between; border: 1px solid #1f1f1f; border-radius: 4px; padding: 12px 14px; margin-bottom: 14px; }
-.ratingLabel { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: #8a8a8a; }
-.star, .starOn { background: none; border: none; font-size: 22px; line-height: 1; cursor: pointer; padding: 0 2px; }
-.star { color: #333; }
-.starOn { color: #E8FF00; }
+/* Ressenti de la séance — remplace les 5 étoiles. */
+.feelingBlock { border: 1px solid #1f1f1f; border-radius: 4px; padding: 14px; margin-bottom: 14px; }
+.feelingRow { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.feeling, .feelingOn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  background: none;
+  border: 1px solid #1f1f1f;
+  border-radius: 6px;
+  padding: 10px 2px 8px;
+  font-family: inherit;
+  font-size: 10px;
+  letter-spacing: .5px;
+  cursor: pointer;
+  transition: border-color .15s, color .15s;
+}
+.feeling { color: #666; }
+.feelingOn { color: #E8FF00; border-color: #E8FF00; background: rgba(232, 255, 0, .07); }
+.feelingEmoji { font-size: 22px; line-height: 1; }
+.noteInput {
+  width: 100%;
+  margin-top: 12px;
+  background: #111;
+  border: 1px solid #1f1f1f;
+  border-radius: 4px;
+  padding: 10px 12px;
+  color: #e0e0e0;
+  font-family: inherit;
+  font-size: 13px;
+  resize: vertical;
+  min-height: 62px;
+}
+.noteInput:focus { outline: none; border-color: #E8FF00; }
+
+/* Calories brûlées — même carte que l'analyse sommeil du dashboard. */
+.calCard { background: #111; border: 1px solid #1f1f1f; border-radius: 4px; padding: 16px; margin-bottom: 14px; }
+.calRow { display: flex; align-items: flex-end; justify-content: space-between; gap: 14px; }
+.calLabel { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: #8a8a8a; margin-bottom: 6px; }
+.calInput {
+  width: 130px;
+  background: #0d0d0d;
+  border: 1px solid #1f1f1f;
+  border-radius: 4px;
+  padding: 8px 12px;
+  color: #fff;
+  font-family: var(--font-bebas, sans-serif);
+  font-size: 30px;
+  line-height: 1;
+  letter-spacing: 2px;
+}
+.calInput:focus { outline: none; border-color: #E8FF00; }
+.calUnit { font-size: 12px; letter-spacing: 2px; color: #8a8a8a; padding-bottom: 8px; }
+.photoZone { margin-top: 16px; padding-top: 14px; border-top: 1px solid #1f1f1f; }
+
+/* Titres de section du compte rendu — même traitement que le dashboard. */
+.sectionTitle {
+  position: relative;
+  font-family: var(--font-bebas, sans-serif);
+  font-size: 22px;
+  line-height: 1;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  color: #fff;
+  margin: 26px 0 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #1f1f1f;
+}
+.sectionTitle::after { content: ""; position: absolute; left: 0; bottom: -1px; width: 40px; height: 2px; background: #E8FF00; }
 
 .best { background: linear-gradient(135deg, #141008, #0d0d00); border: 1px solid rgba(232, 255, 0, .25); border-radius: 4px; padding: 12px 14px; margin-bottom: 14px; }
 .bestLabel { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: #E8FF00; margin-bottom: 4px; }

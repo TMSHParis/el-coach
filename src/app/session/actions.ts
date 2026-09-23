@@ -4,6 +4,8 @@ import type { Prisma } from "@prisma/client";
 import { getUserId } from "@/lib/user-id";
 import { prisma } from "@/lib/prisma";
 import { generateSessionCongrats } from "@/lib/ecm-engine";
+import { isSessionFeeling } from "@/lib/session-feeling";
+import { MAX_SESSION_PHOTOS } from "@/lib/session-media";
 
 export type SessionBlocResult = {
   bloc: number;
@@ -123,18 +125,54 @@ async function generateAndStoreCongrats(userId: string, payload: SessionResultPa
 }
 
 
-/** Note de séance (1 à 5 étoiles) donnée depuis le compte rendu. */
-export async function rateSession(date: string, rating: number): Promise<{ ok: boolean }> {
+/**
+ * Compte rendu de séance : ressenti, note libre, calories relevées sur la
+ * montre et photos. Chaque champ est facultatif — seuls ceux fournis sont
+ * écrits, l'écran enregistre au fil de la saisie.
+ */
+export type SessionRecapPatch = {
+  feeling?: string;
+  note?: string;
+  calories?: number | null;
+  photos?: string[];
+};
+
+export async function updateSessionRecap(date: string, patch: SessionRecapPatch): Promise<{ ok: boolean }> {
   const userId = await getUserId();
-  if (!userId || rating < 1 || rating > 5) return { ok: false };
+  if (!userId) return { ok: false };
+
+  const data: {
+    sessionFeeling?: string;
+    sessionNote?: string | null;
+    caloriesBrulees?: number | null;
+    photos?: string[];
+  } = {};
+  if (patch.feeling !== undefined) {
+    if (!isSessionFeeling(patch.feeling)) return { ok: false };
+    data.sessionFeeling = patch.feeling;
+  }
+  if (patch.note !== undefined) data.sessionNote = patch.note.trim().slice(0, 1000) || null;
+  if (patch.calories !== undefined) {
+    // Une montre ne renvoie jamais 20 000 kcal — on borne pour éviter les fautes de frappe.
+    data.caloriesBrulees =
+      patch.calories === null || !Number.isFinite(patch.calories)
+        ? null
+        : Math.min(5000, Math.max(0, Math.round(patch.calories)));
+  }
+  if (patch.photos !== undefined) data.photos = patch.photos.slice(0, MAX_SESSION_PHOTOS);
+  if (Object.keys(data).length === 0) return { ok: true };
+
   try {
-    await prisma.session.update({
+    // upsert : les photos peuvent être ajoutées pendant la séance, avant que la
+    // ligne ne soit créée par `saveSessionResult` à la fin.
+    await prisma.session.upsert({
       where: { userId_date: { userId, date } },
-      data: { sessionRating: Math.round(rating) },
+      create: { userId, date, ...data },
+      update: data,
     });
     return { ok: true };
   } catch (err) {
-    console.error("rateSession: échec de l'enregistrement de la note:", err);
+    console.error("updateSessionRecap: échec de l'enregistrement du compte rendu:", err);
     return { ok: false };
   }
 }

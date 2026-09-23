@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import type { SessionBlocResult } from "../actions";
-import { rateSession } from "../actions";
+import { updateSessionRecap } from "../actions";
+import { SESSION_FEELINGS } from "@/lib/session-feeling";
+import { SessionPhotos } from "@/components/session-photos";
 import styles from "./recap.module.css";
 
 function fmtDuration(totalSec: number): string {
@@ -35,7 +37,11 @@ export function RecapView({
   sport,
   durationSec,
   completionRate,
-  rating: initialRating,
+  feeling: initialFeeling,
+  note: initialNote,
+  calories: initialCalories,
+  photos: initialPhotos,
+  photosEnabled,
   best,
   comparisons,
   blocs,
@@ -45,29 +51,62 @@ export function RecapView({
   sport: string;
   durationSec: number;
   completionRate: number;
-  rating: number;
+  feeling: string | null;
+  note: string | null;
+  calories: number | null;
+  photos: string[];
+  /** Vercel Blob configuré — sinon le bouton photo est masqué. */
+  photosEnabled: boolean;
   best: { nom: string; charge: number; reps: string } | null;
   comparisons: { nom: string; delta: number; charge: number }[];
   blocs: SessionBlocResult[];
   congrats: string | null;
 }) {
-  const [rating, setRating] = useState(initialRating);
+  const [feeling, setFeeling] = useState(initialFeeling);
+  const [note, setNote] = useState(initialNote ?? "");
+  const [calories, setCalories] = useState(initialCalories === null ? "" : String(initialCalories));
+  const [photos, setPhotos] = useState(initialPhotos);
   const percent = Math.round(completionRate * 100);
 
-  function rate(value: number) {
-    setRating(value);
-    void rateSession(date, value);
+  // La note libre et les calories s'enregistrent après une pause de frappe —
+  // pas de bouton "Sauvegarder", pas un aller-retour serveur par caractère.
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (note === (initialNote ?? "") && calories === (initialCalories === null ? "" : String(initialCalories))) {
+      return;
+    }
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      void updateSessionRecap(date, {
+        note,
+        calories: calories.trim() === "" ? null : Number(calories),
+      });
+    }, 700);
+    return () => {
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+    };
+  }, [note, calories, date, initialNote, initialCalories]);
+
+  function chooseFeeling(value: string) {
+    setFeeling(value);
+    void updateSessionRecap(date, { feeling: value });
+  }
+
+  function changePhotos(next: string[]) {
+    setPhotos(next);
+    void updateSessionRecap(date, { photos: next });
   }
 
   return (
     <div className={styles.root}>
       <div className={styles.top}>
-        <Link href="/dashboard" className={styles.back}>
-          ← Dashboard
+        {/* Retour vers l'accueil, pas vers le dashboard. */}
+        <Link href="/" className={styles.back}>
+          ← Accueil
         </Link>
       </div>
 
-      <h1 className={styles.title}>Séance terminée ✓</h1>
+      <h1 className={styles.title}>🏆 Séance terminée</h1>
       <div className={styles.sub}>
         {sport} · {fmtDate(date)} · {fmtDuration(durationSec)}
       </div>
@@ -79,21 +118,58 @@ export function RecapView({
         <div className={styles.progressFill} style={{ width: `${percent}%` }} />
       </div>
 
-      <div className={styles.ratingRow}>
-        <span className={styles.ratingLabel}>Note de la séance</span>
-        <div>
-          {[1, 2, 3, 4, 5].map((star) => (
+      {/* RESSENTI — alimente Claude pour ajuster les prochaines séances. */}
+      <div className={styles.sectionTitle}>Ton ressenti</div>
+      <div className={styles.feelingBlock}>
+        <div className={styles.calLabel}>Comment tu t&apos;es senti pendant la séance ?</div>
+        <div className={styles.feelingRow}>
+          {SESSION_FEELINGS.map((f) => (
             <button
-              key={star}
+              key={f.value}
               type="button"
-              className={star <= rating ? styles.starOn : styles.star}
-              onClick={() => rate(star)}
-              aria-label={`${star} étoile${star > 1 ? "s" : ""}`}
+              className={feeling === f.value ? styles.feelingOn : styles.feeling}
+              onClick={() => chooseFeeling(f.value)}
+              aria-pressed={feeling === f.value}
             >
-              ★
+              <span className={styles.feelingEmoji}>{f.emoji}</span>
+              {f.label}
             </button>
           ))}
         </div>
+        <textarea
+          className={styles.noteInput}
+          placeholder="Une note sur cette séance ? (facultatif)"
+          value={note}
+          maxLength={1000}
+          onChange={(e) => setNote(e.target.value)}
+        />
+      </div>
+
+      {/* CALORIES + PHOTOS */}
+      <div className={styles.sectionTitle}>🔥 Calories brûlées</div>
+      <div className={styles.calCard}>
+        <div className={styles.calRow}>
+          <div>
+            <div className={styles.calLabel}>Relevées sur ta montre</div>
+            <input
+              className={styles.calInput}
+              type="number"
+              inputMode="numeric"
+              placeholder="—"
+              min={0}
+              max={5000}
+              value={calories}
+              onChange={(e) => setCalories(e.target.value)}
+            />
+          </div>
+          <div className={styles.calUnit}>KCAL</div>
+        </div>
+        {photosEnabled && (
+          <div className={styles.photoZone}>
+            <div className={styles.calLabel}>Photos de la séance (2 max)</div>
+            <SessionPhotos photos={photos} onChange={changePhotos} />
+          </div>
+        )}
       </div>
 
       {best && (
@@ -123,7 +199,7 @@ export function RecapView({
 
       {blocs.length > 0 && (
         <div className={styles.results}>
-          <div className={styles.resultsTitle}>Résultats</div>
+          <div className={styles.sectionTitle}>Résultats</div>
           {blocs.map((bloc, i) => (
             <div key={`${bloc.nom}-${i}`} className={styles.resultLine}>
               <span className={styles.resultName}>{bloc.nom}</span>

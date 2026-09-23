@@ -3,7 +3,7 @@
 import { cookies } from "next/headers";
 import { auth, clerkClient } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
-import { getTemplate } from "@/lib/programming";
+import { SPORT_LABEL_TO_SLUG } from "@/lib/ecm-programs";
 import { COOKIE_KEYS } from "@/lib/demo-session";
 import { clerkEnabled } from "@/lib/clerk";
 
@@ -35,16 +35,27 @@ export async function updateRecordsRm(records: RecordsRm): Promise<{ ok: true } 
   }
 }
 
-export async function updateProgramme(slug: string): Promise<{ ok: true; name: string } | { ok: false; error: string }> {
-  const template = getTemplate(slug);
-  if (!template) return { ok: false, error: "Programme inconnu." };
+/**
+ * Programmes actifs (page /settings · "Choix de programme"). Plusieurs peuvent
+ * l'être en même temps ; le premier reste le programme "principal" (colonne
+ * `programme` + cookie de programmation), celui sur lequel s'appuient le
+ * dashboard et la séance tant que l'utilisateur n'en choisit pas un autre au
+ * check-in. Les libellés sont ceux du catalogue ECM (avec emoji), comme dans
+ * les <select> de signup et de check-in.
+ */
+export async function updateProgrammes(names: string[]): Promise<{ ok: true } | { ok: false; error: string }> {
+  const valid = names.filter((n) => n in SPORT_LABEL_TO_SLUG);
+  if (valid.length === 0) return { ok: false, error: "Choisis au moins un programme." };
   try {
     const userId = await requireUserId();
-    await prisma.profile.update({ where: { userId }, data: { programme: template.name } });
+    await prisma.profile.update({
+      where: { userId },
+      data: { programmes: valid, programme: valid[0] },
+    });
     const jar = await cookies();
-    jar.set(COOKIE_KEYS.program, slug, { path: "/", maxAge: YEAR, sameSite: "lax" });
+    jar.set(COOKIE_KEYS.program, SPORT_LABEL_TO_SLUG[valid[0]], { path: "/", maxAge: YEAR, sameSite: "lax" });
     jar.set(COOKIE_KEYS.startDate, new Date().toISOString(), { path: "/", maxAge: YEAR, sameSite: "lax" });
-    return { ok: true, name: template.name };
+    return { ok: true };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Erreur inattendue." };
   }

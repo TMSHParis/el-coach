@@ -26,7 +26,8 @@ export default async function SettingsPage() {
       <SettingsView
         profile={{
           prenom: profile.prenom,
-          programme: profile.programme,
+          // Comptes antérieurs à sept. 2026 : pas encore de liste, on part du programme unique.
+          programmes: profile.programmes.length > 0 ? profile.programmes : [profile.programme].filter(Boolean),
           recordsRm: (profile.recordsRm as Record<string, string> | null) ?? {},
           notifCheckinOn: profile.notifCheckinOn,
           notifCheckinTime: profile.notifCheckinTime ?? "07:30",
