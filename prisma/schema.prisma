@@ -175,6 +175,8 @@ model Session {
   photos         String[] @default([])
   /** Meilleure série du jour (mouvement, charge, reps) pour le compte rendu. */
   bestResult     Json?  @map("best_result")
+  /** Analyse Claude de la photo de séance : { donneesBrutes, retourNarratif }. */
+  photoAnalysis  Json?  @map("photo_analysis")
 
   createdAt DateTime @default(now()) @map("created_at")
 

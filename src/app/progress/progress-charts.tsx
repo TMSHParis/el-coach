@@ -4,6 +4,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 
 export type WeightPoint = { date: string; kg: number };
 export type ScorePoint = { date: string; score: number };
+export type MovementPoint = { date: string; charge: number };
 
 const ACCENT = "#C9A84C";
 const MUTED = "#555";
@@ -110,6 +111,31 @@ export function ProgressCharts({
         <StatTile label="Meilleur streak" value={stats.bestStreak} suffix=" j" />
       </div>
     </div>
+  );
+}
+
+/** Évolution de la charge d'un mouvement précis — lien "Historique du mouvement" sur le compte rendu. */
+export function MovementChart({ movement, data }: { movement: string; data: MovementPoint[] }) {
+  return (
+    <ChartCard title={`${movement} · évolution de la charge`} empty={data.length < 2}>
+      <ResponsiveContainer width="100%" height="100%">
+        <LineChart data={data} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
+          <CartesianGrid stroke={GRID} vertical={false} />
+          <XAxis dataKey="date" tickFormatter={shortDate} stroke={MUTED} tick={{ fontSize: 10 }} minTickGap={24} />
+          <YAxis stroke={MUTED} tick={{ fontSize: 10 }} domain={["auto", "auto"]} width={40} />
+          <Tooltip content={<ProgressTooltip unit=" kg" />} />
+          <Line
+            type="monotone"
+            dataKey="charge"
+            stroke={ACCENT}
+            strokeWidth={2}
+            dot={{ r: 3, fill: ACCENT, strokeWidth: 0 }}
+            activeDot={{ r: 5 }}
+            strokeLinecap="round"
+          />
+        </LineChart>
+      </ResponsiveContainer>
+    </ChartCard>
   );
 }
 

@@ -6,6 +6,7 @@ import type { SessionBlocResult } from "../actions";
 import { updateSessionRecap } from "../actions";
 import { SESSION_FEELINGS } from "@/lib/session-feeling";
 import { SessionPhotos } from "@/components/session-photos";
+import type { HistoriqueSession, PhotoExtraction } from "@/app/api/extract-photo-data/route";
 import styles from "./recap.module.css";
 
 function fmtDuration(totalSec: number): string {
@@ -22,19 +23,33 @@ function fmtDate(date: string): string {
 }
 
 function blocLine(bloc: SessionBlocResult): string {
-  if (bloc.series?.length) {
-    return bloc.series
-      .map((s) => `${s.charge || "—"} kg × ${s.reps || "—"}${s.rpe ? ` (RPE ${s.rpe})` : ""}`)
-      .join(" · ");
-  }
   return [bloc.temps && `temps ${bloc.temps}`, bloc.rounds && `${bloc.rounds} rounds`, bloc.score && `${bloc.score} reps bonus`]
     .filter(Boolean)
     .join(" · ");
 }
 
+/** RPE de l'exercice affiché en badge — celui de la dernière série renseignée. */
+function blocRpe(bloc: SessionBlocResult): number | null {
+  const series = bloc.series ?? [];
+  for (let i = series.length - 1; i >= 0; i--) {
+    const n = Number(series[i].rpe);
+    if (Number.isFinite(n) && n > 0) return n;
+  }
+  return null;
+}
+
+function rpeCls(rpe: number): string {
+  if (rpe >= 8) return styles.rpeHigh;
+  if (rpe >= 5) return styles.rpeMid;
+  return styles.rpeLow;
+}
+
 export function RecapView({
   date,
   sport,
+  prenom,
+  poidsJour,
+  historiqueRecent,
   durationSec,
   completionRate,
   feeling: initialFeeling,
@@ -43,6 +58,7 @@ export function RecapView({
   caloriesSource: initialCaloriesSource,
   photos: initialPhotos,
   photosEnabled,
+  retourNarratif: initialRetourNarratif,
   best,
   comparisons,
   blocs,
@@ -50,6 +66,9 @@ export function RecapView({
 }: {
   date: string;
   sport: string;
+  prenom: string | null;
+  poidsJour: string | null;
+  historiqueRecent: HistoriqueSession[];
   durationSec: number;
   completionRate: number;
   feeling: string | null;
@@ -59,6 +78,8 @@ export function RecapView({
   photos: string[];
   /** Vercel Blob configuré — sinon le bouton photo est masqué. */
   photosEnabled: boolean;
+  /** Retour narratif déjà généré sur une photo précédente (persisté). */
+  retourNarratif: string | null;
   best: { nom: string; charge: number; reps: string } | null;
   comparisons: { nom: string; delta: number; charge: number }[];
   blocs: SessionBlocResult[];
@@ -69,6 +90,7 @@ export function RecapView({
   const [calories, setCalories] = useState(initialCalories === null ? "" : String(initialCalories));
   const [caloriesSource, setCaloriesSource] = useState(initialCaloriesSource);
   const [photos, setPhotos] = useState(initialPhotos);
+  const [retourNarratif, setRetourNarratif] = useState(initialRetourNarratif);
   const percent = Math.round(completionRate * 100);
 
   // La note libre et les calories s'enregistrent après une pause de frappe —
@@ -101,12 +123,20 @@ export function RecapView({
     void updateSessionRecap(date, { photos: next });
   }
 
-  /** Calories lues par Claude sur la photo — on ne remplace jamais une saisie manuelle. */
-  function handleExtracted(detected: number) {
-    if (calories.trim() !== "") return;
-    setCalories(String(detected));
-    setCaloriesSource("photo_auto");
-    void updateSessionRecap(date, { calories: detected, caloriesSource: "photo_auto" });
+  /** Analyse Claude de la photo — les calories ne remplacent jamais une saisie manuelle. */
+  function handleExtracted(result: PhotoExtraction) {
+    const patch: Parameters<typeof updateSessionRecap>[1] = {};
+    if (calories.trim() === "" && typeof result.calories === "number") {
+      setCalories(String(result.calories));
+      setCaloriesSource("photo_auto");
+      patch.calories = result.calories;
+      patch.caloriesSource = "photo_auto";
+    }
+    if (result.retourNarratif) {
+      setRetourNarratif(result.retourNarratif);
+      patch.photoAnalysis = { donneesBrutes: result.donneesBrutes, retourNarratif: result.retourNarratif };
+    }
+    if (Object.keys(patch).length > 0) void updateSessionRecap(date, patch);
   }
 
   return (
@@ -129,6 +159,31 @@ export function RecapView({
       <div className={styles.progressTrack}>
         <div className={styles.progressFill} style={{ width: `${percent}%` }} />
       </div>
+
+      {best && (
+        <div className={styles.best}>
+          <div className={styles.bestLabel}>Meilleur résultat du jour</div>
+          <div className={styles.bestValue}>
+            {best.nom} — {best.charge} kg × {best.reps || "—"}
+          </div>
+        </div>
+      )}
+
+      {comparisons.length > 0 && (
+        <div className={styles.compare}>
+          {comparisons.map((c) => (
+            <div key={c.nom} className={styles.compareLine}>
+              <span>{c.nom}</span>
+              <span className={c.delta > 0 ? styles.up : styles.down}>
+                {c.delta > 0 ? "+" : ""}
+                {c.delta} kg {c.delta > 0 ? "↑" : "↓"}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {congrats && <div className={styles.congrats}>{congrats}</div>}
 
       {/* RESSENTI — alimente Claude pour ajuster les prochaines séances. */}
       <div className={styles.sectionTitle}>Ton ressenti</div>
@@ -184,45 +239,44 @@ export function RecapView({
             <div className={styles.calLabel}>
               Photos de la séance (2 max) — les calories s&apos;y lisent toutes seules
             </div>
-            <SessionPhotos photos={photos} onChange={changePhotos} onExtracted={handleExtracted} />
+            <SessionPhotos
+              photos={photos}
+              onChange={changePhotos}
+              onExtracted={handleExtracted}
+              analysisContext={{ sport, prenom, poidsJour, sessionFeeling: feeling, historiqueRecent }}
+            />
           </div>
         )}
+        {retourNarratif && <div className={styles.narratif}>{retourNarratif}</div>}
       </div>
-
-      {best && (
-        <div className={styles.best}>
-          <div className={styles.bestLabel}>Meilleur résultat du jour</div>
-          <div className={styles.bestValue}>
-            {best.nom} — {best.charge} kg × {best.reps || "—"}
-          </div>
-        </div>
-      )}
-
-      {comparisons.length > 0 && (
-        <div className={styles.compare}>
-          {comparisons.map((c) => (
-            <div key={c.nom} className={styles.compareLine}>
-              <span>{c.nom}</span>
-              <span className={c.delta > 0 ? styles.up : styles.down}>
-                {c.delta > 0 ? "+" : ""}
-                {c.delta} kg {c.delta > 0 ? "↑" : "↓"}
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {congrats && <div className={styles.congrats}>{congrats}</div>}
 
       {blocs.length > 0 && (
         <div className={styles.results}>
-          <div className={styles.sectionTitle}>Résultats</div>
-          {blocs.map((bloc, i) => (
-            <div key={`${bloc.nom}-${i}`} className={styles.resultLine}>
-              <span className={styles.resultName}>{bloc.nom}</span>
-              <span className={styles.resultValue}>{blocLine(bloc)}</span>
-            </div>
-          ))}
+          <div className={styles.sectionTitle}>Résultats détaillés</div>
+          {blocs.map((bloc, i) => {
+            const rpe = blocRpe(bloc);
+            return (
+              <div key={`${bloc.nom}-${i}`} className={styles.resultCard}>
+                <div className={styles.resultHeader}>
+                  <Link href={`/progress?movement=${encodeURIComponent(bloc.nom)}`} className={styles.resultName}>
+                    {bloc.nom}
+                  </Link>
+                  {rpe !== null && <span className={`${styles.rpeBadge} ${rpeCls(rpe)}`}>RPE {rpe}</span>}
+                </div>
+                {bloc.series?.length ? (
+                  <div className={styles.pillRow}>
+                    {bloc.series.map((s, k) => (
+                      <span key={k} className={styles.pill}>
+                        {s.charge || "—"}kg × {s.reps || "—"}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <div className={styles.resultValue}>{blocLine(bloc)}</div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 

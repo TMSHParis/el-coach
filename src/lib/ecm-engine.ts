@@ -244,6 +244,11 @@ const STACK_TOOL = {
                   distance: { type: "string" },
                   load: { type: "string" },
                   notes: { type: "string" },
+                  rest: {
+                    type: "string",
+                    description:
+                      "Temps de repos suggéré entre les séries (ex: '90s', '120s'). Uniquement pour les blocs strength/accessory avec plusieurs séries : mouvement lourd (squat/deadlift/bench...) → 90-120s, accessoire/isolation → 60s, superset/finisher → 30-45s.",
+                  },
                 },
               },
             },
@@ -400,6 +405,9 @@ export async function generateEcmAnalysis(input: {
   const movementLines = candidateMovements.map(formatMovementLine).join("\n");
   const wodInspiration = selectWodInspiration();
   const allowedMovementIds = new Set(movements.map((m) => m.id));
+  // Séance du jour hors ECM (autre sport/repos) : pas de sessionBlocks à générer via ce
+  // programme — la vérification ne porte donc que sur profile.programme, jamais checkin.seance.
+  const isVolumeBlockHypertrophy = normalizeAccents(profile.programme ?? "").includes("volume block hypertrophy");
 
   const rotationLine =
     recentMainLifts.length > 0
@@ -441,7 +449,13 @@ RÈGLES :
 - objectif / objectif2 = les 2 objectifs de l'athlète (objectif2 peut être vide). Détails enrichis disponibles : objectif1Type/objectif1SousCat/objectif1Deadline/objectif1Priorite/objectif1Event (et objectif2Type/objectif2SousCat/objectif2Deadline/objectif2Priorite/objectif2Event pour le 2ème) — utilise-les pour affiner le ton et l'intensité (ex. deadline courte + priorité "Performance"/"Compétition" → séance plus exigeante ; objectif "Bien-être" ou priorité "Santé" → volume modéré, plus de mobilité/cooldown ; objectif "Je prépare mon corps à..." avec objectifXEvent renseigné → orienter vers les qualités utiles à cet événement).
 - seance = le sport/la séance prévue par l'athlète CE JOUR (check-in) — peut différer de sportPrincipal (son sport habituel, profil) ; utilise seance en priorité pour orienter la séance du jour (programme/discipline à privilégier dans sessionBlocks).
 - Priorité entre semaine type et check-in : suis la règle donnée par SEMAINE TYPE DE RÉFÉRENCE ci-dessus (elle indique déjà si le check-in l'emporte ou non pour aujourd'hui).
-- volumeBlockFocus (Volume Block Hypertrophy uniquement) : "upper" = haut du corps, "lower" = bas du corps, "full" = corps entier. Quand il est renseigné, sessionBlocks ne doit travailler que cette zone (le bloc strength et les accessoires suivent ce focus).
+- volumeBlockFocus (Volume Block Hypertrophy uniquement) : "upper" = haut du corps, "lower" = bas du corps, "full" = corps entier. Quand il est renseigné, sessionBlocks ne doit travailler que cette zone (le bloc strength et les accessoires suivent ce focus).${
+    isVolumeBlockHypertrophy
+      ? `
+- IMPORTANT : Volume Block Hypertrophy est un programme de musculation pure. Tous les blocs doivent être en format NOT FOR TIME (NFT) — n'utilise jamais AMRAP, EMOM, E2MOM, E3MOM, ForTime, RFT, Chipper, Tabata ou Simulation pour ce programme, y compris pour le bloc "wod" (qui doit ici être un bloc de musculation classique — série × reps, pas un metcon chronométré). Utilise uniquement "StraightSets", "Superset" ou aucun format. Chaque exercice se structure en séries × répétitions avec temps de repos entre les séries, sans contrainte de vitesse ou de performance chronométrée.`
+      : ""
+  }
+- rest (exercises[].rest, blocs strength/accessory avec plusieurs séries) : renseigne un temps de repos suggéré entre les séries (ex: "90s") selon le type de mouvement — mouvement lourd (squat/deadlift/bench press...) 90-120s, accessoire/isolation 60s, superset/finisher 30-45s.
 - Personnalisation du jour (seanceFocus/seanceDuree/seanceEquipement/seanceIntensite/seanceNote) : quand ces champs sont renseignés (non vides), ils priment SUR TOUT le reste (semaine type, profil.equipement — déjà appliqué dans MOUVEMENTS DISPONIBLES ci-dessus) pour composer sessionBlocks. seanceFocus oriente le choix des blocs (ex. "Mobilité" → réduit le bloc strength/wod, renforce cooldown) ; seanceDuree ajuste le nombre/la durée des blocs (30 min → 3 blocs courts, 2h+ → 5 blocs complets voire allongés) ; seanceIntensite ajuste charges/volume (Légère → StraightSets légers, Maximum → charges proches du max) ; seanceNote est une instruction directe à respecter littéralement (ex. "pas de deadlift aujourd'hui" → ne choisis aucun mouvement deadlift). Champs vides = ignore, comportement inchangé.
 - Le stack utilise UNIQUEMENT des compléments réalistes cohérents avec la liste "complements" (${profile.complements.join(", ") || "aucun déclaré — stack vide ou générique léger"}).
 - recommendedVariant = "B" si état jaune/rouge ou douleur/blessure signalée, sinon "A".
@@ -477,6 +491,7 @@ RÈGLES :
     distance?: string;
     load?: string;
     notes?: string;
+    rest?: string;
   };
   type RawBlock = {
     name: string;
@@ -518,6 +533,7 @@ RÈGLES :
         distance: ex.distance,
         load: ex.load,
         notes: ex.notes,
+        rest: ex.rest,
       }),
     ),
   }));

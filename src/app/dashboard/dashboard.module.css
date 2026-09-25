@@ -152,6 +152,8 @@
 /* SNACK */
 .snackCard { background: linear-gradient(135deg, #141008, #0d0d00); border: 1px solid rgba(234, 179, 8, .25); border-radius: 4px; padding: 14px 18px; margin-bottom: 12px; }
 .snackTitle { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--yellow); margin-bottom: 6px; font-weight: 600; }
+/* "Meilleur résultat du jour" — même jaune #E8FF00 que le reste de l'app (pas le gold du snack). */
+.bestResultTitle { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--accent); margin-bottom: 6px; font-weight: 600; }
 .snackContent { font-size: 14px; color: #e5e5e5; line-height: 1.6; }
 .snackNote { font-size: 11px; color: var(--m); margin-top: 5px; font-style: italic; }
 

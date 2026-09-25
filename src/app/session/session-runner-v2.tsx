@@ -14,6 +14,8 @@ import {
   releaseAudio,
   setVolume,
   soundCount,
+  soundCountAccent,
+  soundDouble,
   soundRest,
   soundTick,
   soundTransition,
@@ -105,6 +107,17 @@ function elapsedSec(b: BlocState, now: number): number {
   return Math.max(0, Math.floor((b.accumulatedMs + runningMs) / 1000));
 }
 
+/** Repos suggéré par Claude ("90s", "2min"...) → secondes. Repli par type de bloc sinon. */
+function parseRestSeconds(rest: string | undefined, blockType: BlockType): number {
+  if (rest) {
+    const min = rest.match(/(\d+)\s*min/i);
+    if (min) return parseInt(min[1], 10) * 60;
+    const num = rest.match(/(\d+)/);
+    if (num) return parseInt(num[1], 10);
+  }
+  return blockType === "strength" ? 90 : 60;
+}
+
 type TabataView = { round: number; phase: "work" | "rest"; remaining: number; finished: boolean };
 
 function tabataView(b: BlocState, elapsed: number): TabataView {
@@ -182,6 +195,10 @@ export function SessionRunnerV2({
   const [fullscreen, setFullscreen] = useState<number | null>(null);
   const [volume, setVolumeState] = useState(0.8);
   const [photos, setPhotos] = useState<string[]>(initialPhotos);
+  /** Chrono de repos entre deux séries — indépendant du chrono du bloc. */
+  const [restTimer, setRestTimer] = useState<{ endsAt: number; totalSec: number } | null>(null);
+  const restTickRef = useRef<number>(-1);
+  const restTenRef = useRef(false);
   const blocRefs = useRef<Record<number, HTMLDivElement | null>>({});
   const savedRef = useRef(false);
 
@@ -284,12 +301,18 @@ export function SessionRunnerV2({
         spoken.add(key);
         fn();
       };
-      /** Décompte : un bip aigu par seconde restante (3 · 2 · 1). */
-      const beepSecond = (secondsLeft: number) => {
+      /** Décompte : un bip aigu par seconde restante (3 · 2 · 1). `accentLast` :
+       * décompte de départ uniquement — le bip du "1" est plus fort et plus long. */
+      const beepSecond = (secondsLeft: number, accentLast = false) => {
         if (tickRef.current[i] === secondsLeft) return;
         tickRef.current[i] = secondsLeft;
-        soundCount();
-        vibrate([60]);
+        if (accentLast && secondsLeft === 1) {
+          soundCountAccent();
+          vibrate([100]);
+        } else {
+          soundCount();
+          vibrate([60]);
+        }
       };
       /** Alerte des 10 dernières secondes — une fois par `key` (par minute sur l'EMOM). */
       const tenSeconds = (key: string) => once(key, () => speakEn("Ten seconds!"));
@@ -315,7 +338,7 @@ export function SessionRunnerV2({
           );
           return;
         }
-        if (remaining <= 3) beepSecond(remaining);
+        if (remaining <= 3) beepSecond(remaining, true);
         return;
       }
 
@@ -356,8 +379,7 @@ export function SessionRunnerV2({
         }
         const minute = Math.floor(elapsed / 60) + 1;
         const secondsLeftInMinute = 60 - (elapsed % 60);
-        // Une alerte des 10 s et un compte à rebours par minute.
-        if (secondsLeftInMinute <= 10) tenSeconds(`ten-${minute}`);
+        // Compte à rebours des 3 dernières secondes par minute — pas de "Ten seconds!" en EMOM.
         if (secondsLeftInMinute <= 3) beepSecond(secondsLeftInMinute);
         if (minuteRef.current[i] === undefined) minuteRef.current[i] = minute;
         else if (minute !== minuteRef.current[i]) {
@@ -365,7 +387,9 @@ export function SessionRunnerV2({
           tickRef.current[i] = -1;
           soundTransition();
           vibrate([120]);
-          speakEn(`Let's Go! Round ${minute}`);
+          // "Let's Go!" seulement au tout premier départ du bloc — ici on garde
+          // uniquement le numéro de tour à chaque nouvelle minute.
+          speakEn(`Round ${minute}`);
           // Mouvements pas tous cochés à la fin de la minute : un bip de rappel
           // en plus, sans remplacer l'annonce du round.
           const allChecked = b.checked.length > 0 && b.checked.every(Boolean);
@@ -383,15 +407,10 @@ export function SessionRunnerV2({
         }
         // Bips sur les 3 dernières secondes, aussi bien en travail qu'en repos.
         if (view.remaining <= 3) beepSecond(view.remaining);
-        // "Ten seconds!" seulement sur une phase assez longue : sur un repos de
-        // 10 s l'annonce tomberait pile au démarrage de la phase.
-        const phaseSec = view.phase === "work" ? b.workSec : b.restSec;
-        if (phaseSec > 12 && view.remaining <= 10) {
-          tenSeconds(`ten-${view.round}-${view.phase}`);
-        }
-        // Mi-temps de la phase travail : un bip sec.
+        // Pas de "Ten seconds!" en Tabata.
+        // Mi-temps de la phase travail : double bip, pas de vocal.
         if (view.phase === "work" && view.remaining <= Math.ceil(b.workSec / 2)) {
-          once(`half-${view.round}`, () => soundTick());
+          once(`half-${view.round}`, () => soundDouble());
         }
         // Dernier tour annoncé pendant le repos qui le précède.
         if (view.phase === "rest" && view.round === b.tabataRounds - 1) {
@@ -415,6 +434,36 @@ export function SessionRunnerV2({
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [now]);
+
+  // Décompte du repos entre séries — bips, "10 seconds!" et fin annoncée.
+  useEffect(() => {
+    if (!restTimer) return;
+    const remaining = Math.ceil((restTimer.endsAt - now) / 1000);
+    if (remaining <= 0) {
+      if (restTickRef.current !== 0) {
+        restTickRef.current = 0;
+        soundTriple();
+        speakEn("Rest over! Next set!");
+        vibrate([600]);
+        setRestTimer(null);
+      }
+      return;
+    }
+    if (remaining === 10 && !restTenRef.current) {
+      restTenRef.current = true;
+      speakEn("Ten seconds!");
+    }
+    if (remaining <= 3 && restTickRef.current !== remaining) {
+      restTickRef.current = remaining;
+      if (remaining === 1) {
+        soundCountAccent();
+        vibrate([100]);
+      } else {
+        soundCount();
+        vibrate([60]);
+      }
+    }
+  }, [now, restTimer]);
 
   function startTimer(i: number) {
     unlockAudio(); // geste utilisateur : seul moment où iOS autorise le son
@@ -525,7 +574,7 @@ export function SessionRunnerV2({
     vibrate([30]);
   }
 
-  /** Nouvelle série pré-remplie avec les valeurs de la précédente. */
+  /** Nouvelle série pré-remplie avec les valeurs de la précédente — lance le repos. */
   function addSerie(blocIdx: number, exIdx: number) {
     setBlocks((prev) =>
       prev.map((x, i) =>
@@ -541,6 +590,25 @@ export function SessionRunnerV2({
           : x,
       ),
     );
+    startRestTimer(blocIdx, exIdx);
+  }
+
+  /** Chrono de repos entre deux séries — indépendant du chrono du bloc en cours. */
+  function startRestTimer(blocIdx: number, exIdx: number) {
+    unlockAudio();
+    const rest = blockData[blocIdx]?.items[exIdx]?.rest;
+    const durationSec = parseRestSeconds(rest, blockData[blocIdx]?.type);
+    restTickRef.current = -1;
+    restTenRef.current = false;
+    setRestTimer({ endsAt: Date.now() + durationSec * 1000, totalSec: durationSec });
+  }
+
+  function skipRestTimer() {
+    setRestTimer(null);
+  }
+
+  function addRestTime(extraSec: number) {
+    setRestTimer((prev) => (prev ? { ...prev, endsAt: prev.endsAt + extraSec * 1000 } : prev));
   }
 
   function updateSerie(blocIdx: number, exIdx: number, serieIdx: number, patch: Partial<ExerciseSerie>) {
@@ -678,9 +746,19 @@ export function SessionRunnerV2({
           globalLabel={fmtHMS(globalSec)}
           onPause={() => pauseTimer(fsIndex)}
           onResume={() => startTimer(fsIndex)}
+          onReset={() => resetTimer(fsIndex)}
           onAddRound={() => addAmrapRound(fsIndex)}
           onDone={() => doneBloc(fsIndex)}
           onClose={() => setFullscreen(null)}
+        />
+      )}
+      {restTimer && (
+        <RestTimer
+          endsAt={restTimer.endsAt}
+          totalSec={restTimer.totalSec}
+          now={now}
+          onSkip={skipRestTimer}
+          onAddTime={() => addRestTime(30)}
         />
       )}
       <div className={styles.topbar}>
@@ -1330,6 +1408,7 @@ function FullscreenTimer({
   globalLabel,
   onPause,
   onResume,
+  onReset,
   onAddRound,
   onDone,
   onClose,
@@ -1340,6 +1419,7 @@ function FullscreenTimer({
   globalLabel: string;
   onPause: () => void;
   onResume: () => void;
+  onReset: () => void;
   onAddRound: () => void;
   onDone: () => void;
   onClose: () => void;
@@ -1377,7 +1457,14 @@ function FullscreenTimer({
       </div>
 
       <div className={styles.fsCenter}>
-        <div className={styles.fsTime}>{countdown !== null ? countdown : time}</div>
+        <div className={styles.fsTimeRow}>
+          <div className={styles.fsTime}>{countdown !== null ? countdown : time}</div>
+          {countdown === null && (
+            <button type="button" className={styles.fsResetBtn} onClick={onReset} aria-label="Remettre le chrono à zéro">
+              ↺ Reset
+            </button>
+          )}
+        </div>
         <div className={styles.fsInfo}>{countdown !== null ? "Départ dans…" : info}</div>
         {!t.running && t.accumulatedMs > 0 && countdown === null && <div className={styles.fsPaused}>⏸ En pause</div>}
         {fmt === "amrap" && t.running && (
@@ -1399,6 +1486,41 @@ function FullscreenTimer({
         <div className={styles.fsGlobal}>{globalLabel}</div>
         <button type="button" className={styles.fsBtn} onClick={onClose}>
           ← Mouvements
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** Chrono de repos entre deux séries — overlay teinté bleu/violet pour bien le distinguer du chrono de travail. */
+function RestTimer({
+  endsAt,
+  totalSec,
+  now,
+  onSkip,
+  onAddTime,
+}: {
+  endsAt: number;
+  totalSec: number;
+  now: number;
+  onSkip: () => void;
+  onAddTime: () => void;
+}) {
+  const remaining = Math.max(0, Math.ceil((endsAt - now) / 1000));
+
+  return (
+    <div className={styles.restRoot}>
+      <div className={styles.restLabel}>REPOS</div>
+      <div className={styles.restTime}>{fmtMS(remaining)}</div>
+      <div className={styles.restBarWrap}>
+        <div className={styles.restBar} style={{ width: `${totalSec > 0 ? ((totalSec - remaining) / totalSec) * 100 : 0}%` }} />
+      </div>
+      <div className={styles.restActions}>
+        <button type="button" className={styles.restBtn} onClick={onAddTime}>
+          + 30 sec
+        </button>
+        <button type="button" className={styles.restBtn} onClick={onSkip}>
+          Passer →
         </button>
       </div>
     </div>

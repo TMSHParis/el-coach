@@ -103,9 +103,18 @@
 
 .results { margin-bottom: 24px; }
 .resultsTitle { font-size: 10px; letter-spacing: 3px; text-transform: uppercase; color: #8a8a8a; margin-bottom: 8px; }
-.resultLine { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; padding: 8px 0; border-bottom: 1px solid #141414; }
-.resultName { color: #fff; }
-.resultValue { color: #8a8a8a; text-align: right; }
+.resultCard { background: #111; border: 1px solid #1f1f1f; border-radius: 6px; padding: 12px 14px; margin-bottom: 12px; }
+.resultHeader { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+.resultName { color: #fff; font-size: 14px; font-weight: 600; text-decoration: none; }
+.resultName:hover { color: #E8FF00; }
+.resultValue { color: #8a8a8a; font-size: 13px; }
+.pillRow { display: flex; flex-wrap: wrap; gap: 8px; }
+.pill { background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 5px; padding: 5px 10px; font-size: 12px; color: #e0e0e0; }
+.rpeBadge { font-size: 10px; letter-spacing: 1px; font-weight: 700; padding: 3px 8px; border-radius: 10px; flex-shrink: 0; }
+.rpeHigh { background: rgba(224, 82, 82, .15); color: #E05252; }
+.rpeMid { background: rgba(232, 200, 60, .15); color: #E8C83C; }
+.rpeLow { background: rgba(82, 192, 120, .15); color: #52C078; }
 
 .cta { display: flex; align-items: center; justify-content: center; width: 100%; background: #E8FF00; color: #000; font-family: var(--font-bebas, sans-serif); font-size: 1.1rem; letter-spacing: 3px; text-transform: uppercase; padding: 16px 24px; border-radius: 4px; text-decoration: none; }
 .calAuto { margin-top: 10px; font-size: 11px; letter-spacing: 1px; color: #E8FF00; }
+.narratif { margin-top: 14px; background: rgba(232, 255, 0, .05); border-left: 3px solid #E8FF00; border-radius: 6px; padding: 12px 14px; font-size: 13px; line-height: 1.5; color: #fff; }

@@ -37,9 +37,9 @@ export function defaultDurationMinutes(block: Block): number {
   return match ? parseInt(match[1], 10) : 10;
 }
 
-export type ExerciseDisplay = { name: string; qty: string; detail?: string };
+export type ExerciseDisplay = { name: string; qty: string; detail?: string; rest?: string };
 
-/** Découpe un Exercise en {name, qty, detail} pour les cartes dashboard/session. */
+/** Découpe un Exercise en {name, qty, detail, rest} pour les cartes dashboard/session. */
 export function exerciseDisplay(ex: Exercise, movementName: string): ExerciseDisplay {
   let qty = "";
   if (ex.sets !== undefined && ex.reps !== undefined) qty = `${ex.sets}×${ex.reps}`;
@@ -49,7 +49,7 @@ export function exerciseDisplay(ex: Exercise, movementName: string): ExerciseDis
   else if (ex.distance) qty = ex.distance;
 
   const name = ex.load ? `${movementName} (${ex.load})` : movementName;
-  return { name, qty, detail: ex.notes };
+  return { name, qty, detail: ex.notes, rest: ex.rest };
 }
 
 export type DisplayBlock = {

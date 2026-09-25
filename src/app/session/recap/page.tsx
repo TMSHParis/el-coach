@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { todayKey } from "@/lib/date-key";
 import { buildLastResults } from "@/lib/last-results";
 import { blobEnabled } from "@/lib/blob";
+import type { HistoriqueSession } from "@/app/api/extract-photo-data/route";
 import type { SessionBlocResult } from "../actions";
 import { sessionFontVariables } from "../session-fonts";
 import { RecapView } from "./recap-view";
@@ -16,11 +17,12 @@ export default async function RecapPage() {
   const date = todayKey();
   if (!userId) redirect("/dashboard");
 
-  const [session, checkin, output, pastSessions] = await Promise.all([
+  const [session, checkin, output, pastSessions, profile] = await Promise.all([
     prisma.session.findUnique({ where: { userId_date: { userId, date } } }),
     prisma.checkin.findUnique({ where: { userId_date: { userId, date } } }),
     prisma.dashboardOutput.findUnique({ where: { userId_date: { userId, date } } }),
     prisma.session.findMany({ where: { userId, date: { lt: date } }, orderBy: { date: "desc" }, take: 12 }),
+    prisma.profile.findUnique({ where: { userId } }),
   ]);
 
   // Pas de séance terminée aujourd'hui — rien à raconter.
@@ -32,6 +34,16 @@ export default async function RecapPage() {
   const previous = buildLastResults(pastSessions);
   const best = session.bestResult as { nom: string; charge: number; reps: string } | null;
   const congrats = (output?.output as { sessionMessage?: string } | null)?.sessionMessage ?? null;
+  const photoAnalysis = session.photoAnalysis as { donneesBrutes?: Record<string, unknown> | null; retourNarratif?: string | null } | null;
+
+  // 8 dernières séances, résumées pour la comparaison de la prochaine analyse photo.
+  const historiqueRecent: HistoriqueSession[] = pastSessions.slice(0, 8).map((s) => ({
+    date: s.date,
+    calories: s.caloriesBrulees,
+    durationSec: s.durationSec,
+    feeling: s.sessionFeeling,
+    donneesBrutes: (s.photoAnalysis as { donneesBrutes?: Record<string, unknown> | null } | null)?.donneesBrutes ?? null,
+  }));
 
   // Comparaisons : mouvements plus lourds (ou plus légers) que la dernière fois.
   const comparisons = blocs
@@ -53,6 +65,9 @@ export default async function RecapPage() {
       <RecapView
         date={date}
         sport={checkin?.seance ?? "Séance"}
+        prenom={profile?.prenom ?? null}
+        poidsJour={checkin?.poids ?? (profile?.poids ? String(profile.poids) : null)}
+        historiqueRecent={historiqueRecent}
         durationSec={session.durationSec ?? 0}
         completionRate={session.completionRate ?? 0}
         feeling={session.sessionFeeling}
@@ -61,6 +76,7 @@ export default async function RecapPage() {
         caloriesSource={session.caloriesSource}
         photos={session.photos}
         photosEnabled={blobEnabled}
+        retourNarratif={photoAnalysis?.retourNarratif ?? null}
         best={best}
         comparisons={comparisons}
         blocs={blocs}

@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { MAX_SESSION_PHOTOS } from "@/lib/session-media";
+import type { HistoriqueSession, PhotoExtraction } from "@/app/api/extract-photo-data/route";
 
 /** Côté le plus long après redimensionnement — assez pour un écran de montre. */
 const MAX_SIDE = 1600;
@@ -29,20 +30,34 @@ async function compress(file: File): Promise<Blob> {
   return blob ?? file;
 }
 
+/** Contexte transmis à l'analyse pour que le retour narratif compare à l'historique de l'athlète. */
+export type PhotoAnalysisContext = {
+  sport?: string;
+  prenom?: string | null;
+  poidsJour?: string | null;
+  sessionFeeling?: string | null;
+  historiqueRecent?: HistoriqueSession[];
+};
+
 /**
- * Lecture automatique des calories sur la photo (Claude vision). Silencieuse :
- * si rien n'est lisible ou si l'appel échoue, la saisie manuelle prend le relais.
+ * Analyse complète de la photo (Claude vision) : calories, durée, BPM et un
+ * retour narratif comparé à l'historique. Silencieuse : si rien n'est lisible
+ * ou si l'appel échoue, la saisie manuelle prend le relais.
  */
-async function extractCalories(photoUrl: string, onExtracted: (calories: number) => void): Promise<void> {
+async function analyzePhoto(
+  photoUrl: string,
+  context: PhotoAnalysisContext | undefined,
+  onExtracted: (result: PhotoExtraction) => void,
+): Promise<void> {
   try {
     const res = await fetch("/api/extract-photo-data", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ photoUrl }),
+      body: JSON.stringify({ photoUrl, ...context }),
     });
     if (!res.ok) return;
-    const data = (await res.json()) as { calories?: number | null };
-    if (typeof data.calories === "number") onExtracted(data.calories);
+    const data = (await res.json()) as PhotoExtraction;
+    if (typeof data.calories === "number" || data.retourNarratif) onExtracted(data);
   } catch {
     // Lecture automatique indisponible — le champ reste à remplir à la main.
   }
@@ -57,12 +72,15 @@ export function SessionPhotos({
   photos,
   onChange,
   onExtracted,
+  analysisContext,
   accent = "#E8FF00",
 }: {
   photos: string[];
   onChange: (next: string[]) => void;
-  /** Calories lues par Claude sur la photo — appelé seulement si un chiffre est trouvé. */
-  onExtracted?: (calories: number) => void;
+  /** Résultat de l'analyse Claude de la photo — appelé seulement si une donnée exploitable est trouvée. */
+  onExtracted?: (result: PhotoExtraction) => void;
+  /** Contexte (sport, prénom, poids, ressenti, historique) transmis pour le retour narratif. */
+  analysisContext?: PhotoAnalysisContext;
   accent?: string;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -86,7 +104,7 @@ export function SessionPhotos({
         return;
       }
       onChange([...photos, data.url]);
-      if (onExtracted) void extractCalories(data.url, onExtracted);
+      if (onExtracted) void analyzePhoto(data.url, analysisContext, onExtracted);
     } catch {
       setError("Envoi impossible — vérifie ta connexion.");
     } finally {

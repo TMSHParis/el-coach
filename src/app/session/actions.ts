@@ -1,6 +1,6 @@
 "use server";
 
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { getUserId } from "@/lib/user-id";
 import { prisma } from "@/lib/prisma";
 import { generateSessionCongrats } from "@/lib/ecm-engine";
@@ -137,6 +137,8 @@ export type SessionRecapPatch = {
   /** "manuel" (saisie) ou "photo_auto" (lue sur la photo par Claude). */
   caloriesSource?: "manuel" | "photo_auto";
   photos?: string[];
+  /** Analyse Claude de la photo : métriques brutes détectées + retour narratif. */
+  photoAnalysis?: { donneesBrutes: Record<string, unknown> | null; retourNarratif: string | null } | null;
 };
 
 export async function updateSessionRecap(date: string, patch: SessionRecapPatch): Promise<{ ok: boolean }> {
@@ -149,6 +151,7 @@ export async function updateSessionRecap(date: string, patch: SessionRecapPatch)
     caloriesBrulees?: number | null;
     caloriesSource?: string | null;
     photos?: string[];
+    photoAnalysis?: Prisma.InputJsonValue | typeof Prisma.JsonNull;
   } = {};
   if (patch.feeling !== undefined) {
     if (!isSessionFeeling(patch.feeling)) return { ok: false };
@@ -166,6 +169,9 @@ export async function updateSessionRecap(date: string, patch: SessionRecapPatch)
     data.caloriesSource = clean === null ? null : (patch.caloriesSource ?? "manuel");
   }
   if (patch.photos !== undefined) data.photos = patch.photos.slice(0, MAX_SESSION_PHOTOS);
+  if (patch.photoAnalysis !== undefined) {
+    data.photoAnalysis = patch.photoAnalysis ? (patch.photoAnalysis as Prisma.InputJsonValue) : Prisma.JsonNull;
+  }
   if (Object.keys(data).length === 0) return { ok: true };
 
   try {

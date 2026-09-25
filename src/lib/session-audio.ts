@@ -8,7 +8,7 @@
 // évite qu'iOS reprenne la main. C'est la technique des apps de chrono type
 // Interval Timer / Seconds Pro.
 
-export type SoundName = "tick" | "go" | "transition" | "end" | "work" | "rest" | "count" | "triple";
+export type SoundName = "tick" | "go" | "transition" | "end" | "work" | "rest" | "count" | "triple" | "countAccent" | "double";
 
 const FILES: Record<SoundName, string> = {
   tick: "/sounds/beep-tick.mp3",
@@ -19,6 +19,10 @@ const FILES: Record<SoundName, string> = {
   rest: "/sounds/beep-rest.mp3",
   count: "/sounds/beep-count.mp3",
   triple: "/sounds/beep-triple.mp3",
+  // Dernier bip du décompte 3·2·1 (au "1", juste avant le départ) — plus fort et plus long que `count`.
+  countAccent: "/sounds/beep-count-accent.mp3",
+  // Mi-temps de la phase travail en Tabata — deux bips rapprochés, pas de vocal.
+  double: "/sounds/beep-double.mp3",
 };
 
 const VOLUME_KEY = "elc_session_volume";
@@ -129,11 +133,15 @@ export const soundTransition = () => play("transition");
 export const soundEnd = () => play("end");
 /** Décompte 3 · 2 · 1 : aigu et court (880 Hz, 0,15 s) — "ça va partir". */
 export const soundCount = () => play("count");
+/** Dernier bip du décompte (au "1") : plus fort et plus long (880 Hz, 0,25 s). */
+export const soundCountAccent = () => play("countAccent");
 /** Les 3 bips de fin de chrono (300 Hz × 3). */
 export const soundTriple = () => play("triple");
 /** Tabata : début de phase travail (aigu) / repos (grave). */
 export const soundWork = () => play("work");
 export const soundRest = () => play("rest");
+/** Tabata : mi-temps de la phase travail — deux bips rapprochés, sans vocal. */
+export const soundDouble = () => play("double");
 
 // --- Synthèse vocale ---------------------------------------------------
 //

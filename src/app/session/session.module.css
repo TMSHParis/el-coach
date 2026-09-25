@@ -237,13 +237,26 @@
 .fsFormat { font-family: var(--font-bebas); font-size: 1.4rem; letter-spacing: 6px; text-transform: uppercase; color: #fff; }
 .fsBloc { font-size: 11px; letter-spacing: 3px; text-transform: uppercase; color: var(--m); margin-top: 4px; }
 .fsCenter { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; flex: 1; }
+.fsTimeRow { display: flex; align-items: baseline; gap: 14px; }
 .fsTime { font-family: var(--font-bebas); font-size: 6rem; line-height: 1; color: #fff; letter-spacing: 2px; }
+.fsResetBtn { padding: 6px 10px; border: 1px solid rgba(255,255,255,.25); border-radius: 4px; background: rgba(0,0,0,.35); color: var(--m); font-family: inherit; font-size: 11px; letter-spacing: 1px; text-transform: uppercase; cursor: pointer; }
+.fsResetBtn:hover { color: #fff; border-color: rgba(255,255,255,.45); }
 .fsInfo { font-size: 13px; letter-spacing: 3px; text-transform: uppercase; color: #e0e0e0; }
 .fsPaused { font-size: 12px; letter-spacing: 3px; text-transform: uppercase; color: var(--yellow); }
 .fsRoundBtn { margin-top: 18px; padding: 18px 36px; border: none; border-radius: 6px; background: #E8FF00; color: #000; font-family: var(--font-bebas); font-size: 1.4rem; letter-spacing: 4px; text-transform: uppercase; cursor: pointer; }
 .fsBottom { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .fsBtn { padding: 14px 16px; border: 1px solid rgba(255,255,255,.25); border-radius: 4px; background: rgba(0,0,0,.35); color: #fff; font-family: inherit; font-size: 11px; letter-spacing: 2px; text-transform: uppercase; cursor: pointer; }
 .fsGlobal { font-family: var(--font-bebas); font-size: 1.1rem; letter-spacing: 2px; color: var(--m); }
+
+/* CHRONO DE REPOS ENTRE SÉRIES — teinte bleu/violet pour se distinguer du travail. */
+.restRoot { position: fixed; inset: 0; z-index: 210; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 28px 20px calc(24px + env(safe-area-inset-bottom)); background: linear-gradient(rgba(99,102,241,.22), rgba(99,102,241,.22)), #080808; }
+.restLabel { font-family: var(--font-bebas); font-size: 1.4rem; letter-spacing: 8px; text-transform: uppercase; color: #a5b4fc; }
+.restTime { font-family: var(--font-bebas); font-size: 6rem; line-height: 1; color: #fff; letter-spacing: 2px; }
+.restBarWrap { width: 100%; max-width: 280px; height: 6px; border-radius: 3px; background: rgba(255,255,255,.12); overflow: hidden; }
+.restBar { height: 100%; background: #818cf8; transition: width .2s linear; }
+.restActions { display: flex; gap: 10px; margin-top: 12px; }
+.restBtn { padding: 14px 20px; border: 1px solid rgba(255,255,255,.25); border-radius: 4px; background: rgba(0,0,0,.35); color: #fff; font-family: inherit; font-size: 12px; letter-spacing: 2px; text-transform: uppercase; cursor: pointer; }
+.restBtn:hover { border-color: #818cf8; color: #a5b4fc; }
 
 /* RPE ET RAPPEL DE LA DERNIÈRE SÉANCE */
 .rpeRow { display: flex; align-items: center; gap: 8px; padding: 2px 0 8px 52px; }

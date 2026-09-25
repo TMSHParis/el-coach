@@ -4,8 +4,10 @@ import { dateKey } from "@/lib/date-key";
 import { BackHomeButton } from "@/components/back-home-button";
 import { ecmFontVariables } from "@/app/signup/ecm-fonts";
 import type { EcmScore } from "@/lib/coaching-adaptatif-mock";
-import { ProgressCharts, type WeightPoint, type ScorePoint } from "./progress-charts";
+import Link from "next/link";
+import { ProgressCharts, MovementChart, type WeightPoint, type ScorePoint, type MovementPoint } from "./progress-charts";
 import { feelingBadge } from "@/lib/session-feeling";
+import type { SessionBlocResult } from "../session/actions";
 
 export const metadata = { title: "Ma progression — EL COACH METHOD" };
 
@@ -80,7 +82,27 @@ function buildVolumeStats(
   });
 }
 
-export default async function ProgressPage() {
+/** Meilleure charge par date pour un mouvement précis (nom exact tel qu'enregistré sur /session). */
+function buildMovementHistory(sessions: { date: string; data: unknown }[], movement: string): MovementPoint[] {
+  return sessions
+    .map((s) => {
+      const blocs = (s.data as { blocs?: SessionBlocResult[] } | null)?.blocs ?? [];
+      const bloc = blocs.find((b) => b.nom === movement);
+      const top = (bloc?.series ?? [])
+        .map((se) => parseFloat(se.charge))
+        .filter((c) => Number.isFinite(c) && c > 0)
+        .sort((a, b) => b - a)[0];
+      return top !== undefined ? { date: s.date, charge: top } : null;
+    })
+    .filter((p): p is MovementPoint => p !== null);
+}
+
+export default async function ProgressPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ movement?: string }>;
+}) {
+  const { movement } = await searchParams;
   const userId = await getUserId();
   if (!userId) {
     return (
@@ -143,6 +165,18 @@ export default async function ProgressPage() {
 
   const { current, best } = computeStreaks(allCheckinDates.map((c) => c.date));
 
+  const movementData = movement
+    ? buildMovementHistory(
+        await prisma.session.findMany({
+          where: { userId, completed: true },
+          select: { date: true, data: true },
+          orderBy: { date: "asc" },
+          take: 60,
+        }),
+        movement,
+      )
+    : null;
+
   return (
     <div className={ecmFontVariables} style={{ background: "#080808", minHeight: "100vh", color: "#e0e0e0" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "20px 20px 0" }}>
@@ -151,6 +185,17 @@ export default async function ProgressPage() {
           Ma progression
         </div>
       </div>
+
+      {movement && movementData && (
+        <div style={{ maxWidth: 560, margin: "0 auto", padding: "20px 20px 0" }}>
+          <Link href="/progress" style={{ fontSize: 12, color: "#8a8a8a", textDecoration: "none" }}>
+            ← Toute la progression
+          </Link>
+          <div style={{ marginTop: 10 }}>
+            <MovementChart movement={movement} data={movementData} />
+          </div>
+        </div>
+      )}
 
       <ProgressCharts
         weightData={weightData}

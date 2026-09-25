@@ -138,6 +138,7 @@ export default async function DashboardPage() {
         feeling: todaySession.sessionFeeling,
         calories: todaySession.caloriesBrulees,
         best: todaySession.bestResult as { nom: string; charge: number; reps: string } | null,
+        programme: profile?.programme ?? null,
       }
     : null;
   const real = dbOutput ? (dbOutput.output as unknown as DashboardOutputJson) : null;
@@ -546,12 +547,14 @@ function SessionRecapCard({
   feeling,
   calories,
   best,
+  programme,
 }: {
   durationSec: number;
   completionRate: number;
   feeling: string | null;
   calories: number | null;
   best: { nom: string; charge: number; reps: string } | null;
+  programme: string | null;
 }) {
   const percent = Math.round(completionRate * 100);
   const meta = [
@@ -562,20 +565,21 @@ function SessionRecapCard({
   return (
     <div className={styles.sdjDone}>
       <div className={styles.sdjDoneLabel}>🏆 Séance terminée</div>
+      {programme && <div className={styles.sdjMeta}>{programme}</div>}
       <div className={styles.sdjTitle}>{durationSec < 60 ? `${durationSec}s` : minutesToHM(Math.round(durationSec / 60))}</div>
       <div className={styles.sdjMeta}>
         <span>{meta.join(" · ")}</span>
       </div>
       {best && (
         <div className={styles.snackCard} style={{ marginTop: 4 }}>
-          <div className={styles.snackTitle}>Meilleur résultat du jour</div>
+          <div className={styles.bestResultTitle}>Meilleur résultat du jour</div>
           <div className={styles.snackContent}>
             {best.nom} — {best.charge} kg × {best.reps || "—"}
           </div>
         </div>
       )}
       <Link href="/session/recap" className={styles.sdjBtn} style={{ marginTop: 12 }}>
-        <span className={styles.sdjBtnIcon}>✓</span>
+        <span className={styles.sdjBtnIcon}>→</span>
         <span className={styles.sdjBtnText}>Voir le détail complet</span>
       </Link>
     </div>
