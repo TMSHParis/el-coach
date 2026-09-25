@@ -55,7 +55,7 @@ type AdviceDashboardOutput = Partial<Omit<EcmDashboardOutput, "mode" | "generate
 type DashboardOutputJson = EcmDashboardOutput | AdviceDashboardOutput;
 import type { Day } from "@/lib/programming";
 import { toDisplayBlocks } from "@/lib/session-format";
-import { feelingBadge, shouldRecommendLightSession } from "@/lib/session-feeling";
+import { SESSION_FEELINGS, shouldRecommendLightSession } from "@/lib/session-feeling";
 import type { TomorrowPreview } from "@/lib/ecm-engine";
 import { buildAdviceSession, type StoredAdvice } from "@/lib/advice-session";
 import { AdviceSessionPanel } from "./advice-session-panel";
@@ -130,17 +130,6 @@ export default async function DashboardPage() {
       ])
     : [null, null, [], null, []];
 
-  // Séance du jour terminée : le bloc "Démarrer la séance" laisse place au compte rendu.
-  const finishedSession = todaySession?.completed
-    ? {
-        durationSec: todaySession.durationSec ?? 0,
-        completionRate: todaySession.completionRate ?? 0,
-        feeling: todaySession.sessionFeeling,
-        calories: todaySession.caloriesBrulees,
-        best: todaySession.bestResult as { nom: string; charge: number; reps: string } | null,
-        programme: profile?.programme ?? null,
-      }
-    : null;
   const real = dbOutput ? (dbOutput.output as unknown as DashboardOutputJson) : null;
 
   // Sport hors ECM ou repos : même dashboard, seul le bloc séance change.
@@ -200,6 +189,40 @@ export default async function DashboardPage() {
   const etat = ETAT_LABELS[ecm.state];
   const isRestDay = (!generatedDay && today.needsFatigueInput) || baseDay.blocks.length === 0;
 
+  // Type réel de la séance du jour — sert au bloc "Séance terminée" une fois
+  // la séance faite. Ne PAS retomber sur profile.programme (programme fixe de
+  // l'athlète) : un jour de repos ou hors ECM affichait alors à tort le nom du
+  // programme d'abonnement (ex. "CrossFit Pure" sur un jour "Repos complet").
+  const todaySessionKind: "repos" | "horsEcm" | "ecm" = adviceSession
+    ? adviceSession.repos
+      ? "repos"
+      : "horsEcm"
+    : isRestDay
+      ? "repos"
+      : "ecm";
+  const todaySessionLabel = adviceSession
+    ? adviceSession.repos
+      ? "Repos complet"
+      : adviceSession.titre
+    : isRestDay
+      ? "Repos complet"
+      : sessionTitle;
+  const todaySessionIcon = todaySessionKind === "repos" ? "🛌" : todaySessionKind === "horsEcm" ? "🥊" : "⚡";
+
+  // Séance du jour terminée : le bloc "Démarrer la séance" laisse place au compte rendu.
+  const finishedSession = todaySession?.completed
+    ? {
+        durationSec: todaySession.durationSec ?? 0,
+        completionRate: todaySession.completionRate ?? 0,
+        feeling: todaySession.sessionFeeling,
+        calories: todaySession.caloriesBrulees,
+        best: todaySession.bestResult as { nom: string; charge: number; reps: string } | null,
+        programme: todaySessionLabel,
+        icon: todaySessionIcon,
+        coachMessage: real?.sessionMessage ?? null,
+      }
+    : null;
+
   // La semaine type prime : l'aperçu généré au check-in tient compte de l'état
   // du jour et des blessures. Sinon, repli sur le programme fixe hebdomadaire.
   const tomorrow = real?.tomorrow ?? buildTomorrowPreview(today, fatigueScore);
@@ -217,13 +240,6 @@ export default async function DashboardPage() {
         </div>
 
         <div className={styles.wrap}>
-          {real?.sessionMessage && (
-            <div className={styles.doneBanner}>
-              <div className={styles.doneTitle}>🏆 Séance terminée</div>
-              {real.sessionMessageDuration && <div className={styles.doneMeta}>{real.sessionMessageDuration}</div>}
-              <div className={styles.doneText}>{real.sessionMessage}</div>
-            </div>
-          )}
           <CalendarWeek checkinDates={checkinDates} />
           <Link href="/progress" className={styles.progressLink}>
             📈 Voir ma progression →
@@ -540,14 +556,24 @@ function CheckinPendingState({
   );
 }
 
-/** Compte rendu du jour, à la place du bloc "Démarrer la séance" une fois la séance faite. */
+/** Date du jour affichée dans l'en-tête du bloc "Séance terminée" — "VEN 25 SEPT". */
+function todayLabel(): string {
+  return new Date()
+    .toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" })
+    .toUpperCase()
+    .replace(/\./g, "");
+}
+
+/** Compte rendu du jour, à la place du bloc "Démarrer la séance" une fois la séance faite —
+ * bloc unique fusionnant stats et message du coach (avant : deux blocs distincts et redondants). */
 function SessionRecapCard({
   durationSec,
   completionRate,
   feeling,
-  calories,
   best,
   programme,
+  icon,
+  coachMessage,
 }: {
   durationSec: number;
   completionRate: number;
@@ -555,32 +581,60 @@ function SessionRecapCard({
   calories: number | null;
   best: { nom: string; charge: number; reps: string } | null;
   programme: string | null;
+  icon: string;
+  coachMessage: string | null;
 }) {
   const percent = Math.round(completionRate * 100);
-  const meta = [
-    `${percent}% des mouvements`,
-    feelingBadge(feeling),
-    calories ? `🔥 ${calories} kcal` : null,
-  ].filter(Boolean);
+  const feelingInfo = SESSION_FEELINGS.find((f) => f.value === feeling);
+  const durationLabel = durationSec < 60 ? `${durationSec}s` : minutesToHM(Math.round(durationSec / 60));
+
   return (
-    <div className={styles.sdjDone}>
-      <div className={styles.sdjDoneLabel}>🏆 Séance terminée</div>
-      {programme && <div className={styles.sdjMeta}>{programme}</div>}
-      <div className={styles.sdjTitle}>{durationSec < 60 ? `${durationSec}s` : minutesToHM(Math.round(durationSec / 60))}</div>
-      <div className={styles.sdjMeta}>
-        <span>{meta.join(" · ")}</span>
+    <div className={styles.doneCard}>
+      <div className={styles.doneHeader}>
+        <span className={styles.doneHeaderTitle}>🏆 Séance terminée</span>
+        <span className={styles.doneHeaderDate}>{todayLabel()}</span>
       </div>
+
+      {programme && (
+        <div className={styles.doneSubheader}>
+          <span>{icon}</span>
+          <span>{programme.toUpperCase()}</span>
+        </div>
+      )}
+
+      <div className={styles.doneStats}>
+        <div className={styles.doneStat}>
+          <div className={styles.doneStatVal}>{durationLabel}</div>
+          <div className={styles.doneStatLabel}>Durée</div>
+        </div>
+        <div className={cx(styles.doneStat, styles.doneStatMid)}>
+          <div className={styles.doneStatVal}>{percent}%</div>
+          <div className={styles.doneStatLabel}>Complété</div>
+        </div>
+        <div className={styles.doneStat}>
+          <div className={styles.doneStatVal}>{feelingInfo?.emoji ?? "—"}</div>
+          <div className={styles.doneStatLabel}>{feelingInfo?.label ?? "Ressenti"}</div>
+        </div>
+      </div>
+
       {best && (
-        <div className={styles.snackCard} style={{ marginTop: 4 }}>
+        <div className={styles.doneBest}>
           <div className={styles.bestResultTitle}>Meilleur résultat du jour</div>
           <div className={styles.snackContent}>
             {best.nom} — {best.charge} kg × {best.reps || "—"}
           </div>
         </div>
       )}
-      <Link href="/session/recap" className={styles.sdjBtn} style={{ marginTop: 12 }}>
-        <span className={styles.sdjBtnIcon}>→</span>
-        <span className={styles.sdjBtnText}>Voir le détail complet</span>
+
+      {coachMessage && (
+        <div className={styles.doneCoach}>
+          <div className={styles.doneCoachLabel}>Ton coach</div>
+          <div className={styles.doneCoachText}>{coachMessage}</div>
+        </div>
+      )}
+
+      <Link href="/session/recap" className={styles.doneCta}>
+        Voir le détail complet →
       </Link>
     </div>
   );

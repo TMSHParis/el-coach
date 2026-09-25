@@ -5,8 +5,6 @@ import Link from "next/link";
 import type { SessionBlocResult } from "../actions";
 import { updateSessionRecap } from "../actions";
 import { SESSION_FEELINGS } from "@/lib/session-feeling";
-import { SessionPhotos } from "@/components/session-photos";
-import type { HistoriqueSession, PhotoExtraction } from "@/app/api/extract-photo-data/route";
 import styles from "./recap.module.css";
 
 function fmtDuration(totalSec: number): string {
@@ -47,18 +45,13 @@ function rpeCls(rpe: number): string {
 export function RecapView({
   date,
   sport,
-  prenom,
-  poidsJour,
-  historiqueRecent,
   durationSec,
   completionRate,
   feeling: initialFeeling,
   note: initialNote,
-  calories: initialCalories,
-  caloriesSource: initialCaloriesSource,
-  photos: initialPhotos,
-  photosEnabled,
-  retourNarratif: initialRetourNarratif,
+  calories,
+  caloriesSource,
+  retourNarratif,
   best,
   comparisons,
   blocs,
@@ -66,19 +59,15 @@ export function RecapView({
 }: {
   date: string;
   sport: string;
-  prenom: string | null;
-  poidsJour: string | null;
-  historiqueRecent: HistoriqueSession[];
   durationSec: number;
   completionRate: number;
   feeling: string | null;
   note: string | null;
+  /** Relevées sur la montre, extraites automatiquement de la photo ajoutée en fin de
+   * séance (/session) — cette page n'affiche plus que le résultat, en lecture seule. */
   calories: number | null;
   caloriesSource: string | null;
-  photos: string[];
-  /** Vercel Blob configuré — sinon le bouton photo est masqué. */
-  photosEnabled: boolean;
-  /** Retour narratif déjà généré sur une photo précédente (persisté). */
+  /** Retour narratif généré par l'analyse de la photo. */
   retourNarratif: string | null;
   best: { nom: string; charge: number; reps: string } | null;
   comparisons: { nom: string; delta: number; charge: number }[];
@@ -87,56 +76,25 @@ export function RecapView({
 }) {
   const [feeling, setFeeling] = useState(initialFeeling);
   const [note, setNote] = useState(initialNote ?? "");
-  const [calories, setCalories] = useState(initialCalories === null ? "" : String(initialCalories));
-  const [caloriesSource, setCaloriesSource] = useState(initialCaloriesSource);
-  const [photos, setPhotos] = useState(initialPhotos);
-  const [retourNarratif, setRetourNarratif] = useState(initialRetourNarratif);
   const percent = Math.round(completionRate * 100);
 
-  // La note libre et les calories s'enregistrent après une pause de frappe —
-  // pas de bouton "Sauvegarder", pas un aller-retour serveur par caractère.
+  // La note libre s'enregistre après une pause de frappe — pas de bouton
+  // "Sauvegarder", pas un aller-retour serveur par caractère.
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
-    if (note === (initialNote ?? "") && calories === (initialCalories === null ? "" : String(initialCalories))) {
-      return;
-    }
+    if (note === (initialNote ?? "")) return;
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
-      void updateSessionRecap(date, {
-        note,
-        calories: calories.trim() === "" ? null : Number(calories),
-        caloriesSource: caloriesSource === "photo_auto" ? "photo_auto" : "manuel",
-      });
+      void updateSessionRecap(date, { note });
     }, 700);
     return () => {
       if (saveTimer.current) clearTimeout(saveTimer.current);
     };
-  }, [note, calories, caloriesSource, date, initialNote, initialCalories]);
+  }, [note, date, initialNote]);
 
   function chooseFeeling(value: string) {
     setFeeling(value);
     void updateSessionRecap(date, { feeling: value });
-  }
-
-  function changePhotos(next: string[]) {
-    setPhotos(next);
-    void updateSessionRecap(date, { photos: next });
-  }
-
-  /** Analyse Claude de la photo — les calories ne remplacent jamais une saisie manuelle. */
-  function handleExtracted(result: PhotoExtraction) {
-    const patch: Parameters<typeof updateSessionRecap>[1] = {};
-    if (calories.trim() === "" && typeof result.calories === "number") {
-      setCalories(String(result.calories));
-      setCaloriesSource("photo_auto");
-      patch.calories = result.calories;
-      patch.caloriesSource = "photo_auto";
-    }
-    if (result.retourNarratif) {
-      setRetourNarratif(result.retourNarratif);
-      patch.photoAnalysis = { donneesBrutes: result.donneesBrutes, retourNarratif: result.retourNarratif };
-    }
-    if (Object.keys(patch).length > 0) void updateSessionRecap(date, patch);
   }
 
   return (
@@ -148,16 +106,20 @@ export function RecapView({
         </Link>
       </div>
 
-      <h1 className={styles.title}>🏆 Séance terminée</h1>
-      <div className={styles.sub}>
-        {sport} · {fmtDate(date)} · {fmtDuration(durationSec)}
+      <div className={styles.header}>
+        <div className={styles.trophy}>🏆</div>
+        <h1 className={styles.title}>Séance terminée</h1>
+        <div className={styles.sub}>
+          {sport} · {fmtDate(date)} · {fmtDuration(durationSec)}
+        </div>
       </div>
 
-      <div className={styles.progressLabel}>
-        Mouvements complétés · <strong>{percent}%</strong>
-      </div>
-      <div className={styles.progressTrack}>
-        <div className={styles.progressFill} style={{ width: `${percent}%` }} />
+      <div className={styles.percentCard}>
+        <div className={styles.percentValue}>{percent}%</div>
+        <div className={styles.percentLabel}>Mouvements complétés</div>
+        <div className={styles.progressTrack}>
+          <div className={styles.progressFill} style={{ width: `${percent}%` }} />
+        </div>
       </div>
 
       {best && (
@@ -183,7 +145,12 @@ export function RecapView({
         </div>
       )}
 
-      {congrats && <div className={styles.congrats}>{congrats}</div>}
+      {congrats && (
+        <div className={styles.congrats}>
+          <div className={styles.congratsLabel}>Message de ton coach</div>
+          {congrats}
+        </div>
+      )}
 
       {/* RESSENTI — alimente Claude pour ajuster les prochaines séances. */}
       <div className={styles.sectionTitle}>Ton ressenti</div>
@@ -212,43 +179,29 @@ export function RecapView({
         />
       </div>
 
-      {/* CALORIES + PHOTOS */}
-      <div className={styles.sectionTitle}>🔥 Calories brûlées</div>
-      <div className={styles.calCard}>
-        <div className={styles.calRow}>
-          <div>
-            <div className={styles.calLabel}>Relevées sur ta montre</div>
-            <input
-              className={styles.calInput}
-              type="number"
-              inputMode="numeric"
-              placeholder="—"
-              min={0}
-              max={5000}
-              value={calories}
-              onChange={(e) => setCalories(e.target.value)}
-            />
+      {/* CALORIES — lecture seule : la photo se prend pendant la séance, pas ici. */}
+      {(calories !== null || retourNarratif) && (
+        <>
+          <div className={styles.sectionTitle}>🔥 Calories brûlées</div>
+          <div className={styles.calCard}>
+            {calories !== null && (
+              <>
+                <div className={styles.calValue}>{calories}</div>
+                <div className={styles.calUnit}>KCAL</div>
+                {caloriesSource === "photo_auto" && (
+                  <div className={styles.calAuto}>✓ Détecté automatiquement</div>
+                )}
+              </>
+            )}
+            {retourNarratif && (
+              <div className={styles.narratif}>
+                <div className={styles.narratifLabel}>Analyse de ta montre</div>
+                {retourNarratif}
+              </div>
+            )}
           </div>
-          <div className={styles.calUnit}>KCAL</div>
-        </div>
-        {caloriesSource === "photo_auto" && (
-          <div className={styles.calAuto}>Valeur détectée automatiquement ✓ — corrige-la si besoin</div>
-        )}
-        {photosEnabled && (
-          <div className={styles.photoZone}>
-            <div className={styles.calLabel}>
-              Photos de la séance (2 max) — les calories s&apos;y lisent toutes seules
-            </div>
-            <SessionPhotos
-              photos={photos}
-              onChange={changePhotos}
-              onExtracted={handleExtracted}
-              analysisContext={{ sport, prenom, poidsJour, sessionFeeling: feeling, historiqueRecent }}
-            />
-          </div>
-        )}
-        {retourNarratif && <div className={styles.narratif}>{retourNarratif}</div>}
-      </div>
+        </>
+      )}
 
       {blocs.length > 0 && (
         <div className={styles.results}>

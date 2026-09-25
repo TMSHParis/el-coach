@@ -262,46 +262,80 @@
 }
 
 /* 3 · Bandeau "Séance terminée" (message de félicitations) — style premium. */
-.doneBanner {
-  background: rgba(232, 255, 0, .07);
-  border-left: 5px solid var(--accent);
-  border-radius: 8px;
-  padding: 18px 22px;
-  margin-bottom: 24px;
+/* 3 · Carte "Séance terminée" unifiée — remplace les deux blocs distincts et
+   redondants (compte rendu compact + message du coach) par un seul bloc. */
+.doneCard {
+  background: linear-gradient(180deg, #12130a 0%, #0d0d0a 100%);
+  border: 1px solid rgba(232, 255, 0, .3);
+  border-radius: 12px;
+  margin: 8px 0 20px;
+  overflow: hidden;
 }
-.doneTitle {
+.doneHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid rgba(232, 255, 0, .15);
+}
+.doneHeaderTitle {
+  font-family: var(--font-bebas);
+  font-size: 18px;
+  letter-spacing: 2px;
+  color: var(--accent);
+}
+.doneHeaderDate { font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--m); }
+.doneSubheader {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
+  padding: 10px 20px;
+  background: rgba(107, 114, 128, .08);
   font-family: var(--font-bebas);
-  font-size: 30px;
-  line-height: 1;
-  letter-spacing: 3px;
+  font-size: 15px;
+  letter-spacing: 1px;
+  color: var(--w);
+}
+.doneStats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; padding: 14px 20px; }
+.doneStat { background: rgba(255, 255, 255, .03); border-radius: 8px; padding: 10px 4px; text-align: center; }
+.doneStatMid { background: rgba(232, 255, 0, .06); }
+.doneStatVal { font-family: var(--font-bebas); font-size: 20px; color: var(--w); line-height: 1; }
+.doneStatLabel { font-size: 9px; color: var(--m); text-transform: uppercase; letter-spacing: 1px; margin-top: 4px; }
+.doneBest { margin: 0 20px 14px; }
+.doneCoach {
+  background: rgba(232, 255, 0, .04);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 8px 8px 0;
+  padding: 12px 14px;
+  margin: 0 20px 16px;
+}
+.doneCoachLabel {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
   color: var(--accent);
   margin-bottom: 6px;
 }
-.doneMeta { font-size: 11px; letter-spacing: 3px; text-transform: uppercase; color: var(--t); margin-bottom: 10px; }
-.doneText { font-size: 14px; color: var(--w); line-height: 1.5; }
-
-/* 3 · Carte compte rendu du jour, à la place du bloc "Démarrer la séance". */
-.sdjDone {
-  background: rgba(232, 255, 0, .05);
-  border-left: 5px solid var(--accent);
-  border-radius: 8px;
-  padding: 22px 20px 20px;
-  margin: 8px 0 20px;
-}
-.sdjDoneLabel {
+.doneCoachText { font-size: 13px; line-height: 1.6; color: #d4d4d0; }
+.doneCta {
   display: flex;
   align-items: center;
-  gap: 10px;
-  font-family: var(--font-bebas);
-  font-size: 30px;
-  line-height: 1;
-  letter-spacing: 3px;
-  color: var(--accent);
-  margin-bottom: 12px;
+  justify-content: center;
+  gap: 8px;
+  margin: 4px 20px 20px;
+  padding: 13px;
+  background: var(--accent);
+  border-radius: 8px;
+  color: #0d0d0a;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  text-decoration: none;
+  transition: background .2s;
 }
+.doneCta:hover { background: #d4e800; }
 
 /* 2 · Retour vers l'accueil (le dashboard n'utilise plus le retour "intelligent"). */
 .backLink {

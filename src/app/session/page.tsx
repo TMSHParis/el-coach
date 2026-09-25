@@ -10,6 +10,7 @@ import { minutesToHM } from "../dashboard/dashboard-helpers";
 import { buildAdviceSession, type StoredAdvice } from "@/lib/advice-session";
 import { buildLastResults } from "@/lib/last-results";
 import { blobEnabled } from "@/lib/blob";
+import type { HistoriqueSession } from "@/app/api/extract-photo-data/route";
 import { SessionRunnerV2 } from "./session-runner-v2";
 import { sessionFontVariables } from "./session-fonts";
 
@@ -47,6 +48,20 @@ export default async function SessionPage({
 
   const lastResults = buildLastResults(pastSessions);
 
+  // Contexte transmis à l'analyse Claude d'une photo ajoutée en fin de séance
+  // (calories, retour narratif comparé à l'historique) — mêmes données que
+  // sur /session/recap, l'ajout de photo se faisant maintenant ici.
+  const sport = todayCheckin?.seance ?? "Séance";
+  const prenom = profile?.prenom ?? null;
+  const poidsJour = todayCheckin?.poids ?? (profile?.poids ? String(profile.poids) : null);
+  const historiqueRecent: HistoriqueSession[] = pastSessions.slice(0, 8).map((s) => ({
+    date: s.date,
+    calories: s.caloriesBrulees,
+    durationSec: s.durationSec,
+    feeling: s.sessionFeeling,
+    donneesBrutes: (s.photoAnalysis as { donneesBrutes?: Record<string, unknown> | null } | null)?.donneesBrutes ?? null,
+  }));
+
   const output = dbOutput?.output as { generatedDay?: Day; mode?: string; advice?: StoredAdvice } | null;
 
   // Jour hors ECM (sport libre) ou repos : la séance est la routine en 3 blocs
@@ -65,6 +80,7 @@ export default async function SessionPage({
           lastResults={lastResults}
           initialPhotos={todaySession?.photos ?? []}
           photosEnabled={blobEnabled}
+          analysisContext={{ sport, prenom, poidsJour, historiqueRecent }}
         />
       </div>
     );
@@ -107,6 +123,7 @@ export default async function SessionPage({
         lastResults={lastResults}
         initialPhotos={todaySession?.photos ?? []}
         photosEnabled={blobEnabled}
+        analysisContext={{ sport, prenom, poidsJour, historiqueRecent }}
       />
     </div>
   );

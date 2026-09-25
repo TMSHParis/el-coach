@@ -7,7 +7,8 @@ import type { BlockType } from "@/lib/programming";
 import styles from "./session.module.css";
 import { SessionItemRow } from "../dashboard/session-item-row";
 import { saveSessionResult, updateSessionRecap, type SessionBlocResult } from "./actions";
-import { SessionPhotos } from "@/components/session-photos";
+import { SessionPhotos, type PhotoAnalysisContext } from "@/components/session-photos";
+import type { PhotoExtraction } from "@/app/api/extract-photo-data/route";
 import type { LastResult } from "@/lib/last-results";
 import {
   getVolume,
@@ -40,15 +41,26 @@ const FORMAT_LABELS: Record<RuntimeFormat, string> = {
 
 const COUNTDOWN_SEC = 10;
 
-/** Fond du chrono plein écran selon le format (Tabata : selon la phase). */
-const FS_BACKGROUND: Record<RuntimeFormat, string> = {
-  amrap: "rgba(249,115,22,0.15)",
-  ft: "rgba(239,68,68,0.15)",
-  emom: "rgba(59,130,246,0.15)",
-  tabata: "rgba(239,68,68,0.15)",
-  nft: "rgba(107,114,128,0.15)",
+/** Couleur pleine du format — cohérente sur le sélecteur, le champ durée et le chrono plein écran. */
+const FS_COLOR: Record<RuntimeFormat, string> = {
+  nft: "#9CA3AF",
+  ft: "#EF4444",
+  amrap: "#F97316",
+  emom: "#3B82F6",
+  tabata: "#EF4444",
 };
+/** Tabata en repos : vert plutôt que la couleur rouge de base du format. */
+const TABATA_REST_COLOR = "#22C55E";
 const TICK_MS = 200;
+
+/** "#F97316" + 0.12 → "rgba(249,115,22,0.12)". */
+function hexAlpha(hex: string, alpha: number): string {
+  const n = parseInt(hex.slice(1), 16);
+  const r = (n >> 16) & 255;
+  const g = (n >> 8) & 255;
+  const b = n & 255;
+  return `rgba(${r},${g},${b},${alpha})`;
+}
 
 /** Blocs où la saisie se fait par exercice (charge × reps, plusieurs séries). */
 const SERIES_RESULT_TYPES: BlockType[] = ["strength", "accessory", "skill"];
@@ -69,7 +81,8 @@ type BlocState = {
   done: boolean;
   finalSec: number;
   format: RuntimeFormat;
-  durationMin: number;
+  /** Durée totale (AMRAP, For Time) ou durée par round × nb de rounds (EMOM) — en secondes. */
+  durationSec: number;
   workSec: number;
   restSec: number;
   tabataRounds: number;
@@ -91,6 +104,20 @@ function fmtMS(totalSec: number): string {
   const m = Math.floor(Math.max(0, totalSec) / 60);
   const s = Math.max(0, totalSec) % 60;
   return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+}
+
+/** Affichage du champ durée réglable : "0:05" sous la minute, "1:05" au-delà. */
+function fmtDurationAdjust(totalSec: number): string {
+  const s = Math.max(0, totalSec);
+  const m = Math.floor(s / 60);
+  const sec = s % 60;
+  return `${m}:${String(sec).padStart(2, "0")}`;
+}
+
+/** +/− du champ durée réglable, par pas de `step` secondes. */
+function stepDuration(current: number, direction: "+" | "-", step: number, min: number, max: number): number {
+  const next = direction === "+" ? current + step : current - step;
+  return Math.min(max, Math.max(min, next));
 }
 
 function fmtHMS(totalSec: number): string {
@@ -139,6 +166,7 @@ export function SessionRunnerV2({
   lastResults = {},
   initialPhotos = [],
   photosEnabled = false,
+  analysisContext,
 }: {
   sessionName: string;
   sessionMeta: string;
@@ -152,6 +180,8 @@ export function SessionRunnerV2({
   initialPhotos?: string[];
   /** Vercel Blob configuré — sinon le bouton photo reste masqué. */
   photosEnabled?: boolean;
+  /** Contexte transmis à l'analyse Claude d'une photo ajoutée en fin de séance. */
+  analysisContext?: PhotoAnalysisContext;
 }) {
   const router = useRouter();
   const storageKey = `elc_session_${date}`;
@@ -168,7 +198,7 @@ export function SessionRunnerV2({
           done: false,
           finalSec: 0,
           format: cfg.format,
-          durationMin: cfg.durationMin,
+          durationSec: cfg.durationMin * 60,
           workSec: 20,
           restSec: 10,
           tabataRounds: cfg.tabataRounds,
@@ -301,18 +331,12 @@ export function SessionRunnerV2({
         spoken.add(key);
         fn();
       };
-      /** Décompte : un bip aigu par seconde restante (3 · 2 · 1). `accentLast` :
-       * décompte de départ uniquement — le bip du "1" est plus fort et plus long. */
-      const beepSecond = (secondsLeft: number, accentLast = false) => {
+      /** Décompte : un bip aigu par seconde restante (3 · 2 · 1). */
+      const beepSecond = (secondsLeft: number) => {
         if (tickRef.current[i] === secondsLeft) return;
         tickRef.current[i] = secondsLeft;
-        if (accentLast && secondsLeft === 1) {
-          soundCountAccent();
-          vibrate([100]);
-        } else {
-          soundCount();
-          vibrate([60]);
-        }
+        soundCount();
+        vibrate([60]);
       };
       /** Alerte des 10 dernières secondes — une fois par `key` (par minute sur l'EMOM). */
       const tenSeconds = (key: string) => once(key, () => speakEn("Ten seconds!"));
@@ -327,7 +351,9 @@ export function SessionRunnerV2({
         const remaining = Math.ceil((b.countdownEndsAt - now) / 1000);
         if (remaining <= 0) {
           tickRef.current[i] = -1;
-          // Les 3 bips imposants viennent d'être joués (3 · 2 · 1) — la voix suit.
+          // Départ réel du chrono (T=0) : bip accentué + voix, tous les deux ici,
+          // pas avant — sinon l'accent tombe une seconde trop tôt (au "1").
+          soundCountAccent();
           speakEn("Let's Go!");
           vibrate([400]);
           setFullscreen(i);
@@ -338,7 +364,7 @@ export function SessionRunnerV2({
           );
           return;
         }
-        if (remaining <= 3) beepSecond(remaining, true);
+        if (remaining <= 3) beepSecond(remaining);
         return;
       }
 
@@ -346,7 +372,7 @@ export function SessionRunnerV2({
       const elapsed = elapsedSec(b, now);
 
       if (b.format === "amrap") {
-        const total = b.durationMin * 60;
+        const total = b.durationSec;
         const remaining = total - elapsed;
         if (remaining <= 0) {
           finish("Time's up!");
@@ -361,7 +387,7 @@ export function SessionRunnerV2({
 
       if (b.format === "ft") {
         // Pas de fin imposée : les repères sont calés sur la durée estimée du bloc.
-        const estimated = b.durationMin * 60;
+        const estimated = b.durationSec;
         if (estimated <= 0) return;
         const remaining = estimated - elapsed;
         if (elapsed >= Math.floor(estimated / 2)) once("half", () => speakEn("Half Time!"));
@@ -371,7 +397,7 @@ export function SessionRunnerV2({
       }
 
       if (b.format === "emom") {
-        const total = b.durationMin * 60;
+        const total = b.durationSec;
         if (elapsed >= total) {
           finish("Well done!");
           finishBloc(i, total);
@@ -558,6 +584,20 @@ export function SessionRunnerV2({
   function changePhotos(next: string[]) {
     setPhotos(next);
     void updateSessionRecap(date, { photos: next });
+  }
+
+  /** Analyse Claude de la photo (calories, retour narratif) — l'ajout de photo ne se
+   * fait qu'ici, en fin de séance ; /session/recap n'affiche plus que le résultat. */
+  function handlePhotoExtracted(result: PhotoExtraction) {
+    const patch: Parameters<typeof updateSessionRecap>[1] = {};
+    if (typeof result.calories === "number") {
+      patch.calories = result.calories;
+      patch.caloriesSource = "photo_auto";
+    }
+    if (result.retourNarratif) {
+      patch.photoAnalysis = { donneesBrutes: result.donneesBrutes, retourNarratif: result.retourNarratif };
+    }
+    if (Object.keys(patch).length > 0) void updateSessionRecap(date, patch);
   }
 
   function changeVolume(value: number) {
@@ -837,8 +877,15 @@ export function SessionRunnerV2({
 
         {photosEnabled && (
           <div className={styles.photoBar}>
-            <div className={styles.photoBarLabel}>Photos de la séance (2 max)</div>
-            <SessionPhotos photos={photos} onChange={changePhotos} />
+            <div className={styles.photoBarLabel}>
+              Photos de la séance (2 max) — les calories s&apos;y lisent toutes seules
+            </div>
+            <SessionPhotos
+              photos={photos}
+              onChange={changePhotos}
+              onExtracted={handlePhotoExtracted}
+              analysisContext={analysisContext}
+            />
           </div>
         )}
       </div>
@@ -1143,6 +1190,7 @@ function Stepper({
   step,
   min,
   max,
+  format,
   onChange,
 }: {
   label: string;
@@ -1151,6 +1199,8 @@ function Stepper({
   step: number;
   min: number;
   max: number;
+  /** Formatte la valeur affichée (ex. mm:ss) — prime sur `unit` si fourni. */
+  format?: (v: number) => string;
   onChange: (v: number) => void;
 }) {
   return (
@@ -1159,13 +1209,60 @@ function Stepper({
         −
       </button>
       <div className={styles.stepValue}>
-        {value}
-        {unit}
+        {format ? format(value) : value}
+        {!format && unit}
       </div>
       <button type="button" className={styles.stepBtn} onClick={() => onChange(Math.min(max, value + step))}>
         +
       </button>
       <div className={styles.stepLabel}>{label}</div>
+    </div>
+  );
+}
+
+/** Champ durée réglable en grand format (AMRAP/EMOM/For Time) — [−] mm:ss [+],
+ * pas de 5 s (60 s pour l'EMOM, un round dure toujours une minute). */
+function DurationAdjust({
+  label,
+  seconds,
+  step,
+  min,
+  max,
+  accent,
+  onChange,
+}: {
+  label: string;
+  seconds: number;
+  step: number;
+  min: number;
+  max: number;
+  accent: string;
+  onChange: (v: number) => void;
+}) {
+  return (
+    <div className={styles.durAdjust}>
+      <div className={styles.durAdjustLabel}>{label}</div>
+      <div className={styles.durAdjustRow}>
+        <button
+          type="button"
+          className={styles.durAdjustBtn}
+          onClick={() => onChange(stepDuration(seconds, "-", step, min, max))}
+          aria-label="Diminuer la durée"
+        >
+          −
+        </button>
+        <div className={styles.durAdjustValue} style={{ filter: `drop-shadow(0 0 12px ${accent}66)` }}>
+          {fmtDurationAdjust(seconds)}
+        </div>
+        <button
+          type="button"
+          className={styles.durAdjustBtn}
+          onClick={() => onChange(stepDuration(seconds, "+", step, min, max))}
+          aria-label="Augmenter la durée"
+        >
+          +
+        </button>
+      </div>
     </div>
   );
 }
@@ -1217,13 +1314,14 @@ function TimerZone({
       displayClass = fmt === "ft" ? styles.runningFt : styles.runningNft;
       infoText = fmt === "ft" ? "POUR LE TEMPS" : "SANS CHRONO";
     } else if (fmt === "amrap") {
-      displayTime = fmtMS(t.durationMin * 60 - elapsed);
+      displayTime = fmtMS(t.durationSec - elapsed);
       displayClass = styles.runningAmrap;
       infoText = "TEMPS RESTANT";
     } else if (fmt === "emom") {
+      const emomRounds = Math.max(1, Math.round(t.durationSec / 60));
       displayTime = fmtMS(60 - (elapsed % 60));
       displayClass = styles.runningEmom;
-      infoText = `MINUTE ${Math.min(t.durationMin, Math.floor(elapsed / 60) + 1)} / ${t.durationMin}`;
+      infoText = `MINUTE ${Math.min(emomRounds, Math.floor(elapsed / 60) + 1)} / ${emomRounds}`;
     } else if (fmt === "tabata") {
       const view = tabataView(t, elapsed);
       displayTime = fmtMS(view.remaining);
@@ -1233,18 +1331,19 @@ function TimerZone({
   } else if (t.accumulatedMs > 0) {
     // Chrono en pause : on garde le temps atteint sous les yeux.
     displayTime =
-      fmt === "amrap" ? fmtMS(t.durationMin * 60 - elapsed) : fmt === "emom" ? fmtMS(60 - (elapsed % 60)) : fmtMS(elapsed);
+      fmt === "amrap" ? fmtMS(t.durationSec - elapsed) : fmt === "emom" ? fmtMS(60 - (elapsed % 60)) : fmtMS(elapsed);
     statusText = "⏸ EN PAUSE";
     displayClass = styles.paused;
   } else if (fmt === "amrap" || fmt === "emom") {
-    displayTime = fmtMS(t.durationMin * 60);
+    displayTime = fmtMS(t.durationSec);
   }
 
   const idle = !t.done && !t.running && countdown === null;
   const showFmtSelector = idle;
-  const showDurRow = (fmt === "amrap" || fmt === "emom") && idle;
+  const showDurRow = (fmt === "amrap" || fmt === "emom" || fmt === "ft") && idle;
   const showTabataConfig = fmt === "tabata" && idle;
   const tabataRunning = fmt === "tabata" && t.running ? tabataView(t, elapsed) : null;
+  const emomRoundsIdle = Math.max(1, Math.round(t.durationSec / 60));
 
   return (
     <div className={styles.timerZone}>
@@ -1259,46 +1358,48 @@ function TimerZone({
       )}
 
       {showFmtSelector && (
-        <div className={styles.fmtSelector}>
-          {(Object.keys(FORMAT_LABELS) as RuntimeFormat[]).map((k) => (
-            <button
-              key={k}
-              type="button"
-              className={cx(styles.fmtBtn, fmt === k && styles[`active${capitalize(k)}`])}
-              onClick={() => onChangeFormat(k)}
-            >
-              {FORMAT_LABELS[k]}
-            </button>
-          ))}
-        </div>
+        <>
+          <div className={styles.fmtSelector}>
+            {(Object.keys(FORMAT_LABELS) as RuntimeFormat[]).map((k) => (
+              <button
+                key={k}
+                type="button"
+                className={cx(styles.fmtBtn, styles[`fmt${capitalize(k)}`], fmt === k && styles[`active${capitalize(k)}`])}
+                onClick={() => onChangeFormat(k)}
+              >
+                {FORMAT_LABELS[k]}
+              </button>
+            ))}
+          </div>
+          <div className={styles.fmtAccentLine} style={{ background: FS_COLOR[fmt] }} />
+        </>
       )}
 
       {showDurRow && (
-        <div className={styles.durInputRow}>
-          <span className={styles.durLabel}>Durée</span>
-          <input
-            className={styles.durInput}
-            type="number"
-            min={1}
-            max={60}
-            value={t.durationMin}
-            onChange={(e) => onPatch({ durationMin: parseInt(e.target.value, 10) || 10 })}
-          />
-          <span className={styles.durUnit}>min</span>
-        </div>
+        <DurationAdjust
+          label={fmt === "emom" ? "Durée / round" : fmt === "ft" ? "Durée cible" : "Durée"}
+          seconds={t.durationSec}
+          // EMOM : un round dure toujours 60 s dans cette app — le pas porte donc
+          // sur le nombre de rounds, pas la seconde.
+          step={fmt === "emom" ? 60 : 5}
+          min={fmt === "emom" ? 60 : 5}
+          max={3600}
+          accent={FS_COLOR[fmt]}
+          onChange={(v) => onPatch({ durationSec: v })}
+        />
       )}
 
       {showTabataConfig && (
         <div className={styles.tabataConfig}>
-          <Stepper label="Travail" value={t.workSec} unit="s" step={5} min={5} max={120} onChange={(v) => onPatch({ workSec: v })} />
-          <Stepper label="Repos" value={t.restSec} unit="s" step={5} min={5} max={120} onChange={(v) => onPatch({ restSec: v })} />
+          <Stepper label="Travail" value={t.workSec} step={5} min={5} max={120} format={fmtDurationAdjust} onChange={(v) => onPatch({ workSec: v })} />
+          <Stepper label="Repos" value={t.restSec} step={5} min={5} max={120} format={fmtDurationAdjust} onChange={(v) => onPatch({ restSec: v })} />
           <Stepper label="Tours" value={t.tabataRounds} step={1} min={1} max={30} onChange={(v) => onPatch({ tabataRounds: v })} />
         </div>
       )}
 
       {fmt === "emom" && t.running && (
         <div className={styles.roundCounter}>
-          Round <span>{Math.min(t.durationMin, Math.floor(elapsed / 60) + 1)}</span> / {t.durationMin}
+          Round <span>{Math.min(emomRoundsIdle, Math.floor(elapsed / 60) + 1)}</span> / {emomRoundsIdle}
         </div>
       )}
 
@@ -1312,7 +1413,7 @@ function TimerZone({
           </div>
           <div className={styles.emomBarWrap}>
             <div
-              className={cx(styles.emomBar, tabataRunning.phase === "work" ? styles.green : styles.orange)}
+              className={cx(styles.emomBar, tabataRunning.phase === "work" ? styles.red : styles.green)}
               style={{
                 width: `${
                   tabataRunning.phase === "work"
@@ -1432,11 +1533,12 @@ function FullscreenTimer({
   let time = fmtMS(elapsed);
   let info = "";
   if (fmt === "amrap") {
-    time = fmtMS(t.durationMin * 60 - elapsed);
+    time = fmtMS(t.durationSec - elapsed);
     info = `${t.amrapRounds} round${t.amrapRounds > 1 ? "s" : ""} complété${t.amrapRounds > 1 ? "s" : ""}`;
   } else if (fmt === "emom") {
+    const emomRounds = Math.max(1, Math.round(t.durationSec / 60));
     time = fmtMS(60 - (elapsed % 60));
-    info = `Round ${Math.min(t.durationMin, Math.floor(elapsed / 60) + 1)} / ${t.durationMin}`;
+    info = `Round ${Math.min(emomRounds, Math.floor(elapsed / 60) + 1)} / ${emomRounds}`;
   } else if (tabata) {
     time = fmtMS(tabata.remaining);
     info = `${tabata.phase === "work" ? "Travail" : "Repos"} · Round ${Math.min(tabata.round, t.tabataRounds)} / ${t.tabataRounds}`;
@@ -1446,25 +1548,76 @@ function FullscreenTimer({
     info = "Sans chrono";
   }
 
-  // Teinte du format posée sur le noir opaque (sinon la page défile derrière).
-  const tint = tabata && tabata.phase === "rest" ? "rgba(34,197,94,0.15)" : FS_BACKGROUND[fmt];
+  // Couleur du format posée sur le fond radial (Tabata : verte en repos) — sert
+  // au fond, à l'anneau de progression et au glow derrière le chiffre.
+  const color = tabata && tabata.phase === "rest" ? TABATA_REST_COLOR : FS_COLOR[fmt];
+
+  // Progression de la phase en cours (0 → 1) — vide l'anneau à mesure que le
+  // temps s'écoule. Pas d'anneau pertinent pour NFT (pas de chrono) ni pour un
+  // For Time sans durée cible renseignée.
+  let progress = 0;
+  let hasRing = false;
+  if (fmt === "amrap" && t.durationSec > 0) {
+    progress = elapsed / t.durationSec;
+    hasRing = true;
+  } else if (fmt === "emom") {
+    progress = (elapsed % 60) / 60;
+    hasRing = true;
+  } else if (tabata) {
+    const phaseSec = tabata.phase === "work" ? t.workSec : t.restSec;
+    progress = phaseSec > 0 ? (phaseSec - tabata.remaining) / phaseSec : 0;
+    hasRing = true;
+  } else if (fmt === "ft" && t.durationSec > 0) {
+    progress = elapsed / t.durationSec;
+    hasRing = true;
+  }
+  progress = Math.max(0, Math.min(1, progress));
+  const RING_R = 90;
+  const RING_C = 2 * Math.PI * RING_R;
 
   return (
-    <div className={styles.fsRoot} style={{ backgroundImage: `linear-gradient(${tint}, ${tint})` }}>
+    <div
+      className={styles.fsRoot}
+      style={{ background: `radial-gradient(circle at 50% 40%, ${hexAlpha(color, 0.12)} 0%, #0a0a0a 65%)` }}
+    >
+      <div className={styles.fsGrid} />
       <div className={styles.fsTop}>
-        <div className={styles.fsFormat}>{FORMAT_LABELS[fmt]}</div>
+        <div className={styles.fsFormat} style={{ color }}>
+          {FORMAT_LABELS[fmt]}
+        </div>
         <div className={styles.fsBloc}>{block.titre}</div>
       </div>
 
       <div className={styles.fsCenter}>
-        <div className={styles.fsTimeRow}>
-          <div className={styles.fsTime}>{countdown !== null ? countdown : time}</div>
-          {countdown === null && (
-            <button type="button" className={styles.fsResetBtn} onClick={onReset} aria-label="Remettre le chrono à zéro">
-              ↺ Reset
-            </button>
+        <div className={styles.fsRingWrap}>
+          {countdown === null && hasRing && (
+            <svg className={styles.fsRing} viewBox="0 0 200 200">
+              <circle cx="100" cy="100" r={RING_R} stroke="rgba(255,255,255,.1)" strokeWidth="8" fill="none" />
+              <circle
+                cx="100"
+                cy="100"
+                r={RING_R}
+                stroke={color}
+                strokeWidth="8"
+                fill="none"
+                strokeLinecap="round"
+                strokeDasharray={RING_C}
+                strokeDashoffset={RING_C * progress}
+                style={{ transition: "stroke-dashoffset 1s linear" }}
+              />
+            </svg>
           )}
+          <div className={styles.fsTimeRow}>
+            <div key={countdown !== null ? countdown : time} className={styles.fsTime} style={{ filter: `drop-shadow(0 0 20px ${hexAlpha(color, 0.6)})` }}>
+              {countdown !== null ? countdown : time}
+            </div>
+          </div>
         </div>
+        {countdown === null && (
+          <button type="button" className={styles.fsResetBtn} onClick={onReset} aria-label="Remettre le chrono à zéro">
+            ↺ Reset
+          </button>
+        )}
         <div className={styles.fsInfo}>{countdown !== null ? "Départ dans…" : info}</div>
         {!t.running && t.accumulatedMs > 0 && countdown === null && <div className={styles.fsPaused}>⏸ En pause</div>}
         {fmt === "amrap" && t.running && (
@@ -1485,7 +1638,7 @@ function FullscreenTimer({
         </button>
         <div className={styles.fsGlobal}>{globalLabel}</div>
         <button type="button" className={styles.fsBtn} onClick={onClose}>
-          ← Mouvements
+          ← Retour
         </button>
       </div>
     </div>

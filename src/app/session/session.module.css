@@ -57,12 +57,12 @@
 .blocInfo { flex: 1; }
 .blocTitle { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--w); }
 .blocBadge { display: inline-block; font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 3px; text-transform: uppercase; letter-spacing: 1px; margin-top: 3px; }
-.badgeNft { background: rgba(107, 114, 128, .12); color: var(--m); }
+.badgeNft { background: rgba(156, 163, 175, .12); color: #9CA3AF; }
 .badgeBth { background: rgba(201, 168, 76, .15); color: var(--gl); }
 .badgeFt { background: rgba(239, 68, 68, .15); color: #fca5a5; }
-.badgeAmrap { background: rgba(34, 197, 94, .15); color: #86efac; }
+.badgeAmrap { background: rgba(249, 115, 22, .15); color: #fdba74; }
 .badgeEmom { background: rgba(59, 130, 246, .15); color: #93c5fd; }
-.badgeTabata { background: rgba(168, 85, 247, .15); color: #d8b4fe; }
+.badgeTabata { background: rgba(239, 68, 68, .15); color: #fca5a5; }
 .blocCheck { font-size: 18px; color: var(--green); }
 .blocChevron { font-size: 12px; color: var(--m); transition: transform .3s; }
 .bloc.open .blocChevron { transform: rotate(180deg); }
@@ -73,14 +73,23 @@
 /* CHRONO ZONE */
 .timerZone { padding: 16px; background: var(--s2); border-bottom: 1px solid var(--bd); }
 
-.fmtSelector { display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: wrap; }
-.fmtBtn { padding: 6px 12px; border: 1px solid var(--bd); border-radius: 3px; background: var(--s); font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; cursor: pointer; color: var(--m); transition: all .2s; }
-.fmtBtn:hover { border-color: rgba(255, 255, 255, .2); color: var(--w); }
-.fmtBtn.activeNft { border-color: var(--m); color: var(--t); background: rgba(255, 255, 255, .05); }
-.fmtBtn.activeFt { border-color: #ef4444; color: #fca5a5; background: rgba(239, 68, 68, .08); }
-.fmtBtn.activeAmrap { border-color: var(--green); color: #86efac; background: rgba(82, 192, 120, .08); }
-.fmtBtn.activeEmom { border-color: var(--blue); color: #93c5fd; background: rgba(59, 130, 246, .08); }
-.fmtBtn.activeTabata { border-color: var(--purple); color: #d8b4fe; background: rgba(168, 85, 247, .08); }
+/* Sélecteur de format — pas d'icône, différenciation uniquement par la couleur
+   du format (gris NFT · rouge FOR TIME · orange AMRAP · bleu EMOM · rouge TABATA). */
+.fmtSelector { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; margin-bottom: 14px; }
+.fmtBtn { padding: 9px 2px; border-radius: 6px; border: 1px solid transparent; background: none; font-size: 10px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; cursor: pointer; transition: all .2s; text-align: center; }
+.fmtNft { border-color: rgba(156, 163, 175, .15); color: #9CA3AF; background: rgba(156, 163, 175, .08); }
+.fmtFt { border-color: rgba(239, 68, 68, .15); color: #EF4444; background: rgba(239, 68, 68, .08); }
+.fmtAmrap { border-color: rgba(249, 115, 22, .15); color: #F97316; background: rgba(249, 115, 22, .08); }
+.fmtEmom { border-color: rgba(59, 130, 246, .15); color: #3B82F6; background: rgba(59, 130, 246, .08); }
+.fmtTabata { border-color: rgba(239, 68, 68, .15); color: #EF4444; background: rgba(239, 68, 68, .08); }
+.fmtBtn.activeNft { border-color: #9CA3AF; background: rgba(156, 163, 175, .15); font-weight: 800; }
+.fmtBtn.activeFt { border-color: #EF4444; background: rgba(239, 68, 68, .15); font-weight: 800; }
+.fmtBtn.activeAmrap { border-color: #F97316; background: rgba(249, 115, 22, .15); font-weight: 800; }
+.fmtBtn.activeEmom { border-color: #3B82F6; background: rgba(59, 130, 246, .15); font-weight: 800; }
+.fmtBtn.activeTabata { border-color: #EF4444; background: rgba(239, 68, 68, .15); font-weight: 800; }
+
+/* Ligne d'accent sous le sélecteur — couleur du format sélectionné. */
+.fmtAccentLine { height: 2px; border-radius: 1px; margin: -8px 0 14px; transition: background .2s; }
 
 .durInputRow { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
 .durLabel { font-size: 11px; color: var(--m); letter-spacing: 1px; text-transform: uppercase; white-space: nowrap; }
@@ -89,6 +98,15 @@
 .durUnit { font-size: 12px; color: var(--m); }
 .roundsInput { background: var(--s); border: 1px solid var(--bd); color: var(--w); font-family: var(--font-bebas); font-size: 22px; letter-spacing: 2px; padding: 8px 12px; border-radius: 4px; width: 72px; text-align: center; outline: none; }
 .roundsInput:focus { border-color: var(--purple); }
+
+/* Champ durée réglable (AMRAP · EMOM · For Time) — [−] mm:ss [+], pas de 5 s. */
+.durAdjust { text-align: center; margin-bottom: 14px; }
+.durAdjustLabel { font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--m); margin-bottom: 8px; }
+.durAdjustRow { display: flex; align-items: center; justify-content: center; gap: 16px; }
+.durAdjustBtn { width: 36px; height: 36px; border-radius: 50%; border: 1px solid #E8FF00; background: transparent; color: #E8FF00; font-size: 18px; line-height: 1; cursor: pointer; transition: transform .15s, background .15s; flex-shrink: 0; }
+.durAdjustBtn:hover { background: rgba(232, 255, 0, .1); }
+.durAdjustBtn:active { transform: scale(.9); }
+.durAdjustValue { font-family: var(--font-bebas); font-size: 42px; letter-spacing: 2px; color: var(--w); min-width: 110px; }
 
 /* ═══ SAISIE DE RÉSULTATS ═══ */
 .seriesWrap { padding: 8px 0 2px; }
@@ -113,10 +131,10 @@
 .tdTime.idle { color: var(--m); }
 .tdTime.runningNft { color: var(--t); }
 .tdTime.runningFt { color: #fca5a5; animation: timerPulse 1s infinite; }
-.tdTime.runningAmrap { color: #86efac; animation: timerPulse 1s infinite; }
+.tdTime.runningAmrap { color: #fdba74; animation: timerPulse 1s infinite; }
 .tdTime.runningEmom { color: #93c5fd; animation: timerPulse 1s infinite; }
-.tdTime.runningTabataWork { color: var(--green); animation: timerPulse .5s infinite; }
-.tdTime.runningTabataRest { color: var(--orange); animation: timerPulse .5s infinite; }
+.tdTime.runningTabataWork { color: #fca5a5; animation: timerPulse .5s infinite; }
+.tdTime.runningTabataRest { color: var(--green); animation: timerPulse .5s infinite; }
 .tdTime.doneT { color: var(--green); }
 @keyframes timerPulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
 
@@ -129,10 +147,11 @@
 .emomBar.blue { background: var(--blue); }
 .emomBar.green { background: var(--green); }
 .emomBar.orange { background: var(--orange); }
+.emomBar.red { background: var(--red); }
 
 .tabataPhase { text-align: center; padding: 10px; border-radius: 4px; margin-bottom: 10px; font-family: var(--font-bebas); font-size: 22px; letter-spacing: 3px; }
-.tabataPhase.work { background: rgba(82, 192, 120, .1); color: var(--green); border: 1px solid rgba(82, 192, 120, .3); }
-.tabataPhase.rest { background: rgba(249, 115, 22, .1); color: var(--orange); border: 1px solid rgba(249, 115, 22, .3); }
+.tabataPhase.work { background: rgba(239, 68, 68, .1); color: #fca5a5; border: 1px solid rgba(239, 68, 68, .3); }
+.tabataPhase.rest { background: rgba(34, 197, 94, .1); color: var(--green); border: 1px solid rgba(34, 197, 94, .3); }
 
 .roundCounter { font-size: 11px; color: var(--m); text-align: center; margin-bottom: 10px; letter-spacing: 2px; text-transform: uppercase; }
 .roundCounter span { color: var(--w); font-weight: 700; }
@@ -140,8 +159,8 @@
 .timerControls { display: flex; gap: 7px; }
 .tcBtn { flex: 1; padding: 13px 6px; border: none; border-radius: 4px; font-family: var(--font-barlow); font-size: 11px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; cursor: pointer; transition: all .2s; display: flex; align-items: center; justify-content: center; gap: 5px; }
 .tcBtn:active { transform: scale(.96); }
-.tcStart { background: var(--g); color: #000; }
-.tcStart:hover { background: var(--gl); }
+.tcStart { background: #E8FF00; color: #000; font-size: 12px; }
+.tcStart:hover { background: #d4e800; }
 .tcPause { background: rgba(234, 179, 8, .1); border: 1px solid rgba(234, 179, 8, .3); color: var(--yellow); }
 .tcPause:hover { background: rgba(234, 179, 8, .2); }
 .tcReset { background: rgba(107, 114, 128, .1); border: 1px solid var(--bd); color: var(--m); }
@@ -232,13 +251,29 @@
 .paused { color: var(--yellow); }
 
 /* CHRONO PLEIN ÉCRAN */
-.fsRoot { position: fixed; inset: 0; z-index: 200; display: flex; flex-direction: column; justify-content: space-between; padding: 28px 20px calc(24px + env(safe-area-inset-bottom)); backdrop-filter: blur(2px); background-color: #080808; }
+.fsRoot { position: fixed; inset: 0; z-index: 200; display: flex; flex-direction: column; justify-content: space-between; padding: 28px 20px calc(24px + env(safe-area-inset-bottom)); backdrop-filter: blur(2px); background-color: #0a0a0a; }
+/* Grille de fond très subtile — même motif que /signup et l'accueil, pour la cohérence visuelle de l'app. */
+.fsGrid {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 1) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 1) 1px, transparent 1px);
+  background-size: 24px 24px;
+  opacity: .03;
+}
 .fsTop { text-align: center; }
-.fsFormat { font-family: var(--font-bebas); font-size: 1.4rem; letter-spacing: 6px; text-transform: uppercase; color: #fff; }
+.fsFormat { font-family: var(--font-bebas); font-size: 1.4rem; letter-spacing: 6px; text-transform: uppercase; transition: color .3s; }
 .fsBloc { font-size: 11px; letter-spacing: 3px; text-transform: uppercase; color: var(--m); margin-top: 4px; }
 .fsCenter { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; flex: 1; }
-.fsTimeRow { display: flex; align-items: baseline; gap: 14px; }
-.fsTime { font-family: var(--font-bebas); font-size: 6rem; line-height: 1; color: #fff; letter-spacing: 2px; }
+/* Cercle de progression : le chiffre est superposé au centre de l'anneau. */
+.fsRingWrap { position: relative; width: 240px; height: 240px; display: flex; align-items: center; justify-content: center; }
+.fsRing { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
+.fsTimeRow { position: relative; z-index: 1; text-align: center; }
+.fsTime { font-family: var(--font-bebas); font-size: 3.4rem; line-height: 1; color: #fff; letter-spacing: 2px; animation: fsDigitPulse .15s ease; }
+@keyframes fsDigitPulse { 0% { transform: scale(1); } 40% { transform: scale(1.05); } 100% { transform: scale(1); } }
 .fsResetBtn { padding: 6px 10px; border: 1px solid rgba(255,255,255,.25); border-radius: 4px; background: rgba(0,0,0,.35); color: var(--m); font-family: inherit; font-size: 11px; letter-spacing: 1px; text-transform: uppercase; cursor: pointer; }
 .fsResetBtn:hover { color: #fff; border-color: rgba(255,255,255,.45); }
 .fsInfo { font-size: 13px; letter-spacing: 3px; text-transform: uppercase; color: #e0e0e0; }
