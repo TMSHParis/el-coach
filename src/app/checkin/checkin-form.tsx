@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { submitCheckin, type CheckinGender, type SleepPhotoAnalysis } from "./actions";
 import { BackHomeButton } from "@/components/back-home-button";
+import { REPOS_SUBTYPES, RECUP_SUBTYPES, isReposSubtype, isRecupSubtype } from "@/lib/seance-kinds";
 import styles from "./checkin.module.css";
 
 const cx = (...classes: (string | false | undefined)[]) => classes.filter(Boolean).join(" ");
@@ -13,28 +14,44 @@ const MOTIV_LABELS = ["", "Nulle", "Très basse", "Basse", "Faible", "Moyenne", 
 
 const ECM_PROGRAM_OPTIONS = ["⚡ CrossFit Pure", "🔥 Hybrid Engine", "🏁 Hyrox Pure", "💪 Volume Block Hypertrophy", "🏠 At Home"];
 
-const SEANCE_GROUPS: { label: string; options: string[] }[] = [
-  { label: "🛋️ REPOS", options: ["🛋️ Repos complet", "🚶 Récupération active"] },
-  { label: "⚡ PROGRAMMATIONS ECM", options: ECM_PROGRAM_OPTIONS },
+/** Entrée du <select> "Séance du jour" — `value` est ce qui est stocké/envoyé,
+ * `label` ce qui s'affiche dans l'option. Pour le groupe REPOS, `value` est une
+ * sentinelle (`__repos__`/`__recup__`) qui ouvre l'accordéon de sous-types au
+ * lieu de fixer directement la séance — voir `onSelectChange`. */
+type SeanceOption = { value: string; label: string };
+
+const REPOS_SENTINEL_OPTIONS: SeanceOption[] = [
+  { value: "__repos__", label: "😴 Repos" },
+  { value: "__recup__", label: "🚶 Récupération active" },
+];
+
+const SEANCE_GROUPS: { label: string; options: SeanceOption[] }[] = [
+  { label: "🛋️ REPOS", options: REPOS_SENTINEL_OPTIONS },
+  { label: "⚡ PROGRAMMATIONS ECM", options: ECM_PROGRAM_OPTIONS.map((o) => ({ value: o, label: o })) },
   {
     label: "🏃 COURS COLLECTIFS",
-    options: ["Step", "CrossTraining", "CAF — Cuisse Abdo Fessier", "HIIT", "Cardio Boxe"],
+    options: ["Step", "CrossTraining", "CAF — Cuisse Abdo Fessier", "HIIT", "Cardio Boxe"].map((o) => ({ value: o, label: o })),
   },
   {
     label: "🥊 SPORTS DE COMBAT",
-    options: ["🥊 Boxe Thaï / Muay Thai", "🥋 MMA", "🥊 Boxe anglaise", "🥋 Jiu-Jitsu brésilien", "🥋 Judo / Lutte"],
+    options: ["🥊 Boxe Thaï / Muay Thai", "🥋 MMA", "🥊 Boxe anglaise", "🥋 Jiu-Jitsu brésilien", "🥋 Judo / Lutte"].map((o) => ({
+      value: o,
+      label: o,
+    })),
   },
-  { label: "🏃 CARDIO & ENDURANCE", options: ["🏃 Running", "🚴 Cyclisme", "🏊 Natation", "⛷️ Trail"] },
-  { label: "⚽ SPORTS COLLECTIFS", options: ["⚽ Football", "🏀 Basketball", "🏈 Rugby", "🎾 Tennis / Padel"] },
-  { label: "🧘 MOBILITÉ", options: ["🧘 Yoga / Pilates", "🤸 Calisthénie", "🧗 Escalade"] },
+  { label: "🏃 CARDIO & ENDURANCE", options: ["🏃 Running", "🚴 Cyclisme", "🏊 Natation", "⛷️ Trail"].map((o) => ({ value: o, label: o })) },
+  { label: "⚽ SPORTS COLLECTIFS", options: ["⚽ Football", "🏀 Basketball", "🏈 Rugby", "🎾 Tennis / Padel"].map((o) => ({ value: o, label: o })) },
+  { label: "🧘 MOBILITÉ", options: ["🧘 Yoga / Pilates", "🤸 Calisthénie", "🧗 Escalade"].map((o) => ({ value: o, label: o })) },
 ];
 
 /** Groupes du <select> "Séance du jour", avec les programmes actifs en tête. */
-function buildSeanceGroups(programmes: string[]): { label: string; options: string[] }[] {
+function buildSeanceGroups(programmes: string[]): { label: string; options: SeanceOption[] }[] {
   const actifs = programmes.filter((p) => ECM_PROGRAM_OPTIONS.includes(p));
   if (actifs.length === 0) return SEANCE_GROUPS;
   return SEANCE_GROUPS.map((g) =>
-    g.options === ECM_PROGRAM_OPTIONS ? { label: "⚡ MES PROGRAMMES", options: actifs } : g,
+    g.label === "⚡ PROGRAMMATIONS ECM"
+      ? { label: "⚡ MES PROGRAMMES", options: actifs.map((o) => ({ value: o, label: o })) }
+      : g,
   );
 }
 
@@ -62,6 +79,10 @@ const DUREE_OPTIONS = ["30 min", "45 min", "1h", "1h30", "2h+"];
 const EQUIPEMENT_OPTIONS = ["Salle complète", "Maison", "Extérieur", "Salle limitée"];
 const INTENSITE_OPTIONS = ["Légère", "Modérée", "Intense", "Maximum"];
 
+const RECUP_PERCUE_OPTIONS = ["😩 Faible", "😐 Moyenne", "💪 Bonne"];
+const NUTRITION_OPTIONS = ["🥗 Équilibré", "🍝 Correct", "🍔 Négligé"];
+const HYDRATATION_OPTIONS = ["💧 Faible", "💧💧 Correcte", "💧💧💧 Élevée"];
+
 type FormState = {
   gender: CheckinGender;
   sleepPhotoPreview: string | null;
@@ -69,11 +90,9 @@ type FormState = {
   sleepCoucher: string;
   sleepReveil: string;
   sleepDuree: string;
-  sleepFc: string;
-  sleepHrv: string;
-  sleepRecup: string;
   sleepAnalysis: SleepPhotoAnalysis | null;
   sleepAnalyzing: boolean;
+  recuperationPercue: string;
   poids: string;
   jambes: string;
   douleur: boolean | null;
@@ -86,7 +105,13 @@ type FormState = {
   mental: string;
   stress: string;
   libido: string;
+  nutrition: string;
+  hydratation: string;
   seance: string;
+  /** Sentinelle du <select> ouvrant l'accordéon Repos/Récup — null = sélection directe (sport/ECM). */
+  seanceAccordion: "repos" | "recup" | null;
+  /** Liste de sous-types de l'accordéon dépliée (se referme dès qu'un choix est fait). */
+  accordionOpen: boolean;
   travail: boolean | null;
   soirPerformance: boolean | null;
   notes: string;
@@ -105,11 +130,9 @@ const INITIAL_STATE: FormState = {
   sleepCoucher: "",
   sleepReveil: "",
   sleepDuree: "",
-  sleepFc: "",
-  sleepHrv: "",
-  sleepRecup: "",
   sleepAnalysis: null,
   sleepAnalyzing: false,
+  recuperationPercue: "",
   poids: "",
   jambes: "",
   douleur: null,
@@ -122,7 +145,11 @@ const INITIAL_STATE: FormState = {
   mental: "",
   stress: "",
   libido: "",
+  nutrition: "",
+  hydratation: "",
   seance: "",
+  seanceAccordion: null,
+  accordionOpen: false,
   travail: null,
   soirPerformance: null,
   notes: "",
@@ -141,7 +168,24 @@ const DATE_STR = new Date().toLocaleDateString("fr-FR", {
   year: "numeric",
 });
 
-export function CheckinForm({ programmes = [] }: { programmes?: string[] }) {
+/** Sentinelle de l'accordéon dans laquelle `value` (une fois choisie) retombe — null si ni repos ni récup. */
+function accordionKindOf(value: string): "repos" | "recup" | null {
+  if (isReposSubtype(value)) return "repos";
+  if (isRecupSubtype(value)) return "recup";
+  return null;
+}
+
+export function CheckinForm({
+  programmes = [],
+  habits = [],
+  todayEcm = null,
+}: {
+  programmes?: string[];
+  /** 3 séances les plus fréquentes des 30 derniers jours (la plus fréquente en premier). */
+  habits?: string[];
+  /** Séance ECM programmée aujourd'hui, si un programme actif en a une — carte "Prévu aujourd'hui". */
+  todayEcm?: { value: string; label: string; sub: string } | null;
+}) {
   const router = useRouter();
   // Le groupe "Programmations ECM" se réduit aux programmes actifs de l'athlète
   // (choisis dans /settings) ; sans sélection enregistrée, le catalogue complet.
@@ -195,10 +239,52 @@ export function CheckinForm({ programmes = [] }: { programmes?: string[] }) {
     reader.readAsDataURL(file);
   }
 
+  // Séance du jour — sélection directe (sport/ECM/habitude) : ferme l'accordéon
+  // et ouvre "Personnaliser ma séance" au prochain rendu (gérée par showPersonalize).
+  function chooseSeance(value: string) {
+    set({ seance: value, seanceAccordion: accordionKindOf(value), accordionOpen: false });
+  }
+
+  // <select> natif : une entrée sport/ECM sélectionne directement ; une
+  // sentinelle __repos__/__recup__ ouvre l'accordéon correspondant sans encore
+  // fixer de séance précise (l'utilisateur doit choisir un sous-type).
+  function onSelectChange(value: string) {
+    if (value === "__repos__" || value === "__recup__") {
+      set({ seance: "", seanceAccordion: value === "__repos__" ? "repos" : "recup", accordionOpen: true });
+      return;
+    }
+    chooseSeance(value);
+  }
+
+  function chooseSubtype(value: string) {
+    set({ seance: value, accordionOpen: false });
+  }
+
+  const selectValue = d.seanceAccordion === "repos" ? "__repos__" : d.seanceAccordion === "recup" ? "__recup__" : d.seance;
+  // "Personnaliser ma séance" : uniquement pour un vrai sport/programme — jamais
+  // pour repos ou récupération active, quel que soit le sous-type choisi.
+  const showPersonalize = Boolean(d.seance) && d.seanceAccordion === null;
+  const showChosen = d.seanceAccordion !== null && Boolean(d.seance);
+
+  // Suggestions contextuelles (badge "Suggéré") sur les sous-options de repos/récup —
+  // état jaune/rouge déclaré (sliders + cycle côté femme), indicatif uniquement.
+  const cycleIntense = !isH && d.cycle === true && d.cycleDouleur === "🔴 Intenses";
+  const cycleLegere = !isH && d.cycle === true && d.cycleDouleur === "🟡 Légères";
+  const suggestedValues = new Set<string>(
+    cycleIntense
+      ? ["😴 Repos total", "💤 Repos + sommeil prioritaire"]
+      : cycleLegere
+        ? ["🚶 Marche", "🧘 Yoga / mobilité"]
+        : d.energie !== null && d.energie <= 5
+          ? ["🚶 Marche"]
+          : [],
+  );
+
   function validate(): string[] {
     const miss: string[] = [];
     const sleepOk = d.sleepPhoto || d.sleepDuree || d.sleepCoucher;
     if (!sleepOk) miss.push("Sommeil");
+    if (!d.recuperationPercue) miss.push("Récupération perçue");
     if (!d.jambes) miss.push("Jambes");
     if (d.douleur === null) miss.push("Douleur");
     if (!isH && d.cycle === null) miss.push("Cycle menstruel");
@@ -213,6 +299,37 @@ export function CheckinForm({ programmes = [] }: { programmes?: string[] }) {
     return miss;
   }
 
+  // Total des champs requis (mêmes que validate(), pour la barre de progression).
+  const filledFields = [
+    d.sleepPhoto || Boolean(d.sleepDuree) || Boolean(d.sleepCoucher),
+    Boolean(d.recuperationPercue),
+    Boolean(d.jambes),
+    d.douleur !== null,
+    !isH ? d.cycle !== null : true,
+    Boolean(d.energie),
+    Boolean(d.motivation),
+    Boolean(d.mental),
+    Boolean(d.stress),
+    Boolean(d.libido),
+    Boolean(d.seance),
+    d.travail !== null,
+    isH ? d.soirPerformance !== null : true,
+  ].filter(Boolean).length;
+  const progressTotal = 13;
+  const progressPct = Math.round((filledFields / progressTotal) * 100);
+
+  // État live (⚪/🟢/🟡/🔴) — mêmes seuils que la suggestion contextuelle.
+  const liveState = (() => {
+    if (d.energie === null && d.mental === "") return { cls: "", emoji: "⚪", title: "En attente", sub: "Remplis le check-in pour voir ton état" };
+    if ((d.energie !== null && d.energie <= 5) || d.mental === "🌫 Brouillard" || d.jambes === "🪨 Lourdes" || d.stress === "😰 Élevé" || cycleIntense) {
+      return { cls: "red", emoji: "🔴", title: "Vigilance", sub: cycleIntense ? "Douleurs intenses détectées" : "Signes de fatigue accumulée" };
+    }
+    if ((d.energie !== null && d.energie <= 7) || d.stress === "😐 Modéré") {
+      return { cls: "yellow", emoji: "🟡", title: "À surveiller", sub: "Journée à gérer avec soin" };
+    }
+    return { cls: "green", emoji: "🟢", title: "Ça part bien", sub: "État plutôt favorable" };
+  })();
+
   async function handleSubmit() {
     const miss = validate();
     setMissing(miss);
@@ -225,10 +342,8 @@ export function CheckinForm({ programmes = [] }: { programmes?: string[] }) {
       sleepCoucher: d.sleepCoucher,
       sleepReveil: d.sleepReveil,
       sleepDuree: d.sleepDuree,
-      sleepFc: d.sleepFc,
-      sleepHrv: d.sleepHrv,
-      sleepRecup: d.sleepRecup,
       sleepAnalysis: d.sleepAnalysis,
+      recuperationPercue: d.recuperationPercue,
       poids: d.poids,
       jambes: d.jambes,
       douleur: d.douleur,
@@ -241,6 +356,8 @@ export function CheckinForm({ programmes = [] }: { programmes?: string[] }) {
       mental: d.mental,
       stress: d.stress,
       libido: d.libido,
+      nutrition: d.nutrition,
+      hydratation: d.hydratation,
       seance: d.seance,
       travail: d.travail,
       soirPerformance: isH ? d.soirPerformance : null,
@@ -313,6 +430,7 @@ export function CheckinForm({ programmes = [] }: { programmes?: string[] }) {
       </div>
 
       <div className={styles.fw}>
+        <div className={styles.kicker}>01 · Récupération nocturne</div>
         <div className={cx(styles.sl, isH ? styles.blue : styles.pink)}>😴 Sommeil</div>
         <div className={cx(styles.qc, (d.sleepPhoto || d.sleepDuree) && (isH ? styles.onH : styles.onF))}>
           <div className={styles.ql}>
@@ -366,26 +484,14 @@ export function CheckinForm({ programmes = [] }: { programmes?: string[] }) {
           </div>
         </div>
 
-        <div className={cx(styles.qc, styles.opt)}>
+        <div className={cx(styles.qc, d.recuperationPercue && (isH ? styles.onH : styles.onF))}>
           <div className={styles.ql}>
-            <i>⌚</i> Données montre <span className={styles.bo}>Facultatif</span>
+            <i>🔄</i> Récupération perçue <span className={isH ? styles.bh : styles.bf}>Requis</span>
           </div>
-          <div className={styles.wg}>
-            <div className={styles.wi}>
-              <label>❤️ FC repos</label>
-              <input type="text" placeholder="58 bpm" value={d.sleepFc} onChange={(e) => set({ sleepFc: e.target.value })} />
-            </div>
-            <div className={styles.wi}>
-              <label>📊 HRV</label>
-              <input type="text" placeholder="45 ms" value={d.sleepHrv} onChange={(e) => set({ sleepHrv: e.target.value })} />
-            </div>
-            <div className={styles.wi}>
-              <label>⏱️ Récup.</label>
-              <input type="text" placeholder="18h" value={d.sleepRecup} onChange={(e) => set({ sleepRecup: e.target.value })} />
-            </div>
-          </div>
+          <OptRow gender={g} options={RECUP_PERCUE_OPTIONS} value={d.recuperationPercue} onChange={(v) => set({ recuperationPercue: v })} />
         </div>
 
+        <div className={styles.kicker}>02 · État corporel</div>
         <div className={cx(styles.sl, isH ? styles.blue : styles.pink)}>🌅 Corps au réveil</div>
         <div className={cx(styles.qc, styles.opt, d.poids && (isH ? styles.onH : styles.onF))}>
           <div className={styles.ql}>
@@ -465,7 +571,8 @@ export function CheckinForm({ programmes = [] }: { programmes?: string[] }) {
           </div>
         )}
 
-        <div className={cx(styles.sl, isH ? styles.blue : styles.pink)}>⚡ Vitalité</div>
+        <div className={styles.kicker}>03 · Vitalité</div>
+        <div className={cx(styles.sl, isH ? styles.blue : styles.pink)}>⚡ Énergie & motivation</div>
         <div className={cx(styles.qc, Boolean(d.energie) && (isH ? styles.onH : styles.onF))}>
           <div className={styles.ql}>
             <i>🔋</i> Énergie <span className={isH ? styles.bh : styles.bf}>Requis</span>
@@ -514,25 +621,108 @@ export function CheckinForm({ programmes = [] }: { programmes?: string[] }) {
           <OptRow gender={g} options={["🔥 Bonne", "💛 Moyenne", "🩶 Basse"]} value={d.libido} onChange={(v) => set({ libido: v })} />
         </div>
 
-        <div className={cx(styles.sl, isH ? styles.blue : styles.pink)}>📅 Planning du jour</div>
+        <div className={cx(styles.sl, isH ? styles.blue : styles.pink)}>🍽 Nutrition & hydratation</div>
+        <div className={cx(styles.qc, styles.opt, d.nutrition && (isH ? styles.onH : styles.onF))}>
+          <div className={styles.ql}>
+            <i>🥗</i> Repas d&apos;hier soir <span className={styles.bo}>Facultatif</span>
+          </div>
+          <OptRow gender={g} options={NUTRITION_OPTIONS} value={d.nutrition} onChange={(v) => set({ nutrition: v })} />
+        </div>
+        <div className={cx(styles.qc, styles.opt, d.hydratation && (isH ? styles.onH : styles.onF))}>
+          <div className={styles.ql}>
+            <i>💧</i> Hydratation <span className={styles.bo}>Facultatif</span>
+          </div>
+          <OptRow gender={g} options={HYDRATATION_OPTIONS} value={d.hydratation} onChange={(v) => set({ hydratation: v })} />
+        </div>
+
+        <div className={styles.kicker}>04 · Programmation du jour</div>
+        <div className={cx(styles.sl, styles.gold)}>🏋️ Ton activité du jour</div>
         <div className={cx(styles.qc, d.seance && (isH ? styles.onH : styles.onF))}>
+          {habits.length > 0 && (
+            <>
+              <div className={styles.freqLabel}>Tes habitudes</div>
+              <div className={styles.freqRow}>
+                {habits.map((h) => (
+                  <div key={h} className={styles.freqItem} onClick={() => chooseSeance(h)}>
+                    <p>{h}</p>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          {todayEcm && (
+            <div className={styles.ecmToday} onClick={() => chooseSeance(todayEcm.value)}>
+              <div className={styles.badgeToday}>PRÉVU AUJOURD&apos;HUI</div>
+              <div className={styles.etRow}>
+                <div className={styles.etIcon}>⚡</div>
+                <div>
+                  <p className={styles.etTitle}>{todayEcm.label}</p>
+                  <p className={styles.etSub}>{todayEcm.sub}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className={styles.ql}>
             <i>🏋️</i> Séance du jour <span className={isH ? styles.bh : styles.bf}>Requis</span>
           </div>
-          <select className={styles.ss} value={d.seance} onChange={(e) => set({ seance: e.target.value })}>
+          <select className={styles.ss} value={selectValue} onChange={(e) => onSelectChange(e.target.value)}>
             <option value="" disabled>
               Choisir ta séance...
             </option>
             {seanceGroups.map((group) => (
               <optgroup key={group.label} label={group.label}>
                 {group.options.map((o) => (
-                  <option key={o} value={o}>
-                    {o}
+                  <option key={o.value} value={o.value}>
+                    {o.label}
                   </option>
                 ))}
               </optgroup>
             ))}
           </select>
+
+          {d.seanceAccordion === "repos" && d.accordionOpen && (
+            <div className={styles.seanceAccordion}>
+              <p className={styles.accLabel}>😴 Choisis ton type de repos</p>
+              <div className={styles.opts}>
+                {REPOS_SUBTYPES.map((o) => (
+                  <div
+                    key={o}
+                    className={cx(styles.optBtn, d.seance === o && (isH ? styles.selH : styles.selF))}
+                    onClick={() => chooseSubtype(o)}
+                  >
+                    {o}
+                    {suggestedValues.has(o) && <span className={styles.suggestedTag}>SUGGÉRÉ</span>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {d.seanceAccordion === "recup" && d.accordionOpen && (
+            <div className={styles.seanceAccordion}>
+              <p className={styles.accLabel}>🚶 Choisis ta récupération active</p>
+              <div className={styles.opts}>
+                {RECUP_SUBTYPES.map((o) => (
+                  <div
+                    key={o}
+                    className={cx(styles.optBtn, d.seance === o && (isH ? styles.selH : styles.selF))}
+                    onClick={() => chooseSubtype(o)}
+                  >
+                    {o}
+                    {suggestedValues.has(o) && <span className={styles.suggestedTag}>SUGGÉRÉ</span>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {showChosen && (
+            <div className={styles.seanceChosen}>
+              ✓ Choix retenu : <strong>{d.seance}</strong>
+            </div>
+          )}
         </div>
 
         {isVolumeBlock(d.seance) && (
@@ -554,33 +744,35 @@ export function CheckinForm({ programmes = [] }: { programmes?: string[] }) {
           </div>
         )}
 
-        <div className={cx(styles.qc, styles.opt)}>
-          <div className={styles.ql}>
-            <i>🎛️</i> Personnaliser ma séance <span className={styles.bo}>Facultatif</span>
+        {showPersonalize && (
+          <div className={cx(styles.qc, styles.opt)}>
+            <div className={styles.ql}>
+              <i>🎛️</i> Personnaliser ma séance <span className={styles.bo}>Facultatif</span>
+            </div>
+
+            <div className={styles.dl}>Focus du jour</div>
+            <MultiOptRow gender={g} options={FOCUS_OPTIONS} values={d.seanceFocus} onToggle={(v) => set({
+              seanceFocus: d.seanceFocus.includes(v) ? d.seanceFocus.filter((x) => x !== v) : [...d.seanceFocus, v],
+            })} />
+
+            <div className={styles.dl} style={{ marginTop: 10 }}>Durée disponible</div>
+            <OptRow gender={g} options={DUREE_OPTIONS} value={d.seanceDuree} onChange={(v) => set({ seanceDuree: v })} />
+
+            <div className={styles.dl} style={{ marginTop: 10 }}>Équipement disponible aujourd&apos;hui</div>
+            <OptRow gender={g} options={EQUIPEMENT_OPTIONS} value={d.seanceEquipement} onChange={(v) => set({ seanceEquipement: v })} />
+
+            <div className={styles.dl} style={{ marginTop: 10 }}>Intensité souhaitée</div>
+            <OptRow gender={g} options={INTENSITE_OPTIONS} value={d.seanceIntensite} onChange={(v) => set({ seanceIntensite: v })} />
+
+            <div className={styles.dl} style={{ marginTop: 10 }}>Note libre sur la séance</div>
+            <textarea
+              className={styles.ta}
+              placeholder="ex : Je veux travailler les épaules · Pas de deadlift aujourd'hui"
+              value={d.seanceNote}
+              onChange={(e) => set({ seanceNote: e.target.value })}
+            />
           </div>
-
-          <div className={styles.dl}>Focus du jour</div>
-          <MultiOptRow gender={g} options={FOCUS_OPTIONS} values={d.seanceFocus} onToggle={(v) => set({
-            seanceFocus: d.seanceFocus.includes(v) ? d.seanceFocus.filter((x) => x !== v) : [...d.seanceFocus, v],
-          })} />
-
-          <div className={styles.dl} style={{ marginTop: 10 }}>Durée disponible</div>
-          <OptRow gender={g} options={DUREE_OPTIONS} value={d.seanceDuree} onChange={(v) => set({ seanceDuree: v })} />
-
-          <div className={styles.dl} style={{ marginTop: 10 }}>Équipement disponible aujourd&apos;hui</div>
-          <OptRow gender={g} options={EQUIPEMENT_OPTIONS} value={d.seanceEquipement} onChange={(v) => set({ seanceEquipement: v })} />
-
-          <div className={styles.dl} style={{ marginTop: 10 }}>Intensité souhaitée</div>
-          <OptRow gender={g} options={INTENSITE_OPTIONS} value={d.seanceIntensite} onChange={(v) => set({ seanceIntensite: v })} />
-
-          <div className={styles.dl} style={{ marginTop: 10 }}>Note libre sur la séance</div>
-          <textarea
-            className={styles.ta}
-            placeholder="ex : Je veux travailler les épaules · Pas de deadlift aujourd'hui"
-            value={d.seanceNote}
-            onChange={(e) => set({ seanceNote: e.target.value })}
-          />
-        </div>
+        )}
 
         <div className={cx(styles.qc, d.travail !== null && (isH ? styles.onH : styles.onF))}>
           <div className={styles.ql}>
@@ -598,12 +790,34 @@ export function CheckinForm({ programmes = [] }: { programmes?: string[] }) {
           </div>
         )}
 
+        <div className={styles.kicker}>05 · Observations</div>
         <div className={cx(styles.sl, isH ? styles.blue : styles.pink)}>📝 Notes</div>
         <div className={cx(styles.qc, styles.opt)}>
           <div className={styles.ql}>
             <i>📝</i> Observations <span className={styles.bo}>Facultatif</span>
           </div>
           <input type="text" placeholder="Ressenti particulier, événement..." value={d.notes} onChange={(e) => set({ notes: e.target.value })} />
+        </div>
+
+        <div className={styles.kicker}>06 · Validation</div>
+        <div className={styles.progressWrapInline}>
+          <div className={styles.progressLabels}>
+            <span>{filledFields} / {progressTotal} sections</span>
+            <span className={styles.pct}>{progressPct}%</span>
+          </div>
+          <div className={styles.progressTrack}>
+            <div className={styles.progressFill} style={{ width: `${progressPct}%` }} />
+          </div>
+        </div>
+        <div className={cx(styles.liveState, liveState.cls && styles[liveState.cls])}>
+          <div className={styles.lsLeft}>
+            <span className={styles.lsEmoji}>{liveState.emoji}</span>
+            <div>
+              <p className={styles.lsTitle}>{liveState.title}</p>
+              <p className={styles.lsSub}>{liveState.sub}</p>
+            </div>
+          </div>
+          <span className={styles.lsTag}>Provisoire</span>
         </div>
 
         <button className={styles.sub} disabled={submitting} onClick={handleSubmit}>

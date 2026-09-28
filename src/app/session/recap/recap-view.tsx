@@ -122,6 +122,13 @@ export function RecapView({
         </div>
       </div>
 
+      {congrats && (
+        <div className={styles.congrats}>
+          <div className={styles.congratsLabel}>Message de ton coach</div>
+          {congrats}
+        </div>
+      )}
+
       {best && (
         <div className={styles.best}>
           <div className={styles.bestLabel}>Meilleur résultat du jour</div>
@@ -142,13 +149,6 @@ export function RecapView({
               </span>
             </div>
           ))}
-        </div>
-      )}
-
-      {congrats && (
-        <div className={styles.congrats}>
-          <div className={styles.congratsLabel}>Message de ton coach</div>
-          {congrats}
         </div>
       )}
 

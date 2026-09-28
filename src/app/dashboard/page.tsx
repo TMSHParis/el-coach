@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { auth, currentUser } from "@clerk/nextjs/server";
+import { BackHomeButton } from "@/components/back-home-button";
 import { isCheckinDoneToday } from "../checkin/actions";
 import { getEcmProfileState, getSignupState } from "../signup/actions";
 import { SPORT_LABEL_TO_SLUG } from "@/lib/ecm-programs";
@@ -57,7 +58,8 @@ import type { Day } from "@/lib/programming";
 import { toDisplayBlocks } from "@/lib/session-format";
 import { SESSION_FEELINGS, shouldRecommendLightSession } from "@/lib/session-feeling";
 import type { TomorrowPreview } from "@/lib/ecm-engine";
-import { buildAdviceSession, type StoredAdvice } from "@/lib/advice-session";
+import { buildAdviceSession, stripLeadingEmoji, type StoredAdvice } from "@/lib/advice-session";
+import { isRestDay as isRestDaySeance } from "@/lib/ecm-engine";
 import { AdviceSessionPanel } from "./advice-session-panel";
 import { adaptDayForInjuries, detectInjuryAreas, reduceVolume, substitutionMessage } from "@/lib/session-adapt";
 import { minutesToHM, ETAT_LABELS, sleepPhaseBadge, trendColor } from "./dashboard-helpers";
@@ -190,23 +192,36 @@ export default async function DashboardPage() {
   const isRestDay = (!generatedDay && today.needsFatigueInput) || baseDay.blocks.length === 0;
 
   // Type réel de la séance du jour — sert au bloc "Séance terminée" une fois
-  // la séance faite. Ne PAS retomber sur profile.programme (programme fixe de
-  // l'athlète) : un jour de repos ou hors ECM affichait alors à tort le nom du
-  // programme d'abonnement (ex. "CrossFit Pure" sur un jour "Repos complet").
-  const todaySessionKind: "repos" | "horsEcm" | "ecm" = adviceSession
-    ? adviceSession.repos
-      ? "repos"
-      : "horsEcm"
-    : isRestDay
-      ? "repos"
-      : "ecm";
-  const todaySessionLabel = adviceSession
-    ? adviceSession.repos
-      ? "Repos complet"
-      : adviceSession.titre
-    : isRestDay
-      ? "Repos complet"
-      : sessionTitle;
+  // la séance faite. Source de vérité : todayCheckin.seance en premier lieu —
+  // PAS adviceSession/le programme fixe hebdomadaire (profile.programme), qui
+  // restent tous les deux indisponibles ou périmés si la génération Claude du
+  // jour a échoué ou est absente. Sans ce garde-fou, un jour de repos ou hors
+  // ECM affichait alors à tort le nom du programme d'abonnement (ex. "CrossFit
+  // Pure" sur un jour "Repos complet") — cf. /session/recap qui lit déjà
+  // checkin.seance directement pour la même raison.
+  const checkinSeance = todayCheckin?.seance ?? null;
+  const checkinIsRest = isRestDaySeance(checkinSeance);
+  const checkinIsEcmProgram = checkinSeance ? checkinSeance in SPORT_LABEL_TO_SLUG : false;
+  const todaySessionKind: "repos" | "horsEcm" | "ecm" = checkinIsRest
+    ? "repos"
+    : checkinSeance && !checkinIsEcmProgram
+      ? "horsEcm"
+      : adviceSession
+        ? adviceSession.repos
+          ? "repos"
+          : "horsEcm"
+        : isRestDay
+          ? "repos"
+          : "ecm";
+  const todaySessionLabel = checkinIsRest
+    ? "Repos complet"
+    : checkinSeance && !checkinIsEcmProgram
+      ? (adviceSession?.titre ?? stripLeadingEmoji(checkinSeance))
+      : adviceSession
+        ? adviceSession.titre
+        : isRestDay
+          ? "Repos complet"
+          : sessionTitle;
   const todaySessionIcon = todaySessionKind === "repos" ? "🛌" : todaySessionKind === "horsEcm" ? "🥊" : "⚡";
 
   // Séance du jour terminée : le bloc "Démarrer la séance" laisse place au compte rendu.
@@ -513,7 +528,8 @@ export default async function DashboardPage() {
 
 function EmptyState() {
   return (
-    <section className={`mx-auto max-w-3xl px-6 py-24 text-center ${dashboardFontVariables}`}>
+    <section className={`relative mx-auto max-w-3xl px-6 py-24 text-center ${dashboardFontVariables}`}>
+      <BackHomeButton label="← Accueil" style={{ position: "absolute", top: 16, left: 16 }} />
       <div className="label">[ DASHBOARD ]</div>
       <h1 className="mt-4 text-4xl font-semibold" style={{ fontFamily: "var(--font-bebas, sans-serif)", letterSpacing: 1 }}>
         Pas encore de programme
@@ -537,7 +553,8 @@ function CheckinPendingState({
 }) {
   const salut = userFirstName ? `Salut ${userFirstName}.` : "Salut.";
   return (
-    <section className={`mx-auto max-w-3xl px-6 py-24 text-center ${dashboardFontVariables}`}>
+    <section className={`relative mx-auto max-w-3xl px-6 py-24 text-center ${dashboardFontVariables}`}>
+      <BackHomeButton label="← Accueil" style={{ position: "absolute", top: 16, left: 16 }} />
       <div className="label">[ DASHBOARD ]</div>
       <h1 className="mt-4 text-4xl font-semibold" style={{ fontFamily: "var(--font-bebas, sans-serif)", letterSpacing: 1 }}>
         {salut}

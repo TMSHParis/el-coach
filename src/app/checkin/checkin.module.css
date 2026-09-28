@@ -79,12 +79,18 @@
 
 .fw { padding: 0 18px; max-width: 440px; margin: 0 auto; }
 
-.sl { font-family: var(--font-bebas); font-size: 11px; letter-spacing: 4px; text-transform: uppercase; margin: 20px 0 8px; display: flex; align-items: center; gap: 8px; }
+/* Kickers de section (01 · Récupération nocturne, 02 · État corporel...) */
+.kicker { font-size: 10px; letter-spacing: 3px; text-transform: uppercase; color: #3a3a3a; font-weight: 700; margin: 30px 0 4px; }
+.kicker:first-child { margin-top: 6px; }
+
+.sl { font-family: var(--font-bebas); font-size: 13px; letter-spacing: 4px; text-transform: uppercase; margin: 10px 0 8px; display: flex; align-items: center; gap: 8px; }
 .sl::after { content: ''; flex: 1; height: 1px; }
 .sl.blue { color: var(--blue); }
 .sl.blue::after { background: linear-gradient(90deg, rgba(82, 137, 224, .3), transparent); }
 .sl.pink { color: var(--pink); }
 .sl.pink::after { background: linear-gradient(90deg, rgba(236, 72, 153, .3), transparent); }
+.sl.gold { color: var(--g); }
+.sl.gold::after { background: linear-gradient(90deg, rgba(201, 168, 76, .35), transparent); }
 
 .qc { background: var(--s); border: 1px solid var(--bd); border-radius: 14px; padding: 14px; margin-bottom: 8px; transition: border-color .2s; }
 .qc.onH { border-color: rgba(82, 137, 224, .4); background: linear-gradient(135deg, #0d1120, #111); }
@@ -163,7 +169,7 @@
 .ss optgroup { background: #0a0a0a; color: var(--g); font-weight: 700; }
 
 /* BOUTON VALIDER */
-.sub { width: 100%; padding: 18px; border: none; border-radius: 14px; font-family: var(--font-bebas); font-size: 20px; letter-spacing: 3px; cursor: pointer; transition: all .2s; margin-top: 18px; background: linear-gradient(135deg, var(--g), #a8782a); color: #000; box-shadow: 0 6px 20px rgba(201, 168, 76, .25); }
+.sub { width: 100%; padding: 18px; border: none; border-radius: 14px; font-family: var(--font-bebas); font-size: 20px; letter-spacing: 3px; cursor: pointer; transition: all .2s; margin-top: 18px; background: linear-gradient(135deg, var(--g), var(--gl)); color: #000; box-shadow: 0 6px 20px rgba(201, 168, 76, .25); }
 .sub:hover { transform: translateY(-1px); }
 .sub:active { transform: translateY(0); }
 .sub:disabled { opacity: .5; cursor: not-allowed; transform: none; }
@@ -172,3 +178,49 @@
 .dl { font-size: 11px; font-weight: 600; color: var(--m); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px; }
 .ta { width: 100%; min-height: 60px; background: var(--s2); border: 1px solid var(--bd); border-radius: 10px; padding: 10px 12px; color: var(--t); font-family: inherit; font-size: 13px; resize: vertical; outline: none; }
 .ta:focus { border-color: var(--g); }
+
+/* PROGRAMMATION DU JOUR — Tes habitudes / Prévu aujourd'hui */
+.freqLabel { font-size: 9px; letter-spacing: 1.5px; text-transform: uppercase; color: #555; margin: 0 0 8px; font-weight: 700; }
+.freqRow { display: flex; gap: 7px; margin-bottom: 14px; }
+.freqItem { flex: 1; text-align: center; background: var(--s2); border: 1px solid var(--bd); border-radius: 11px; padding: 10px 4px; cursor: pointer; transition: all .15s; }
+.freqItem:hover { border-color: rgba(255, 255, 255, .2); }
+.freqItem .fi { font-size: 16px; color: var(--g); }
+.freqItem p { font-size: 10px; color: #bbb; margin: 5px 0 0; font-weight: 500; }
+
+.ecmToday { position: relative; background: linear-gradient(135deg, rgba(201, 168, 76, .1), rgba(201, 168, 76, .03)); border: 1.5px solid rgba(201, 168, 76, .5); border-radius: 13px; padding: 13px 15px; margin-bottom: 14px; overflow: hidden; cursor: pointer; }
+.badgeToday { position: absolute; top: 0; right: 0; background: var(--g); color: #1a1200; font-size: 8px; font-weight: 700; letter-spacing: 1px; padding: 3px 9px; border-radius: 0 11px 0 9px; }
+.etRow { display: flex; align-items: center; gap: 11px; margin-top: 5px; }
+.etIcon { width: 34px; height: 34px; border-radius: 9px; background: rgba(201, 168, 76, .15); display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 17px; }
+.etTitle { font-size: 13px; font-weight: 700; margin: 0; color: var(--gl); }
+.etSub { font-size: 10px; margin: 1px 0 0; color: #a3915f; }
+
+/* Accordéon Repos / Récupération active */
+.seanceAccordion { margin-top: 10px; background: var(--s2); border: 1px solid var(--bd); border-radius: 10px; padding: 12px; animation: accOpen .18s ease; }
+@keyframes accOpen { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+.accLabel { font-size: 11px; color: var(--m); text-transform: uppercase; letter-spacing: .5px; margin: 0 0 8px; }
+
+.seanceChosen { margin-top: 10px; padding: 9px 12px; background: var(--gd); border: 1px solid var(--g); border-radius: 8px; font-size: 13px; color: var(--gl); }
+.seanceChosen strong { font-weight: 600; color: var(--g); }
+
+.suggestedTag { display: inline-block; font-size: 8px; background: var(--g); color: #1a1200; padding: 3px 8px; border-radius: 20px; font-weight: 700; margin-left: 6px; vertical-align: middle; }
+
+/* VALIDATION — barre de progression + état live, juste avant le bouton */
+.progressWrapInline { margin: 22px 0 10px; }
+.progressLabels { display: flex; justify-content: space-between; margin-bottom: 5px; }
+.progressLabels span { font-size: 10px; color: var(--m); }
+.progressLabels .pct { color: var(--g); }
+.progressTrack { height: 4px; background: var(--bd); border-radius: 2px; overflow: hidden; }
+.progressFill { height: 4px; background: linear-gradient(90deg, var(--g), var(--gl)); border-radius: 2px; transition: width .3s; }
+
+.liveState { display: flex; align-items: center; justify-content: space-between; border-radius: 12px; padding: 11px 14px; margin-bottom: 8px; border: 1px solid var(--bd); background: var(--s); transition: all .3s; }
+.lsLeft { display: flex; align-items: center; gap: 9px; }
+.lsEmoji { font-size: 18px; }
+.lsTitle { font-size: 12px; font-weight: 600; margin: 0; }
+.lsSub { font-size: 10px; color: var(--m); margin: 0; }
+.lsTag { font-size: 9px; color: var(--m); }
+.liveState.green { background: linear-gradient(135deg, rgba(82, 192, 120, .1), rgba(82, 192, 120, .03)); border-color: rgba(82, 192, 120, .35); }
+.liveState.green .lsTitle { color: #8FCB9E; }
+.liveState.yellow { background: linear-gradient(135deg, rgba(234, 179, 8, .1), rgba(234, 179, 8, .03)); border-color: rgba(234, 179, 8, .35); }
+.liveState.yellow .lsTitle { color: #E8C96A; }
+.liveState.red { background: linear-gradient(135deg, rgba(224, 82, 82, .1), rgba(224, 82, 82, .03)); border-color: rgba(224, 82, 82, .35); }
+.liveState.red .lsTitle { color: #f0a8a8; }

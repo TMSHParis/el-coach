@@ -30,6 +30,7 @@ import { SOURCE_PROGRAM_EXAMPLES } from "./source-program-examples";
 import type { Block, BlockType, Day, Exercise, WodFormat } from "./programming";
 import { validateGeneratedDay } from "./session-adapt";
 import { ageFromDateNaissance } from "./age";
+import { isRestLikeSeance } from "./seance-kinds";
 
 function normalizeAccents(s: string): string {
   return s
@@ -709,11 +710,14 @@ const ADVICE_TOOL = {
   },
 };
 
+// Libellés historiques (avant l'accordéon de sous-types du check-in, sept. 2026) —
+// gardés pour les lignes déjà enregistrées en base avec ces valeurs coarse.
 const REST_LABELS = ["🛋️ Repos complet", "🚶 Récupération active"];
 
-/** Vrai si `seance` est un jour de repos déclaré (check-in) plutôt qu'un sport. */
+/** Vrai si `seance` est un jour de repos déclaré (check-in) plutôt qu'un sport —
+ * repos total ou récupération active, coarse ou sous-type précis. */
 export function isRestDay(seance: string | null | undefined): boolean {
-  return !seance || REST_LABELS.includes(seance);
+  return !seance || REST_LABELS.includes(seance) || isRestLikeSeance(seance);
 }
 
 /**

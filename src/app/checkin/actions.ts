@@ -56,10 +56,9 @@ export type CheckinPayload = {
   sleepCoucher: string;
   sleepReveil: string;
   sleepDuree: string;
-  sleepFc: string;
-  sleepHrv: string;
-  sleepRecup: string;
   sleepAnalysis?: SleepPhotoAnalysis | null;
+  /** Faible / Moyenne / Bonne — ressenti au réveil, distinct des données montre. */
+  recuperationPercue: string;
   // Corps
   poids: string;
   jambes: string;
@@ -76,6 +75,9 @@ export type CheckinPayload = {
   mental: string;
   stress: string;
   libido: string;
+  // Nutrition (facultatif)
+  nutrition: string;
+  hydratation: string;
   // Planning
   seance: string;
   travail: boolean | null;
@@ -172,6 +174,8 @@ function computeFatigueScore(payload: CheckinPayload): number {
   else if (payload.mental === "🌤 Moyen") fatigue += 1;
   if (payload.stress === "😰 Élevé") fatigue += 2;
   else if (payload.stress === "😐 Modéré") fatigue += 1;
+  if (payload.recuperationPercue === "😩 Faible") fatigue += 1;
+  else if (payload.recuperationPercue === "💪 Bonne") fatigue -= 1;
   if (payload.douleur) fatigue += 1;
   if (payload.cycle && payload.cycleDouleur === "🔴 Intenses") fatigue += 1;
   return Math.max(0, Math.min(10, Math.round(fatigue)));
@@ -229,10 +233,10 @@ async function persistCheckinAndGenerateDashboard(payload: CheckinPayload, fatig
     sleepCoucher: payload.sleepCoucher || null,
     sleepReveil: payload.sleepReveil || null,
     sleepDuree: payload.sleepDuree || null,
-    sleepFc: payload.sleepFc || null,
-    sleepHrv: payload.sleepHrv || null,
-    sleepRecup: payload.sleepRecup || null,
     sleepAnalysis: (payload.sleepAnalysis ?? undefined) as Prisma.InputJsonValue,
+    recuperationPercue: payload.recuperationPercue || null,
+    nutrition: payload.nutrition || null,
+    hydratation: payload.hydratation || null,
     poids: payload.poids || null,
     seance: payload.seance || null,
     travail: payload.travail,

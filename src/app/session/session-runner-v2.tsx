@@ -156,6 +156,8 @@ function tabataView(b: BlocState, elapsed: number): TabataView {
   return { round, phase, remaining, finished: round > b.tabataRounds };
 }
 
+export type SessionKind = "ecm" | "sportHorsEcm" | "repos" | "recuperationActive";
+
 export function SessionRunnerV2({
   sessionName,
   sessionMeta,
@@ -167,6 +169,8 @@ export function SessionRunnerV2({
   initialPhotos = [],
   photosEnabled = false,
   analysisContext,
+  sessionKind = "ecm",
+  recuperationDefaultMinutes,
 }: {
   sessionName: string;
   sessionMeta: string;
@@ -182,6 +186,12 @@ export function SessionRunnerV2({
   photosEnabled?: boolean;
   /** Contexte transmis à l'analyse Claude d'une photo ajoutée en fin de séance. */
   analysisContext?: PhotoAnalysisContext;
+  /** ECM (défaut) = chrono par bloc inchangé. Les 3 autres kinds masquent le
+   * chrono par bloc — le chrono général du bandeau du haut suffit (ou aucun
+   * chrono pour "repos") — au profit d'une simple checklist par bloc. */
+  sessionKind?: SessionKind;
+  /** Récupération active seulement : durée par défaut (min) du chrono général, ajustable. */
+  recuperationDefaultMinutes?: number;
 }) {
   const router = useRouter();
   const storageKey = `elc_session_${date}`;
@@ -218,6 +228,10 @@ export function SessionRunnerV2({
 
   const [blocks, setBlocks] = useState<BlocState[]>(makeInitial);
   const [sessionStartedAt, setSessionStartedAt] = useState<number>(() => Date.now());
+  // Récupération active seulement : objectif de durée du chrono général,
+  // ajustable par [−]/[+] avant/pendant la séance — purement indicatif, ne
+  // gate rien (le chrono général reste l'écoulé réel, sessionStartedAt→now).
+  const [recupTargetSec, setRecupTargetSec] = useState<number>(() => (recuperationDefaultMinutes ?? 30) * 60);
   const [now, setNow] = useState<number>(() => Date.now());
   const [restored, setRestored] = useState(false);
   const [sessionDone, setSessionDone] = useState(false);
@@ -479,15 +493,13 @@ export function SessionRunnerV2({
       restTenRef.current = true;
       speakEn("Ten seconds!");
     }
+    // Bips 3 · 2 · 1 classiques — l'accent (soundCountAccent) reste réservé au
+    // départ réel (T=0, branche remaining <= 0 ci-dessus) pour ne pas tomber
+    // une seconde trop tôt, comme pour le décompte de départ de bloc.
     if (remaining <= 3 && restTickRef.current !== remaining) {
       restTickRef.current = remaining;
-      if (remaining === 1) {
-        soundCountAccent();
-        vibrate([100]);
-      } else {
-        soundCount();
-        vibrate([60]);
-      }
+      soundCount();
+      vibrate([60]);
     }
   }, [now, restTimer]);
 
@@ -799,6 +811,7 @@ export function SessionRunnerV2({
           now={now}
           onSkip={skipRestTimer}
           onAddTime={() => addRestTime(30)}
+          onStep={(sec) => addRestTime(sec)}
         />
       )}
       <div className={styles.topbar}>
@@ -843,6 +856,31 @@ export function SessionRunnerV2({
           </label>
         </div>
 
+        {sessionKind === "recuperationActive" && (
+          <div className={styles.timerZone}>
+            <DurationAdjust
+              label="Objectif de durée"
+              seconds={recupTargetSec}
+              step={5}
+              min={5}
+              max={7200}
+              accent="#22C55E"
+              onChange={setRecupTargetSec}
+            />
+            <div className={styles.blocProgress}>
+              <div className={styles.blocProgressLabel}>
+                {fmtMS(globalSec)} / {fmtMS(recupTargetSec)}
+              </div>
+              <div className={styles.blocProgressTrack}>
+                <div
+                  className={styles.blocProgressFill}
+                  style={{ width: `${recupTargetSec > 0 ? Math.min(100, (globalSec / recupTargetSec) * 100) : 0}%` }}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
         <div>
           {blockData.map((b, i) => (
             <BlocCard
@@ -856,6 +894,7 @@ export function SessionRunnerV2({
               state={blocks[i]}
               now={now}
               lastResults={lastResults}
+              sessionKind={sessionKind}
               onToggle={() => toggleOpen(i)}
               onChangeFormat={(fmt) => changeFormat(i, fmt)}
               onPatch={(patch) => patchBloc(i, patch)}
@@ -923,6 +962,7 @@ function BlocCard({
   state,
   now,
   lastResults,
+  sessionKind,
   onToggle,
   onChangeFormat,
   onPatch,
@@ -946,6 +986,7 @@ function BlocCard({
   state: BlocState;
   now: number;
   lastResults: Record<string, LastResult>;
+  sessionKind: SessionKind;
   onToggle: () => void;
   onChangeFormat: (fmt: RuntimeFormat) => void;
   onPatch: (patch: Partial<BlocState>) => void;
@@ -984,6 +1025,7 @@ function BlocCard({
           index={index}
           state={state}
           now={now}
+          sessionKind={sessionKind}
           onChangeFormat={onChangeFormat}
           onPatch={onPatch}
           onStart={onStart}
@@ -1271,6 +1313,7 @@ function TimerZone({
   index,
   state: t,
   now,
+  sessionKind,
   onChangeFormat,
   onPatch,
   onStart,
@@ -1284,6 +1327,7 @@ function TimerZone({
   index: number;
   state: BlocState;
   now: number;
+  sessionKind: SessionKind;
   onChangeFormat: (fmt: RuntimeFormat) => void;
   onPatch: (patch: Partial<BlocState>) => void;
   onStart: () => void;
@@ -1294,6 +1338,29 @@ function TimerZone({
   onAddRound: () => void;
   onOpenFullscreen: () => void;
 }) {
+  // Hors ECM (sport libre, repos, récupération active) : pas de chrono par
+  // bloc — "repos" n'a aucun chrono, les deux autres s'appuient sur le chrono
+  // général déjà affiché en permanence (bandeau du haut / carte dédiée) —
+  // voir SessionRunnerV2. Juste la checklist du bloc (rendue par BlocCard) et
+  // un bouton pour le marquer fait.
+  if (sessionKind !== "ecm") {
+    return (
+      <div className={styles.timerZone}>
+        <div className={styles.timerControls}>
+          {t.done ? (
+            <button className={cx(styles.tcBtn, styles.tcReset)} style={{ flex: "none", width: "100%" }} onClick={onReset}>
+              ↺ Refaire
+            </button>
+          ) : (
+            <button className={cx(styles.tcBtn, styles.tcDone)} style={{ flex: "none", width: "100%" }} onClick={onDone}>
+              ✓ Terminer
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   const fmt = t.format;
   const elapsed = elapsedSec(t, now);
   const countdown = t.countdownEndsAt ? Math.max(0, Math.ceil((t.countdownEndsAt - now) / 1000)) : null;
@@ -1652,19 +1719,30 @@ function RestTimer({
   now,
   onSkip,
   onAddTime,
+  onStep,
 }: {
   endsAt: number;
   totalSec: number;
   now: number;
   onSkip: () => void;
   onAddTime: () => void;
+  /** Ajustement fin ±5s, boutons de part et d'autre du chiffre. */
+  onStep: (deltaSec: number) => void;
 }) {
   const remaining = Math.max(0, Math.ceil((endsAt - now) / 1000));
 
   return (
     <div className={styles.restRoot}>
       <div className={styles.restLabel}>REPOS</div>
-      <div className={styles.restTime}>{fmtMS(remaining)}</div>
+      <div className={styles.durAdjustRow}>
+        <button type="button" className={styles.durAdjustBtn} onClick={() => onStep(-5)} aria-label="Diminuer le repos">
+          −
+        </button>
+        <div className={styles.restTime}>{fmtMS(remaining)}</div>
+        <button type="button" className={styles.durAdjustBtn} onClick={() => onStep(5)} aria-label="Augmenter le repos">
+          +
+        </button>
+      </div>
       <div className={styles.restBarWrap}>
         <div className={styles.restBar} style={{ width: `${totalSec > 0 ? ((totalSec - remaining) / totalSec) * 100 : 0}%` }} />
       </div>

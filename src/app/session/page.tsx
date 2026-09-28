@@ -8,6 +8,7 @@ import { adaptDayForInjuries, detectInjuryAreas, reduceVolume } from "@/lib/sess
 import { toDisplayBlocks, defaultRuntimeFormat, defaultDurationMinutes } from "@/lib/session-format";
 import { minutesToHM } from "../dashboard/dashboard-helpers";
 import { buildAdviceSession, type StoredAdvice } from "@/lib/advice-session";
+import { isReposSubtype, isRecupSubtype, RECUP_DEFAULT_MINUTES } from "@/lib/seance-kinds";
 import { buildLastResults } from "@/lib/last-results";
 import { blobEnabled } from "@/lib/blob";
 import type { HistoriqueSession } from "@/app/api/extract-photo-data/route";
@@ -64,10 +65,19 @@ export default async function SessionPage({
 
   const output = dbOutput?.output as { generatedDay?: Day; mode?: string; advice?: StoredAdvice } | null;
 
-  // Jour hors ECM (sport libre) ou repos : la séance est la routine en 3 blocs
-  // générée au check-in — même moteur de chrono, sans variante allégée.
+  // Jour hors ECM (sport libre), repos ou récupération active : la séance est
+  // la routine en 3 blocs générée au check-in. Le comportement de chrono
+  // diffère du parcours ECM (voir sessionKind, thread jusqu'à SessionRunnerV2) :
+  // repos → pas de chrono du tout, sport hors ECM/récup → un seul chrono général
+  // (déjà affiché en permanence dans le bandeau du haut) au lieu d'un chrono par bloc.
   if (output?.mode === "advice" && output.advice) {
-    const advice = buildAdviceSession(todayCheckin?.seance ?? null, output.advice);
+    const seance = todayCheckin?.seance ?? null;
+    const advice = buildAdviceSession(seance, output.advice);
+    const sessionKind: "sportHorsEcm" | "repos" | "recuperationActive" = isReposSubtype(seance)
+      ? "repos"
+      : isRecupSubtype(seance)
+        ? "recuperationActive"
+        : "sportHorsEcm";
     return (
       <div className={sessionFontVariables}>
         <SessionRunnerV2
@@ -81,6 +91,8 @@ export default async function SessionPage({
           initialPhotos={todaySession?.photos ?? []}
           photosEnabled={blobEnabled}
           analysisContext={{ sport, prenom, poidsJour, historiqueRecent }}
+          sessionKind={sessionKind}
+          recuperationDefaultMinutes={seance ? RECUP_DEFAULT_MINUTES[seance] : undefined}
         />
       </div>
     );
