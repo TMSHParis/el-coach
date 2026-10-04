@@ -4,12 +4,24 @@ import { dateKey } from "@/lib/date-key";
 import { BackHomeButton } from "@/components/back-home-button";
 import { ecmFontVariables } from "@/app/signup/ecm-fonts";
 import type { EcmScore } from "@/lib/coaching-adaptatif-mock";
+import type { Day } from "@/lib/programming";
 import Link from "next/link";
-import { ProgressCharts, MovementChart, type WeightPoint, type ScorePoint, type MovementPoint } from "./progress-charts";
+import { isRestLikeSeance } from "@/lib/seance-kinds";
 import { feelingBadge } from "@/lib/session-feeling";
 import type { SessionBlocResult } from "../session/actions";
+import { MovementChart, type TimelineDay } from "./progress-charts";
+import { ProgressTabs, type SessionCard, type ProgramCard, type VolumeStat, type Badge, type WeekRow } from "./progress-tabs";
+import styles from "./progress.module.css";
 
 export const metadata = { title: "Ma progression — EL COACH METHOD" };
+
+const SESSIONS_PAGE_SIZE = 10;
+const BADGE_THRESHOLDS = [
+  { threshold: 7, icon: "🥉" },
+  { threshold: 30, icon: "🥈" },
+  { threshold: 100, icon: "🥇" },
+  { threshold: 365, icon: "🏆" },
+];
 
 function daysAgo(n: number): string {
   const d = new Date();
@@ -47,26 +59,68 @@ function computeStreaks(sortedDates: string[]): { current: number; best: number 
   return { current, best };
 }
 
-const VOLUME_FOCUS_LABELS: Record<string, string> = { upper: "Upper", lower: "Lower", full: "Full" };
+function buildBadges(best: number): { badges: Badge[]; nextThreshold: number | null } {
+  const nextThreshold = BADGE_THRESHOLDS.find((b) => best < b.threshold)?.threshold ?? null;
+  const badges: Badge[] = BADGE_THRESHOLDS.map((b) => ({
+    threshold: b.threshold,
+    icon: b.icon,
+    label: `${b.threshold} jours`,
+    unlocked: best >= b.threshold,
+    current: b.threshold === nextThreshold,
+  }));
+  return { badges, nextThreshold };
+}
 
-/** Titres de section — même traitement que le dashboard (Bebas + trait d'accent). */
-const sectionTitleStyle: React.CSSProperties = {
-  fontFamily: "var(--font-bebas, sans-serif)",
-  fontSize: 22,
-  lineHeight: 1,
-  letterSpacing: 4,
-  textTransform: "uppercase",
-  color: "#fff",
-  margin: "8px 0 14px",
-  paddingBottom: 8,
-  borderBottom: "2px solid #E8FF00",
-};
+/** Lundi de la semaine calendaire contenant `d`. */
+function mondayOf(d: Date): Date {
+  const day = (d.getDay() + 6) % 7; // 0 = lundi
+  const r = new Date(d);
+  r.setDate(d.getDate() - day);
+  r.setHours(0, 0, 0, 0);
+  return r;
+}
+
+/** Historique des 4 dernières semaines pleinement écoulées — seuil 6 check-ins/7 (doc F.5.d). */
+function buildWeeks(checkinDates: string[]): WeekRow[] {
+  const thisMonday = mondayOf(new Date());
+  const weeks: WeekRow[] = [];
+  for (let w = 1; w <= 4; w++) {
+    const start = new Date(thisMonday);
+    start.setDate(thisMonday.getDate() - w * 7);
+    const count = checkinDates.filter((d) => {
+      const diff = Math.round((new Date(d).getTime() - start.getTime()) / 86_400_000);
+      return diff >= 0 && diff < 7;
+    }).length;
+    weeks.push({
+      label: `Semaine du ${new Date(start).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}`,
+      sub: `${count} check-in${count > 1 ? "s" : ""} sur 7`,
+      status: count >= 6 ? "ok" : "partial",
+    });
+  }
+  return weeks.reverse();
+}
+
+/** Timeline 30 jours — classification par jour (doc F.5.b). */
+function buildTimeline(checkinsByDate: Map<string, string | null>): TimelineDay[] {
+  const today = dateKey(new Date());
+  const out: TimelineDay[] = [];
+  for (let i = 29; i >= 0; i--) {
+    const date = daysAgo(i);
+    const seance = checkinsByDate.get(date);
+    const status: TimelineDay["status"] =
+      date > today ? "future" : seance !== undefined ? (isRestLikeSeance(seance) ? "rest" : "done") : "miss";
+    out.push({ date, status });
+  }
+  return out;
+}
+
+const VOLUME_FOCUS_LABELS: Record<string, string> = { upper: "Upper", lower: "Lower", full: "Full" };
 
 /** Nombre de séances et meilleure charge par focus Volume Block. */
 function buildVolumeStats(
   checkins: { date: string; volumeBlockFocus: string | null }[],
   sessions: { date: string; bestResult: unknown }[],
-): { focus: string; label: string; seances: number; meilleureCharge: number | null }[] {
+): VolumeStat[] {
   const byDate = new Map(sessions.map((s) => [s.date, s.bestResult as { charge?: number } | null]));
   return Object.entries(VOLUME_FOCUS_LABELS).map(([focus, label]) => {
     const dates = checkins.filter((c) => c.volumeBlockFocus === focus).map((c) => c.date);
@@ -83,7 +137,7 @@ function buildVolumeStats(
 }
 
 /** Meilleure charge par date pour un mouvement précis (nom exact tel qu'enregistré sur /session). */
-function buildMovementHistory(sessions: { date: string; data: unknown }[], movement: string): MovementPoint[] {
+function buildMovementHistory(sessions: { date: string; data: unknown }[], movement: string) {
   return sessions
     .map((s) => {
       const blocs = (s.data as { blocs?: SessionBlocResult[] } | null)?.blocs ?? [];
@@ -94,15 +148,25 @@ function buildMovementHistory(sessions: { date: string; data: unknown }[], movem
         .sort((a, b) => b - a)[0];
       return top !== undefined ? { date: s.date, charge: top } : null;
     })
-    .filter((p): p is MovementPoint => p !== null);
+    .filter((p): p is { date: string; charge: number } => p !== null);
+}
+
+function sessionTypeLabel(seance: string | null): string {
+  if (!seance) return "Séance";
+  return seance.replace(/^[^\p{L}\p{N}]+/u, "").trim() || seance;
+}
+
+function sessionDateLabel(date: string): string {
+  const [y, m, d] = date.split("-").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString("fr-FR", { day: "numeric", month: "long" });
 }
 
 export default async function ProgressPage({
   searchParams,
 }: {
-  searchParams: Promise<{ movement?: string }>;
+  searchParams: Promise<{ movement?: string; tab?: string; date?: string; sessionsLimit?: string }>;
 }) {
-  const { movement } = await searchParams;
+  const { movement, tab, date: expandDate, sessionsLimit } = await searchParams;
   const userId = await getUserId();
   if (!userId) {
     return (
@@ -114,7 +178,10 @@ export default async function ProgressPage({
   }
 
   const since30 = daysAgo(30);
-  const [checkins30, outputs30, allCheckinDates, sessionsCompleted, checkinsTotal] = await Promise.all([
+  const limit = Math.min(200, Math.max(SESSIONS_PAGE_SIZE, Number(sessionsLimit) || SESSIONS_PAGE_SIZE));
+
+  const [profile, checkins30, outputs30, allCheckins, sessionsCompleted, checkinsTotal] = await Promise.all([
+    prisma.profile.findUnique({ where: { userId }, select: { programme: true, programmes: true } }),
     prisma.checkin.findMany({
       where: { userId, date: { gte: since30 }, poids: { not: null } },
       select: { date: true, poids: true },
@@ -125,17 +192,47 @@ export default async function ProgressPage({
       select: { date: true, output: true },
       orderBy: { date: "asc" },
     }),
-    prisma.checkin.findMany({ where: { userId }, select: { date: true }, orderBy: { date: "asc" } }),
+    // Toutes les séances (date + seance) : streaks, timeline, historique de semaines, programmes.
+    prisma.checkin.findMany({ where: { userId }, select: { date: true, seance: true }, orderBy: { date: "asc" } }),
     prisma.session.count({ where: { userId, completed: true } }),
     prisma.checkin.count({ where: { userId } }),
   ]);
 
-  // Dernières séances terminées — ressenti, calories et photos du compte rendu.
-  const recentSessions = await prisma.session.findMany({
-    where: { userId, completed: true },
-    select: { date: true, sessionFeeling: true, sessionNote: true, caloriesBrulees: true, photos: true },
-    orderBy: { date: "desc" },
-    take: 8,
+  const programmes = profile
+    ? profile.programmes.length > 0
+      ? profile.programmes
+      : [profile.programme].filter((p): p is string => Boolean(p))
+    : [];
+
+  // Dernières séances terminées (paginées) — ressenti, calories, FC et note.
+  const [recentSessionsRaw, sessionsTotalCount] = await Promise.all([
+    prisma.session.findMany({
+      where: { userId, completed: true },
+      select: { date: true, sessionFeeling: true, sessionNote: true, caloriesBrulees: true, durationSec: true, photoAnalysis: true },
+      orderBy: { date: "desc" },
+      take: limit,
+    }),
+    prisma.session.count({ where: { userId, completed: true } }),
+  ]);
+  const sessionDates = recentSessionsRaw.map((s) => s.date);
+  const sessionCheckins = sessionDates.length
+    ? await prisma.checkin.findMany({ where: { userId, date: { in: sessionDates } }, select: { date: true, seance: true } })
+    : [];
+  const seanceByDate = new Map(sessionCheckins.map((c) => [c.date, c.seance]));
+
+  const sessions: SessionCard[] = recentSessionsRaw.map((s) => {
+    const analysis = s.photoAnalysis as { bpmMoyen?: number | null; heartRateZones?: { zone: number; minutes: number }[] | null } | null;
+    return {
+      date: s.date,
+      dateLabel: sessionDateLabel(s.date),
+      typeLabel: sessionTypeLabel(seanceByDate.get(s.date) ?? null),
+      feelingLabel: feelingBadge(s.sessionFeeling),
+      note: s.sessionNote,
+      durationSec: s.durationSec,
+      calories: s.caloriesBrulees,
+      bpmMoyen: analysis?.bpmMoyen ?? null,
+      heartRateZones: analysis?.heartRateZones ?? null,
+    };
   });
 
   // Volume Block : progression suivie séparément pour chaque focus (haut, bas, complet).
@@ -152,18 +249,45 @@ export default async function ProgressPage({
     : [];
   const volumeStats = buildVolumeStats(volumeCheckins, volumeSessions);
 
-  const weightData: WeightPoint[] = checkins30
-    .filter((c) => c.poids && Number(c.poids) > 0)
-    .map((c) => ({ date: c.date, kg: Number(c.poids) }));
+  // Programmes actifs : séances effectuées + dernier WOD, par programme.
+  const programDates = allCheckins.filter((c) => c.seance && programmes.includes(c.seance));
+  const programSessions = programDates.length
+    ? await prisma.session.findMany({
+        where: { userId, completed: true, date: { in: programDates.map((c) => c.date) } },
+        select: { date: true },
+        orderBy: { date: "desc" },
+      })
+    : [];
+  const completedProgramDates = new Set(programSessions.map((s) => s.date));
+  const programs: ProgramCard[] = await Promise.all(
+    programmes.map(async (label) => {
+      const dates = programDates.filter((c) => c.seance === label && completedProgramDates.has(c.date)).map((c) => c.date);
+      const lastDate = dates.sort().at(-1) ?? null;
+      let dernierWod: string | null = null;
+      if (lastDate) {
+        const out = await prisma.dashboardOutput.findUnique({ where: { userId_date: { userId, date: lastDate } }, select: { output: true } });
+        dernierWod = (out?.output as { generatedDay?: Day } | null)?.generatedDay?.focus ?? null;
+      }
+      return { label, seances: dates.length, dernierWod };
+    }),
+  );
 
-  const scoreData: ScorePoint[] = outputs30
+  const weightData = checkins30
+    .filter((c) => c.poids && Number(c.poids) > 0)
+    .map((c) => ({ date: c.date, value: Number(c.poids) }));
+
+  const scoreData = outputs30
     .map((o) => {
       const ecm = (o.output as { ecm?: EcmScore } | null)?.ecm;
-      return ecm ? { date: o.date, score: ecm.numeric } : null;
+      return ecm ? { date: o.date, value: ecm.numeric } : null;
     })
-    .filter((p): p is ScorePoint => p !== null);
+    .filter((p): p is { date: string; value: number } => p !== null);
 
-  const { current, best } = computeStreaks(allCheckinDates.map((c) => c.date));
+  const { current, best } = computeStreaks(allCheckins.map((c) => c.date));
+  const { badges, nextThreshold } = buildBadges(best);
+  const weeks = buildWeeks(allCheckins.map((c) => c.date));
+  const checkinsByDate = new Map(allCheckins.map((c) => [c.date, c.seance]));
+  const timeline = buildTimeline(checkinsByDate);
 
   const movementData = movement
     ? buildMovementHistory(
@@ -177,13 +301,16 @@ export default async function ProgressPage({
       )
     : null;
 
+  const validTab = tab === "sessions" || tab === "programs" || tab === "streak" ? tab : "overview";
+
   return (
-    <div className={ecmFontVariables} style={{ background: "#080808", minHeight: "100vh", color: "#e0e0e0" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "20px 20px 0" }}>
-        <BackHomeButton />
-        <div style={{ fontFamily: "var(--font-bebas, sans-serif)", fontSize: 28, letterSpacing: 3, color: "#fff" }}>
-          Ma progression
+    <div className={`${ecmFontVariables} ${styles.root}`}>
+      <div className={styles.hero}>
+        <div style={{ marginBottom: 14 }}>
+          <BackHomeButton />
         </div>
+        <div className={styles.kickerTop}>Progression</div>
+        <div className={styles.title}>MA PROGRESSION</div>
       </div>
 
       {movement && movementData && (
@@ -197,74 +324,22 @@ export default async function ProgressPage({
         </div>
       )}
 
-      <ProgressCharts
+      <ProgressTabs
+        defaultTab={validTab}
+        expandDate={expandDate}
         weightData={weightData}
         scoreData={scoreData}
         stats={{ checkinsTotal, sessionsCompleted, currentStreak: current, bestStreak: best }}
+        sessions={sessions}
+        sessionsHasMore={sessions.length < sessionsTotalCount && sessions.length >= limit}
+        sessionsMoreHref={`/progress?tab=sessions&sessionsLimit=${limit + SESSIONS_PAGE_SIZE}`}
+        programs={programs}
+        volumeStats={volumeStats}
+        timeline={timeline}
+        streak={{ current, best, nextThreshold }}
+        badges={badges}
+        weeks={weeks}
       />
-
-      {recentSessions.length > 0 && (
-        <div style={{ maxWidth: 480, margin: "0 auto", padding: "0 20px 32px" }}>
-          <div style={sectionTitleStyle}>Dernières séances</div>
-          {recentSessions.map((s) => {
-            const badge = feelingBadge(s.sessionFeeling);
-            return (
-              <div
-                key={s.date}
-                style={{ background: "#111", border: "1px solid #1f1f1f", borderRadius: 8, padding: "12px 14px", marginBottom: 8 }}
-              >
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "baseline" }}>
-                  <span style={{ color: "#fff", fontSize: 13, fontWeight: 600 }}>{s.date}</span>
-                  <span style={{ fontSize: 12, color: "#E8FF00" }}>
-                    {[badge, s.caloriesBrulees ? `🔥 ${s.caloriesBrulees} kcal` : null].filter(Boolean).join(" · ") || "—"}
-                  </span>
-                </div>
-                {s.sessionNote && (
-                  <div style={{ fontSize: 12, color: "#8a8a8a", marginTop: 6, lineHeight: 1.5 }}>{s.sessionNote}</div>
-                )}
-                {s.photos.length > 0 && (
-                  <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-                    {s.photos.map((url) => (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        key={url}
-                        src={url}
-                        alt={`Séance du ${s.date}`}
-                        style={{ width: 76, height: 76, objectFit: "cover", borderRadius: 6 }}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {volumeStats.some((v) => v.seances > 0) && (
-        <div style={{ maxWidth: 480, margin: "0 auto", padding: "0 20px 40px" }}>
-          <div style={sectionTitleStyle}>Volume Block par focus</div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
-            {volumeStats.map((v) => (
-              <div
-                key={v.focus}
-                style={{ background: "#111", border: "1px solid #1f1f1f", borderRadius: 4, padding: "12px 10px" }}
-              >
-                <div style={{ fontSize: 10, letterSpacing: 2, textTransform: "uppercase", color: "#8a8a8a" }}>
-                  {v.label}
-                </div>
-                <div style={{ fontFamily: "var(--font-bebas, sans-serif)", fontSize: 26, color: "#fff", lineHeight: 1.2 }}>
-                  {v.seances}
-                </div>
-                <div style={{ fontSize: 10, color: "#8a8a8a" }}>séance{v.seances > 1 ? "s" : ""}</div>
-                <div style={{ fontSize: 11, color: "#E8FF00", marginTop: 6 }}>
-                  {v.meilleureCharge ? `${v.meilleureCharge} kg max` : "—"}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

@@ -1,51 +1,41 @@
 "use client";
 
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { AreaChart, Area, BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
+import styles from "./progress.module.css";
 
 export type WeightPoint = { date: string; kg: number };
 export type ScorePoint = { date: string; score: number };
 export type MovementPoint = { date: string; charge: number };
+export type TimelineDay = { date: string; status: "done" | "rest" | "miss" | "future" };
 
-const ACCENT = "#C9A84C";
-const MUTED = "#555";
-const GRID = "#1f1f1f";
+const GOLD = "#C9A84C";
+const MUTED = "#6b6b6b";
+const GREEN = "#5FA97E";
+const RED = "#C9605A";
+const TIMELINE_COLORS: Record<TimelineDay["status"], string> = {
+  done: GOLD,
+  rest: "#5b7590",
+  miss: "#8a4a45",
+  future: "#232323",
+};
+const TIMELINE_LABELS: Record<TimelineDay["status"], string> = {
+  done: "Check-in fait",
+  rest: "Repos prévu",
+  miss: "Manqué",
+  future: "À venir",
+};
 
 function shortDate(d: string): string {
   const [, m, day] = d.split("-");
   return `${day}/${m}`;
 }
 
-function ChartCard({ title, children, empty }: { title: string; children: React.ReactNode; empty: boolean }) {
-  return (
-    <div
-      style={{
-        background: "#111",
-        border: "1px solid #1f1f1f",
-        borderRadius: 14,
-        padding: "16px 16px 8px",
-        marginBottom: 16,
-      }}
-    >
-      <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: 1, color: MUTED, textTransform: "uppercase", marginBottom: 8 }}>
-        {title}
-      </div>
-      {empty ? (
-        <div style={{ height: 180, display: "flex", alignItems: "center", justifyContent: "center", color: MUTED, fontSize: 12 }}>
-          Pas encore assez de données
-        </div>
-      ) : (
-        <div style={{ height: 180 }}>{children}</div>
-      )}
-    </div>
-  );
-}
-
-function ProgressTooltip({ active, payload, label, unit }: { active?: boolean; payload?: Array<{ value: number }>; label?: string; unit: string }) {
+function ChartTooltip({ active, payload, label, unit }: { active?: boolean; payload?: Array<{ value: number }>; label?: string; unit: string }) {
   if (!active || !payload?.length) return null;
   return (
-    <div style={{ background: "#181818", border: "1px solid #2a2a2a", borderRadius: 6, padding: "6px 10px", fontSize: 12 }}>
-      <div style={{ color: MUTED }}>{label ? shortDate(label) : ""}</div>
-      <div style={{ color: "#fff", fontWeight: 700 }}>
+    <div style={{ background: "#000", border: "1px solid #232323", borderRadius: 7, padding: "6px 10px", fontSize: 11 }}>
+      <div style={{ color: MUTED, fontSize: 9, textTransform: "uppercase", letterSpacing: ".4px" }}>{label ? shortDate(label) : ""}</div>
+      <div style={{ color: "#fff", fontWeight: 600, marginTop: 1 }}>
         {payload[0].value}
         {unit}
       </div>
@@ -53,100 +43,124 @@ function ProgressTooltip({ active, payload, label, unit }: { active?: boolean; p
   );
 }
 
-export function ProgressCharts({
-  weightData,
-  scoreData,
-  stats,
-}: {
-  weightData: WeightPoint[];
-  scoreData: ScorePoint[];
-  stats: { checkinsTotal: number; sessionsCompleted: number; currentStreak: number; bestStreak: number };
-}) {
+function TimelineTooltip({ active, payload }: { active?: boolean; payload?: Array<{ payload: TimelineDay }> }) {
+  if (!active || !payload?.length) return null;
+  const d = payload[0].payload;
   return (
-    <div style={{ maxWidth: 560, margin: "0 auto", padding: "20px 20px 60px" }}>
-      <ChartCard title="Évolution du poids · 30 derniers jours" empty={weightData.length < 2}>
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={weightData} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
-            <CartesianGrid stroke={GRID} vertical={false} />
-            <XAxis dataKey="date" tickFormatter={shortDate} stroke={MUTED} tick={{ fontSize: 10 }} minTickGap={24} />
-            <YAxis stroke={MUTED} tick={{ fontSize: 10 }} domain={["auto", "auto"]} width={40} />
-            <Tooltip content={<ProgressTooltip unit=" kg" />} />
-            <Line
-              type="monotone"
-              dataKey="kg"
-              stroke={ACCENT}
-              strokeWidth={2}
-              dot={{ r: 3, fill: ACCENT, strokeWidth: 0 }}
-              activeDot={{ r: 5 }}
-              strokeLinecap="round"
-            />
-          </LineChart>
-        </ResponsiveContainer>
-      </ChartCard>
-
-      <ChartCard title="Score ECM · 30 derniers jours" empty={scoreData.length < 2}>
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={scoreData} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
-            <CartesianGrid stroke={GRID} vertical={false} />
-            <XAxis dataKey="date" tickFormatter={shortDate} stroke={MUTED} tick={{ fontSize: 10 }} minTickGap={24} />
-            <YAxis stroke={MUTED} tick={{ fontSize: 10 }} domain={[0, 100]} width={30} />
-            <Tooltip content={<ProgressTooltip unit="/100" />} />
-            <Line
-              type="monotone"
-              dataKey="score"
-              stroke={ACCENT}
-              strokeWidth={2}
-              dot={{ r: 3, fill: ACCENT, strokeWidth: 0 }}
-              activeDot={{ r: 5 }}
-              strokeLinecap="round"
-            />
-          </LineChart>
-        </ResponsiveContainer>
-      </ChartCard>
-
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 8 }}>
-        <StatTile label="Check-ins complétés" value={stats.checkinsTotal} />
-        <StatTile label="Séances terminées" value={stats.sessionsCompleted} />
-        <StatTile label="Streak actuel" value={stats.currentStreak} suffix=" j" />
-        <StatTile label="Meilleur streak" value={stats.bestStreak} suffix=" j" />
-      </div>
+    <div style={{ background: "#000", border: "1px solid #232323", borderRadius: 7, padding: "6px 10px", fontSize: 11 }}>
+      <div style={{ color: MUTED, fontSize: 9, textTransform: "uppercase", letterSpacing: ".4px" }}>{shortDate(d.date)}</div>
+      <div style={{ color: "#fff", fontWeight: 600, marginTop: 1 }}>{TIMELINE_LABELS[d.status]}</div>
     </div>
+  );
+}
+
+/** Carte graphique "Poids"/"Score ECM" — aire dégradée + delta en en-tête (doc F.2/F.6). */
+export function LineChartCard({
+  title,
+  data,
+  dataKey,
+  unit,
+  betterWhenDown,
+}: {
+  title: string;
+  data: { date: string; value: number }[];
+  dataKey: string;
+  unit: string;
+  /** true = en baisse = positif (poids), false = en hausse = positif (score ECM). */
+  betterWhenDown: boolean;
+}) {
+  const empty = data.length < 2;
+  const current = data[data.length - 1]?.value;
+  const first = data[0]?.value;
+  const delta = empty ? null : Math.round((current - first) * 10) / 10;
+  const improving = delta !== null && (betterWhenDown ? delta < 0 : delta > 0);
+  const gradId = `grad-${dataKey}`;
+
+  return (
+    <div className={styles.card}>
+      <div className={styles.cardHead}>
+        <span className={styles.cardTitle}>{title}</span>
+        <span>
+          {current !== undefined && (
+            <span className={styles.cardValue}>
+              {current}
+              {unit}
+            </span>
+          )}
+          {delta !== null && delta !== 0 && (
+            <span className={`${styles.cardDelta} ${improving ? "down" : "up"}`} style={{ color: improving ? GREEN : RED }}>
+              {delta > 0 ? "+" : ""}
+              {delta}
+              {unit}
+            </span>
+          )}
+        </span>
+      </div>
+      {empty ? (
+        <div className={styles.emptyChart}>Pas encore assez de données</div>
+      ) : (
+        <ResponsiveContainer width="100%" height={90}>
+          <AreaChart data={data} margin={{ top: 4, right: 0, left: 0, bottom: 0 }}>
+            <defs>
+              <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={GOLD} stopOpacity={0.22} />
+                <stop offset="100%" stopColor={GOLD} stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <ReferenceLine y={Math.max(...data.map((d) => d.value))} stroke="#232323" strokeWidth={1} />
+            <ReferenceLine
+              y={(Math.max(...data.map((d) => d.value)) + Math.min(...data.map((d) => d.value))) / 2}
+              stroke="#232323"
+              strokeWidth={1}
+            />
+            <ReferenceLine y={Math.min(...data.map((d) => d.value))} stroke="#232323" strokeWidth={1} />
+            <XAxis dataKey="date" hide />
+            <YAxis hide domain={["auto", "auto"]} />
+            <Tooltip content={<ChartTooltip unit={unit} />} />
+            <Area
+              type="monotone"
+              dataKey="value"
+              stroke={GOLD}
+              strokeWidth={1.8}
+              fill={`url(#${gradId})`}
+              dot={false}
+              activeDot={{ r: 3.5, fill: "#fff", stroke: GOLD, strokeWidth: 2 }}
+            />
+          </AreaChart>
+        </ResponsiveContainer>
+      )}
+    </div>
+  );
+}
+
+/** Timeline 30 jours — barres fines colorées par type de jour (doc F.5.b/F.6). */
+export function TimelineChart({ data }: { data: TimelineDay[] }) {
+  const heights = data.map((d) => ({ ...d, h: d.status === "future" ? 14 : d.status === "done" ? 40 : 26 }));
+  return (
+    <ResponsiveContainer width="100%" height={50}>
+      <BarChart data={heights} margin={{ top: 0, right: 0, left: 0, bottom: 0 }} barGap={2}>
+        <XAxis dataKey="date" hide />
+        <YAxis hide domain={[0, 40]} />
+        <Tooltip content={<TimelineTooltip />} cursor={false} />
+        <Bar dataKey="h" radius={[1, 1, 0, 0]}>
+          {heights.map((d, i) => (
+            <Cell key={i} fill={TIMELINE_COLORS[d.status]} opacity={d.status === "future" ? 0.5 : 1} />
+          ))}
+        </Bar>
+      </BarChart>
+    </ResponsiveContainer>
   );
 }
 
 /** Évolution de la charge d'un mouvement précis — lien "Historique du mouvement" sur le compte rendu. */
 export function MovementChart({ movement, data }: { movement: string; data: MovementPoint[] }) {
   return (
-    <ChartCard title={`${movement} · évolution de la charge`} empty={data.length < 2}>
-      <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={data} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
-          <CartesianGrid stroke={GRID} vertical={false} />
-          <XAxis dataKey="date" tickFormatter={shortDate} stroke={MUTED} tick={{ fontSize: 10 }} minTickGap={24} />
-          <YAxis stroke={MUTED} tick={{ fontSize: 10 }} domain={["auto", "auto"]} width={40} />
-          <Tooltip content={<ProgressTooltip unit=" kg" />} />
-          <Line
-            type="monotone"
-            dataKey="charge"
-            stroke={ACCENT}
-            strokeWidth={2}
-            dot={{ r: 3, fill: ACCENT, strokeWidth: 0 }}
-            activeDot={{ r: 5 }}
-            strokeLinecap="round"
-          />
-        </LineChart>
-      </ResponsiveContainer>
-    </ChartCard>
-  );
-}
-
-function StatTile({ label, value, suffix = "" }: { label: string; value: number; suffix?: string }) {
-  return (
-    <div style={{ background: "#111", border: "1px solid #1f1f1f", borderRadius: 10, padding: "14px 16px" }}>
-      <div style={{ fontSize: 24, fontWeight: 700, color: "#fff" }}>
-        {value}
-        {suffix}
-      </div>
-      <div style={{ fontSize: 11, color: MUTED, marginTop: 2 }}>{label}</div>
-    </div>
+    <LineChartCard
+      title={`${movement} · évolution de la charge`}
+      data={data.map((d) => ({ date: d.date, value: d.charge }))}
+      dataKey="movement"
+      unit=" kg"
+      betterWhenDown={false}
+    />
   );
 }
