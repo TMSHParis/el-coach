@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import type { DisplayBlock } from "@/lib/session-format";
 import type { BlockType } from "@/lib/programming";
 import styles from "./session.module.css";
@@ -176,6 +177,13 @@ function tabataView(b: BlocState, elapsed: number): TabataView {
 
 export type SessionKind = "ecm" | "sportHorsEcm" | "repos" | "recuperationActive";
 
+const SESSION_KIND_ICON: Record<SessionKind, string> = {
+  ecm: "⚡",
+  sportHorsEcm: "🥊",
+  repos: "🛌",
+  recuperationActive: "💤",
+};
+
 export function SessionRunnerV2({
   sessionName,
   sessionMeta,
@@ -267,6 +275,8 @@ export function SessionRunnerV2({
   const [sessionDone, setSessionDone] = useState(false);
   /** Bloc affiché en chrono plein écran (null = liste des mouvements). */
   const [fullscreen, setFullscreen] = useState<number | null>(null);
+  /** Aperçu en lecture seule du déroulé — jamais affiché par défaut (doc G.4). */
+  const [showPreview, setShowPreview] = useState(false);
   const [volume, setVolumeState] = useState(0.8);
   const [photos, setPhotos] = useState<string[]>(initialPhotos);
   /** Chrono de repos entre deux séries — indépendant du chrono du bloc. */
@@ -619,6 +629,18 @@ export function SessionRunnerV2({
     setTimeout(() => blocRefs.current[i]?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
   }, []);
 
+  /** "▷ Démarrer la séance" du header (doc G.4, socle commun) — ouvre le
+   * premier bloc non terminé et, en ECM, lance aussi son chrono. */
+  function startSession() {
+    setShowPreview(false);
+    const idx = blocks.findIndex((b) => !b.done);
+    if (idx === -1) return;
+    openBloc(idx);
+    if (sessionKind === "ecm" && !blocks[idx].running && blocks[idx].accumulatedMs === 0 && !blocks[idx].countdownEndsAt) {
+      startTimer(idx);
+    }
+  }
+
   /** AMRAP : un tap = un round complété (compté en direct, repris dans les résultats). */
   function addAmrapRound(i: number) {
     soundTransition();
@@ -908,8 +930,13 @@ export function SessionRunnerV2({
       <div className={styles.content}>
         <div className={styles.sessHero}>
           <div className={styles.sessLabel}>[ SÉANCE EN COURS ]</div>
-          <div className={styles.sessName}>{sessionName}</div>
-          <div className={styles.sessMeta}>{sessionMeta}</div>
+          <div className={styles.sessTitleRow}>
+            <div className={styles.sessIconBadge}>{SESSION_KIND_ICON[sessionKind]}</div>
+            <div>
+              <div className={styles.sessName}>{sessionName}</div>
+              <div className={styles.sessMeta}>{sessionMeta}</div>
+            </div>
+          </div>
           <label className={styles.volumeRow}>
             <span className={styles.volumeLabel}>🔊 Volume</span>
             <input
@@ -923,23 +950,50 @@ export function SessionRunnerV2({
             />
             <span className={styles.volumeValue}>{Math.round(volume * 100)}%</span>
           </label>
+
+          <div className={styles.ctaRow}>
+            <button type="button" className={styles.ctaPreview} onClick={() => setShowPreview((v) => !v)}>
+              👁 {showPreview ? "FERMER" : "APERÇU"}
+            </button>
+            <button type="button" className={styles.ctaStart} onClick={startSession}>
+              ▷ DÉMARRER LA SÉANCE
+            </button>
+          </div>
+
+          {showPreview && (
+            <div className={styles.previewPanel}>
+              {blockData.map((b, i) => (
+                <div key={`${b.titre}-${i}`} className={styles.previewBlock}>
+                  <div className={styles.previewBlockTitle}>{b.titre}</div>
+                  {b.items.map((it, j) => (
+                    <div key={j} className={styles.previewItem}>
+                      <span>{it.name}</span>
+                      {it.qty && <span>{it.qty}</span>}
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {sessionKind === "recuperationActive" && (
-          <div className={styles.timerZone}>
+          <div className={styles.timerCard}>
+            <div className={styles.timerCardLabel}>Chrono général</div>
+            <div className={styles.timerCardValue}>{fmtMS(globalSec)}</div>
+            <div className={styles.timerCardSub}>
+              Objectif {fmtMS(recupTargetSec)} · {fmtMS(globalSec)} / {fmtMS(recupTargetSec)} écoulé
+            </div>
             <DurationAdjust
               label="Objectif de durée"
               seconds={recupTargetSec}
               step={5}
               min={5}
               max={7200}
-              accent="#22C55E"
+              accent="#C9A84C"
               onChange={setRecupTargetSec}
             />
             <div className={styles.blocProgress}>
-              <div className={styles.blocProgressLabel}>
-                {fmtMS(globalSec)} / {fmtMS(recupTargetSec)}
-              </div>
               <div className={styles.blocProgressTrack}>
                 <div
                   className={styles.blocProgressFill}
@@ -947,6 +1001,13 @@ export function SessionRunnerV2({
                 />
               </div>
             </div>
+          </div>
+        )}
+        {sessionKind === "sportHorsEcm" && (
+          <div className={styles.timerCard}>
+            <div className={styles.timerCardLabel}>Chrono général</div>
+            <div className={styles.timerCardValue}>{fmtMS(globalSec)}</div>
+            <div className={styles.timerCardSub}>Un seul chrono pour toute la séance — pas de chronos intermédiaires</div>
           </div>
         )}
 
@@ -997,6 +1058,11 @@ export function SessionRunnerV2({
             />
           </div>
         )}
+
+        {/* Ajouter une 2e activité du jour (doc G.3/G.4) — disponible depuis l'écran séance aussi. */}
+        <Link href="/session/add" className={styles.addActivityBtn}>
+          <span>+</span> Ajouter une activité
+        </Link>
       </div>
 
       <div className={styles.bottombar}>
@@ -1088,7 +1154,12 @@ function BlocCard({
         </div>
         <div className={styles.blocInfo}>
           <div className={styles.blocTitle}>{block.titre}</div>
-          <div className={cx(styles.blocBadge, styles[`badge${capitalize(block.badgeCls)}`])}>{block.badge}</div>
+          {!isDone &&
+            (["ft", "amrap", "emom", "tabata"].includes(block.badgeCls) ? (
+              <span className={styles.secGoal}>🏆 {block.badge}</span>
+            ) : (
+              <div className={cx(styles.blocBadge, styles[`badge${capitalize(block.badgeCls)}`])}>{block.badge}</div>
+            ))}
         </div>
         <div>{isDone ? <div className={styles.blocCheck}>✓</div> : <div className={styles.blocChevron}>▾</div>}</div>
       </div>
@@ -1122,6 +1193,17 @@ function BlocCard({
 
         <div className={styles.blocItems}>
           {block.items.map((it, j) => {
+            // Conseil/consigne (pas un mouvement à cocher) — lecture seule,
+            // style "points de vigilance" (doc G.4.1 — items noVideo uniquement,
+            // jamais posé sur un vrai exercice).
+            if (it.noVideo) {
+              return (
+                <div key={`${it.movementName}-${j}`} className={styles.vigilRow}>
+                  <div className={styles.vigilDot} />
+                  <div className={styles.vigilText}>{it.name}</div>
+                </div>
+              );
+            }
             const checked = state.checked[j] ?? false;
             return (
               <div key={`${it.movementName}-${j}`} className={cx(checked && styles.itemChecked)}>
