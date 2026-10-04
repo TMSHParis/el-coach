@@ -82,9 +82,29 @@
 
 .fw { padding: 0 18px; max-width: 440px; margin: 0 auto; }
 
-/* Kickers de section (01 · Récupération nocturne, 02 · État corporel...) */
-.kicker { font-size: 10px; letter-spacing: 3px; text-transform: uppercase; color: #3a3a3a; font-weight: 700; margin: 30px 0 4px; }
+/* Kickers de section (01 · Récupération nocturne, 02 · État corporel...) —
+ * badge plein or (pas un numéro gris fondu), titre blanc, ligne dégradé en
+ * dessous pour détacher la section du contenu qui suit (doc C.1). */
+.kicker { margin: 30px 0 14px; }
 .kicker:first-child { margin-top: 6px; }
+.kickerRow { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.kickerBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 6px;
+  background: var(--g);
+  color: #1a1200;
+  font-family: var(--font-bebas);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .5px;
+}
+.kickerTitle { font-size: 13px; letter-spacing: 2px; text-transform: uppercase; color: var(--w); font-weight: 700; }
+.kickerLine { height: 2px; border-radius: 1px; background: linear-gradient(90deg, var(--g), transparent); }
 
 .sl { font-family: var(--font-bebas); font-size: 13px; letter-spacing: 4px; text-transform: uppercase; margin: 10px 0 8px; display: flex; align-items: center; gap: 8px; }
 .sl::after { content: ''; flex: 1; height: 1px; }

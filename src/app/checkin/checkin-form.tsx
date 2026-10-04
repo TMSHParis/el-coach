@@ -458,7 +458,7 @@ export function CheckinForm({
       </div>
 
       <div className={styles.fw}>
-        <div className={styles.kicker}>01 · Récupération nocturne</div>
+        <SectionKicker number="01" title="Récupération nocturne" />
         <div className={cx(styles.sl, isH ? styles.blue : styles.pink)}>😴 Sommeil</div>
         <div className={cx(styles.qc, (d.sleepPhoto || d.sleepDuree) && (isH ? styles.onH : styles.onF))}>
           <div className={styles.ql}>
@@ -519,7 +519,7 @@ export function CheckinForm({
           <OptRow gender={g} options={RECUP_PERCUE_OPTIONS} value={d.recuperationPercue} onChange={(v) => set({ recuperationPercue: v })} />
         </div>
 
-        <div className={styles.kicker}>02 · État corporel</div>
+        <SectionKicker number="02" title="État corporel" />
         <div className={cx(styles.sl, isH ? styles.blue : styles.pink)}>🌅 Corps au réveil</div>
         <div className={cx(styles.qc, styles.opt, d.poids && (isH ? styles.onH : styles.onF))}>
           <div className={styles.ql}>
@@ -599,7 +599,7 @@ export function CheckinForm({
           </div>
         )}
 
-        <div className={styles.kicker}>03 · Vitalité</div>
+        <SectionKicker number="03" title="Vitalité" />
         <div className={cx(styles.sl, isH ? styles.blue : styles.pink)}>⚡ Énergie & motivation</div>
         <div className={cx(styles.qc, Boolean(d.energie) && (isH ? styles.onH : styles.onF))}>
           <div className={styles.ql}>
@@ -663,7 +663,7 @@ export function CheckinForm({
           <OptRow gender={g} options={HYDRATATION_OPTIONS} value={d.hydratation} onChange={(v) => set({ hydratation: v })} />
         </div>
 
-        <div className={styles.kicker}>04 · Programmation du jour</div>
+        <SectionKicker number="04" title="Programmation du jour" />
         <div className={cx(styles.sl, styles.gold)}>🏋️ Ton activité du jour</div>
         <div className={cx(styles.qc, d.seance && (isH ? styles.onH : styles.onF))}>
           {habits.length > 0 && (
@@ -818,7 +818,7 @@ export function CheckinForm({
           </div>
         )}
 
-        <div className={styles.kicker}>05 · Observations</div>
+        <SectionKicker number="05" title="Observations" />
         <div className={cx(styles.sl, isH ? styles.blue : styles.pink)}>📝 Notes</div>
         <div className={cx(styles.qc, styles.opt)}>
           <div className={styles.ql}>
@@ -827,7 +827,7 @@ export function CheckinForm({
           <input type="text" placeholder="Ressenti particulier, événement..." value={d.notes} onChange={(e) => set({ notes: e.target.value })} />
         </div>
 
-        <div className={styles.kicker}>06 · Validation</div>
+        <SectionKicker number="06" title="Validation" />
         <div className={styles.progressWrapInline}>
           <div className={styles.progressLabels}>
             <span>{filledFields} / {progressTotal} sections</span>
@@ -852,6 +852,21 @@ export function CheckinForm({
           ⚡ VALIDER MON CHECK-IN
         </button>
       </div>
+    </div>
+  );
+}
+
+/** Titre de section — numéro en badge plein or, titre blanc, ligne dégradé
+ * en dessous pour détacher la section du contenu qui suit (doc C.1 : le
+ * numéro et le titre étaient auparavant en gris quasi invisible). */
+function SectionKicker({ number, title }: { number: string; title: string }) {
+  return (
+    <div className={styles.kicker}>
+      <div className={styles.kickerRow}>
+        <span className={styles.kickerBadge}>{number}</span>
+        <span className={styles.kickerTitle}>{title}</span>
+      </div>
+      <div className={styles.kickerLine} />
     </div>
   );
 }
