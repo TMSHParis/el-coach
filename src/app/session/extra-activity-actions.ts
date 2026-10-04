@@ -11,7 +11,16 @@ import { prisma } from "@/lib/prisma";
 import { todayKey } from "@/lib/date-key";
 import { isSessionFeeling } from "@/lib/session-feeling";
 import { MAX_SESSION_PHOTOS } from "@/lib/session-media";
+import { generateSessionCongrats } from "@/lib/ecm-engine";
+import { stripLeadingEmoji } from "@/lib/advice-session";
 import type { SessionResultPayload, SessionRecapPatch, BestResult, SessionBlocResult } from "./actions";
+
+function formatDurationLabel(totalSec: number): string {
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  if (h > 0) return `${h}H${String(m).padStart(2, "0")}`;
+  return `${m} MIN`;
+}
 
 function computeBestResult(blocs: SessionBlocResult[]): BestResult {
   let best: BestResult = null;
@@ -25,13 +34,20 @@ function computeBestResult(blocs: SessionBlocResult[]): BestResult {
   return best;
 }
 
-/** Crée la 2e activité du jour — seule la séance choisie est demandée, pas
- * l'état du jour (déjà capté par le check-in du matin). */
-export async function addExtraActivity(seance: string): Promise<{ ok: true; id: string } | { ok: false }> {
+/** Crée la 2e activité du jour — seule la séance (+ heure réelle) est
+ * demandée, pas l'état du jour (déjà capté par le check-in du matin).
+ * `heureReelle` ("HH:MM") détermine la position du bloc sur le dashboard. */
+export async function addExtraActivity(
+  seance: string,
+  heureReelle?: string,
+): Promise<{ ok: true; id: string } | { ok: false }> {
   const userId = await getUserId();
   if (!userId || !seance.trim()) return { ok: false };
+  const cleanHeure = heureReelle && /^\d{2}:\d{2}$/.test(heureReelle) ? heureReelle : null;
   try {
-    const row = await prisma.extraActivity.create({ data: { userId, date: todayKey(), seance: seance.trim() } });
+    const row = await prisma.extraActivity.create({
+      data: { userId, date: todayKey(), seance: seance.trim(), heureReelle: cleanHeure },
+    });
     return { ok: true, id: row.id };
   } catch (err) {
     console.error("addExtraActivity: échec de la création:", err);
@@ -69,10 +85,43 @@ export async function saveExtraActivityResult(
         bestResult: computeBestResult(payload.blocs) as Prisma.InputJsonValue,
       },
     });
-    return { ok: true, message: null };
   } catch (err) {
     console.error("saveExtraActivityResult: échec de l'enregistrement:", err);
     return { ok: false };
+  }
+
+  // Message de félicitations — même traitement que la séance principale
+  // (doc G.3 : pas de bloc dégradé). Best effort : une erreur ici n'empêche
+  // jamais la séance d'être enregistrée.
+  try {
+    const [profile, checkin, recentOutputs] = await Promise.all([
+      prisma.profile.findUnique({ where: { userId } }),
+      prisma.checkin.findUnique({ where: { userId_date: { userId, date: existing.date } } }),
+      prisma.dashboardOutput.findMany({
+        where: { userId, date: { lt: existing.date } },
+        orderBy: { date: "desc" },
+        take: 3,
+        select: { date: true, output: true },
+      }),
+    ]);
+    if (!profile || !checkin) return { ok: true, message: null };
+
+    const recentTags = recentOutputs.map((o) => ({
+      date: o.date,
+      tags: ((o.output as { coachTags?: string[] } | null)?.coachTags ?? []) as string[],
+    }));
+    const { message } = await generateSessionCongrats({
+      profile,
+      checkin,
+      sportLabel: stripLeadingEmoji(existing.seance),
+      durationLabel: formatDurationLabel(payload.durationSec),
+      recentTags,
+    });
+    await prisma.extraActivity.update({ where: { id }, data: { coachMessage: message } });
+    return { ok: true, message };
+  } catch (err) {
+    console.error("saveExtraActivityResult: échec du message de félicitations:", err);
+    return { ok: true, message: null };
   }
 }
 

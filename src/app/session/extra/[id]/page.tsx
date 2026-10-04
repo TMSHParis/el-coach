@@ -69,7 +69,7 @@ export default async function ExtraActivityPage({ params }: { params: Promise<{ 
         recuperationDefaultMinutes={RECUP_DEFAULT_MINUTES[activity.seance]}
         onSaveResult={saveExtraActivityResult.bind(null, id)}
         onUpdateRecap={updateExtraActivityRecap.bind(null, id)}
-        doneRedirect="/dashboard"
+        doneRedirect={`/session/extra/${id}/recap`}
       />
     </div>
   );

@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { SessionBlocResult } from "../actions";
 import { updateSessionRecap } from "../actions";
 import { SESSION_FEELINGS } from "@/lib/session-feeling";
+import type { SessionRecapPatch } from "../actions";
 import styles from "./recap.module.css";
 
 function fmtDuration(totalSec: number): string {
@@ -56,6 +57,7 @@ export function RecapView({
   comparisons,
   blocs,
   congrats,
+  onUpdate = updateSessionRecap,
 }: {
   date: string;
   sport: string;
@@ -73,6 +75,9 @@ export function RecapView({
   comparisons: { nom: string; delta: number; charge: number }[];
   blocs: SessionBlocResult[];
   congrats: string | null;
+  /** Cible de l'enregistrement — Session (par date) par défaut. Une 2e
+   * activité du jour (doc G.3) passe sa propre action, liée par id. */
+  onUpdate?: (date: string, patch: SessionRecapPatch) => Promise<{ ok: boolean }>;
 }) {
   const [feeling, setFeeling] = useState(initialFeeling);
   const [note, setNote] = useState(initialNote ?? "");
@@ -85,16 +90,17 @@ export function RecapView({
     if (note === (initialNote ?? "")) return;
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => {
-      void updateSessionRecap(date, { note });
+      void onUpdate(date, { note });
     }, 700);
     return () => {
       if (saveTimer.current) clearTimeout(saveTimer.current);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [note, date, initialNote]);
 
   function chooseFeeling(value: string) {
     setFeeling(value);
-    void updateSessionRecap(date, { feeling: value });
+    void onUpdate(date, { feeling: value });
   }
 
   return (

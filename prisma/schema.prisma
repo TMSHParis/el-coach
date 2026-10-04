@@ -201,6 +201,9 @@ model ExtraActivity {
   userId String @map("user_id")
   date   String
   seance String
+  /** Heure réelle de l'activité ("HH:MM"), saisie à l'ajout — détermine sa
+   * position parmi les blocs du dashboard, pas l'ordre d'ajout (doc G.3). */
+  heureReelle String? @map("heure_reelle")
 
   completed Boolean @default(false)
   data      Json?
@@ -213,6 +216,9 @@ model ExtraActivity {
   photos         String[] @default([])
   bestResult     Json?  @map("best_result")
   photoAnalysis  Json?  @map("photo_analysis")
+  /** Message de félicitations généré via generateSessionCongrats, même
+   * traitement que la séance principale (doc G.3, pas de bloc dégradé). */
+  coachMessage   String? @map("coach_message")
 
   createdAt DateTime @default(now()) @map("created_at")
 

@@ -15,6 +15,12 @@ function accordionKindOf(value: string): "repos" | "recup" | null {
   return null;
 }
 
+/** "HH:MM" actuel, en local — pré-rempli mais modifiable (doc G.3/Dashboard mockup). */
+function nowHHMM(): string {
+  const d = new Date();
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
 /** Même sélecteur de séance que le check-in (select natif + accordéon
  * repos/récup, doc 12.2) mais isolé — pas de sliders d'état du jour, pas de
  * nouvelle déclaration de sommeil : seule l'activité à ajouter est demandée. */
@@ -24,6 +30,7 @@ export function ActivityPicker({ programmes = [] }: { programmes?: string[] }) {
   const [seance, setSeance] = useState("");
   const [accordion, setAccordion] = useState<"repos" | "recup" | null>(null);
   const [open, setOpen] = useState(false);
+  const [heure, setHeure] = useState(nowHHMM);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -55,7 +62,7 @@ export function ActivityPicker({ programmes = [] }: { programmes?: string[] }) {
     setSubmitting(true);
     setError(null);
     try {
-      const result = await addExtraActivity(seance);
+      const result = await addExtraActivity(seance, heure);
       if (!result.ok) {
         setSubmitting(false);
         setError("Impossible de créer cette activité pour le moment.");
@@ -115,6 +122,12 @@ export function ActivityPicker({ programmes = [] }: { programmes?: string[] }) {
           ✓ Choix retenu : <strong>{seance}</strong>
         </div>
       )}
+
+      <div className={styles.label} style={{ marginTop: 14 }}>
+        Heure réelle
+      </div>
+      <input type="time" className={styles.select} value={heure} onChange={(e) => setHeure(e.target.value)} />
+      <div className={styles.hint}>Détermine la position du bloc sur le dashboard — pas l&apos;ordre dans lequel tu l&apos;ajoutes ici.</div>
 
       {error && <div className={styles.error}>{error}</div>}
 

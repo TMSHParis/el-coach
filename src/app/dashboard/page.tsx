@@ -256,7 +256,24 @@ export default async function DashboardPage() {
     feeling: a.sessionFeeling,
     calories: a.caloriesBrulees,
     best: a.bestResult as { nom: string; charge: number; reps: string } | null,
+    coachMessage: a.coachMessage,
+    heureReelle: a.heureReelle,
   }));
+
+  // Tri par heure réelle plutôt que par ordre d'ajout (doc G.3/mockup
+  // dashboard 2 séances) : la séance principale non terminée reste toujours
+  // en dernier (comme le mockup), les activités terminées (principale +
+  // supplémentaires) se trient entre elles par heure.
+  const primaryHeure = todaySession?.createdAt
+    ? `${String(todaySession.createdAt.getHours()).padStart(2, "0")}:${String(todaySession.createdAt.getMinutes()).padStart(2, "0")}`
+    : null;
+  const doneExtrasBeforePrimary = extraActivityCards.filter(
+    (a) => a.completed && (!finishedSession || !primaryHeure || (a.heureReelle ?? "99:99") < primaryHeure),
+  );
+  const doneExtrasAfterPrimary = extraActivityCards.filter(
+    (a) => a.completed && finishedSession && primaryHeure && (a.heureReelle ?? "99:99") >= primaryHeure,
+  );
+  const notDoneExtras = extraActivityCards.filter((a) => !a.completed);
 
   return (
     <div className={dashboardFontVariables}>
@@ -412,72 +429,94 @@ export default async function DashboardPage() {
             <div className={styles.snackNote}>{snack.note}</div>
           </div>
 
+          {/* ACTIVITÉS TERMINÉES PLUS TÔT QUE LA SÉANCE PRINCIPALE (doc G.3 — tri par heure réelle) */}
+          {doneExtrasBeforePrimary.map((a) => (
+            <SessionRecapCard
+              key={a.id}
+              durationSec={a.durationSec}
+              completionRate={a.completionRate}
+              feeling={a.feeling}
+              calories={a.calories}
+              best={a.best}
+              programme={a.seanceLabel}
+              icon={a.icon}
+              coachMessage={a.coachMessage}
+              tag="Ajoutée après coup"
+              recapHref={`/session/extra/${a.id}/recap`}
+            />
+          ))}
+
           {/* SÉANCE DU JOUR — contenu selon le check-in, structure identique */}
           {finishedSession ? (
             <SessionRecapCard {...finishedSession} />
           ) : adviceSession ? (
-            <>
-              <div className={styles.sdj}>
-                <div className={styles.sdjLabel}>
-                  {adviceSession.repos
-                    ? "[ REPOS ACTIF ]"
-                    : `[ SÉANCE DU JOUR — ${adviceSession.titre.toUpperCase()} ]`}
+            <div className={styles.upcomingCard}>
+              <div className={styles.upcomingHead}>
+                <div className={styles.l}>
+                  <span>⏳</span>
+                  <span className={styles.txt}>{adviceSession.repos ? "REPOS ACTIF" : "PRÉVU AUJOURD'HUI"}</span>
                 </div>
-                <div className={styles.sdjTitle}>
-                  {adviceSession.emoji ? `${adviceSession.emoji} ` : ""}
-                  {adviceSession.titre}
-                </div>
-                <div className={styles.sdjMeta}>
-                  <span>
-                    {adviceSession.dureeEstimee} · {adviceSession.blocks.length} blocs
-                  </span>
-                </div>
-                <Link href="/session" className={styles.sdjBtn}>
-                  <span className={styles.sdjBtnIcon}>▷</span>
-                  <span className={styles.sdjBtnText}>Démarrer la séance</span>
+              </div>
+              <div className={styles.upcomingSub}>
+                <span>{adviceSession.emoji || (adviceSession.repos ? "🛌" : "🥊")}</span>
+                <span className={styles.name}>
+                  {adviceSession.titre} · {adviceSession.dureeEstimee} · {adviceSession.blocks.length} blocs
+                </span>
+              </div>
+              <div className={styles.upcomingNote}>Pas encore réalisée</div>
+              <div className={styles.upcomingCtaRow}>
+                <details className={styles.upcomingPreviewWrap}>
+                  <summary>👁 APERÇU</summary>
+                  <AdviceSessionPanel
+                    nom={adviceSession.titre}
+                    duree={adviceSession.dureeEstimee}
+                    blocs={adviceSession.blocks}
+                  />
+                </details>
+                <Link href="/session" className={styles.upcomingStartBtn}>
+                  DÉMARRER →
                 </Link>
               </div>
-              <AdviceSessionPanel
-                nom={adviceSession.titre}
-                duree={adviceSession.dureeEstimee}
-                blocs={adviceSession.blocks}
-              />
-            </>
-          ) : (
-            <>
-              <div className={styles.sdj}>
-                <div className={styles.sdjLabel}>[ SÉANCE DU JOUR ]</div>
-                <div className={styles.sdjTitle}>{isRestDay ? "Repos" : baseDay.focus}</div>
-                <div className={styles.sdjMeta}>
-                  {isRestDay ? (
-                    <span>{baseDay.notes ?? "Récupération complète."}</span>
-                  ) : (
-                    <span>
-                      {minutesToHM(baseDay.estimatedMinutes)} · {baseDay.blocks.length} bloc
-                      {baseDay.blocks.length > 1 ? "s" : ""}
-                    </span>
-                  )}
+            </div>
+          ) : isRestDay ? (
+            <div className={styles.upcomingCard}>
+              <div className={styles.upcomingHead}>
+                <div className={styles.l}>
+                  <span>🛌</span>
+                  <span className={styles.txt}>REPOS ACTIF</span>
                 </div>
-                {!isRestDay && (
-                  <Link
-                    href={`/session?variant=${variant.recommended === "A" ? "a" : "b"}`}
-                    className={styles.sdjBtn}
-                  >
-                    <span className={styles.sdjBtnIcon}>▷</span>
-                    <span className={styles.sdjBtnText}>Démarrer la séance</span>
-                  </Link>
-                )}
               </div>
-
-              {!isRestDay && (
-                <>
+              <div className={styles.upcomingSub}>
+                <span className={styles.name}>{baseDay.notes ?? "Récupération complète."}</span>
+              </div>
+            </div>
+          ) : (
+            <div className={styles.upcomingCard}>
+              <div className={styles.upcomingHead}>
+                <div className={styles.l}>
+                  <span>⏳</span>
+                  <span className={styles.txt}>PRÉVU AUJOURD&apos;HUI</span>
+                </div>
+              </div>
+              <div className={styles.upcomingSub}>
+                <span>⚡</span>
+                <span className={styles.name}>
+                  {baseDay.focus} · {minutesToHM(baseDay.estimatedMinutes)} · {baseDay.blocks.length} bloc
+                  {baseDay.blocks.length > 1 ? "s" : ""}
+                </span>
+              </div>
+              <div className={styles.upcomingNote}>Pas encore réalisée</div>
+              <div className={styles.upcomingCtaRow}>
+                <details className={styles.upcomingPreviewWrap}>
+                  <summary>👁 APERÇU</summary>
                   <div
                     style={{
                       background: "var(--s)",
                       border: "1px solid var(--bd)",
                       borderRadius: 4,
                       padding: "9px 13px",
-                      marginBottom: 0,
+                      marginTop: 10,
+                      marginBottom: 10,
                       fontSize: 11,
                       color: "var(--m)",
                       display: "flex",
@@ -488,7 +527,6 @@ export default async function DashboardPage() {
                     <span>▶️</span>
                     <span>Appuie sur le bouton rouge pour voir la démo YouTube du mouvement</span>
                   </div>
-
                   <SessionTabs
                     recommended={variant.recommended === "A" ? "a" : "b"}
                     recoText={`Recommandée : ${variant.recommended} · ${variant.reason}`}
@@ -517,37 +555,56 @@ export default async function DashboardPage() {
                       />
                     }
                   />
-                </>
-              )}
-            </>
-          )}
-
-          {/* ACTIVITÉS SUPPLÉMENTAIRES DU JOUR (doc G.3) */}
-          {extraActivityCards.map((a) =>
-            a.completed ? (
-              <SessionRecapCard
-                key={a.id}
-                durationSec={a.durationSec}
-                completionRate={a.completionRate}
-                feeling={a.feeling}
-                calories={a.calories}
-                best={a.best}
-                programme={a.seanceLabel}
-                icon={a.icon}
-                coachMessage={null}
-              />
-            ) : (
-              <div key={a.id} className={styles.sdj}>
-                <div className={styles.sdjLabel}>[ 2E ACTIVITÉ — {a.seanceLabel.toUpperCase()} ]</div>
-                <div className={styles.sdjTitle}>
-                  {a.icon} {a.seanceLabel}
-                </div>
-                <Link href={`/session/extra/${a.id}`} className={styles.sdjBtn}>
-                  <span className={styles.sdjBtnIcon}>▷</span>
-                  <span className={styles.sdjBtnText}>Reprendre cette activité</span>
+                </details>
+                <Link href={`/session?variant=${variant.recommended === "A" ? "a" : "b"}`} className={styles.upcomingStartBtn}>
+                  DÉMARRER →
                 </Link>
               </div>
-            ),
+            </div>
+          )}
+
+          {/* ACTIVITÉS TERMINÉES PLUS TARD QUE LA SÉANCE PRINCIPALE */}
+          {doneExtrasAfterPrimary.map((a) => (
+            <SessionRecapCard
+              key={a.id}
+              durationSec={a.durationSec}
+              completionRate={a.completionRate}
+              feeling={a.feeling}
+              calories={a.calories}
+              best={a.best}
+              programme={a.seanceLabel}
+              icon={a.icon}
+              coachMessage={a.coachMessage}
+              tag="Ajoutée après coup"
+              recapHref={`/session/extra/${a.id}/recap`}
+            />
+          ))}
+
+          {/* ACTIVITÉS SUPPLÉMENTAIRES PAS ENCORE TERMINÉES */}
+          {notDoneExtras.map((a) => (
+            <div key={a.id} className={styles.upcomingCard}>
+              <div className={styles.upcomingHead}>
+                <div className={styles.l}>
+                  <span>⏳</span>
+                  <span className={styles.txt}>2E ACTIVITÉ</span>
+                </div>
+              </div>
+              <div className={styles.upcomingSub}>
+                <span>{a.icon}</span>
+                <span className={styles.name}>{a.seanceLabel}</span>
+              </div>
+              <div className={styles.upcomingCtaRow}>
+                <Link href={`/session/extra/${a.id}`} className={styles.upcomingStartBtn} style={{ flex: 1 }}>
+                  REPRENDRE →
+                </Link>
+              </div>
+            </div>
+          ))}
+
+          {extraActivityCards.length > 0 && (
+            <div className={styles.multiActivityNote}>
+              {extraActivityCards.length + 1} activités · compte pour 1 jour de streak
+            </div>
           )}
           <Link href="/session/add" className={styles.addActivityLink}>
             + Ajouter une activité
@@ -638,6 +695,8 @@ function SessionRecapCard({
   programme,
   icon,
   coachMessage,
+  tag,
+  recapHref = "/session/recap",
 }: {
   durationSec: number;
   completionRate: number;
@@ -647,6 +706,9 @@ function SessionRecapCard({
   programme: string | null;
   icon: string;
   coachMessage: string | null;
+  /** Ex. "Ajoutée après coup" pour une 2e activité du jour (doc G.3). */
+  tag?: string;
+  recapHref?: string;
 }) {
   const percent = Math.round(completionRate * 100);
   const feelingInfo = SESSION_FEELINGS.find((f) => f.value === feeling);
@@ -655,7 +717,10 @@ function SessionRecapCard({
   return (
     <div className={styles.doneCard}>
       <div className={styles.doneHeader}>
-        <span className={styles.doneHeaderTitle}>🏆 Séance terminée</span>
+        <span className={styles.doneHeaderTitle}>
+          🏆 Séance terminée
+          {tag && <span className={styles.addedTag}>{tag}</span>}
+        </span>
         <span className={styles.doneHeaderDate}>{todayLabel()}</span>
       </div>
 
@@ -697,7 +762,7 @@ function SessionRecapCard({
         </div>
       )}
 
-      <Link href="/session/recap" className={styles.doneCta}>
+      <Link href={recapHref} className={styles.doneCta}>
         Voir le détail complet →
       </Link>
     </div>

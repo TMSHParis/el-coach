@@ -163,10 +163,28 @@
 .sdjTitle { font-size: 36px; font-weight: 700; color: var(--w); line-height: 1.1; letter-spacing: -1px; margin-bottom: 10px; }
 .sdjMeta { font-size: 14px; color: var(--m); letter-spacing: 1px; margin-bottom: 24px; }
 .sdjMeta span { color: var(--t); }
-.sdjBtn { display: flex; align-items: center; gap: 14px; width: 100%; padding: 18px 22px; background: var(--accent); border: none; border-radius: 4px; cursor: pointer; transition: all .2s; text-decoration: none; }
-.sdjBtn:hover { background: #d4e800; }
-.sdjBtnIcon { font-size: 16px; color: #000; }
-.sdjBtnText { font-size: 14px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; color: #000; }
+.sdjBtn { display: flex; align-items: center; gap: 14px; width: 100%; padding: 18px 22px; background: linear-gradient(135deg, var(--g), var(--gl)); border: none; border-radius: 4px; cursor: pointer; transition: all .2s; text-decoration: none; }
+.sdjBtn:hover { opacity: .92; }
+.sdjBtnIcon { font-size: 16px; color: #1a1200; }
+.sdjBtnText { font-size: 14px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; color: #1a1200; }
+
+/* Bloc "prévu aujourd'hui" — pas encore réalisée (doc G.3, mockup dashboard 2 séances) */
+.upcomingCard { background: var(--s); border: 1px dashed var(--bd); border-radius: 12px; margin-bottom: 14px; overflow: hidden; }
+.upcomingHead { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; border-bottom: 1px dashed var(--bd); }
+.upcomingHead .l { display: flex; align-items: center; gap: 8px; }
+.upcomingHead .txt { font-family: var(--font-bebas); font-size: 15px; letter-spacing: 1px; color: var(--t2, #9a9a9a); }
+.upcomingSub { display: flex; align-items: center; gap: 8px; padding: 14px 18px; }
+.upcomingSub .name { font-family: var(--font-bebas); font-size: 14px; color: var(--w); letter-spacing: .5px; }
+.upcomingNote { padding: 0 18px 14px; font-size: 11px; color: var(--m); }
+.upcomingCtaRow { display: flex; gap: 8px; margin: 0 18px 16px; }
+.upcomingPreviewWrap { flex: 1; }
+.upcomingPreviewWrap summary { list-style: none; text-align: center; background: transparent; border: 1px solid var(--bd); color: var(--t2, #9a9a9a); font-size: 12px; letter-spacing: .5px; padding: 12px; border-radius: 8px; cursor: pointer; }
+.upcomingPreviewWrap summary::-webkit-details-marker { display: none; }
+.upcomingPreviewWrap summary:hover { border-color: var(--m); color: var(--t); }
+.upcomingStartBtn { flex: 2; text-align: center; background: transparent; border: 1.5px solid var(--g); color: var(--g); font-family: var(--font-bebas); font-size: 13px; letter-spacing: 1.5px; padding: 12px; border-radius: 8px; text-decoration: none; display: flex; align-items: center; justify-content: center; }
+
+.addedTag { font-size: 8px; color: var(--m); background: rgba(255, 255, 255, .04); border: 1px solid var(--bd); border-radius: 20px; padding: 2px 8px; text-transform: uppercase; letter-spacing: .4px; margin-left: 6px; }
+.multiActivityNote { text-align: center; font-size: 11px; color: var(--m); margin: -6px 0 16px; }
 
 /* TABS SÉANCES */
 .tabs { display: flex; gap: 0; margin-bottom: 0; margin-top: 24px; }
