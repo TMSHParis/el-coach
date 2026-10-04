@@ -18,14 +18,14 @@ const ECM_PROGRAM_OPTIONS = ["⚡ CrossFit Pure", "🔥 Hybrid Engine", "🏁 Hy
  * `label` ce qui s'affiche dans l'option. Pour le groupe REPOS, `value` est une
  * sentinelle (`__repos__`/`__recup__`) qui ouvre l'accordéon de sous-types au
  * lieu de fixer directement la séance — voir `onSelectChange`. */
-type SeanceOption = { value: string; label: string };
+export type SeanceOption = { value: string; label: string };
 
 const REPOS_SENTINEL_OPTIONS: SeanceOption[] = [
   { value: "__repos__", label: "😴 Repos" },
   { value: "__recup__", label: "🚶 Récupération active" },
 ];
 
-const SEANCE_GROUPS: { label: string; options: SeanceOption[] }[] = [
+export const SEANCE_GROUPS: { label: string; options: SeanceOption[] }[] = [
   { label: "🛋️ REPOS", options: REPOS_SENTINEL_OPTIONS },
   { label: "⚡ PROGRAMMATIONS ECM", options: ECM_PROGRAM_OPTIONS.map((o) => ({ value: o, label: o })) },
   {
@@ -45,7 +45,7 @@ const SEANCE_GROUPS: { label: string; options: SeanceOption[] }[] = [
 ];
 
 /** Groupes du <select> "Séance du jour", avec les programmes actifs en tête. */
-function buildSeanceGroups(programmes: string[]): { label: string; options: SeanceOption[] }[] {
+export function buildSeanceGroups(programmes: string[]): { label: string; options: SeanceOption[] }[] {
   const actifs = programmes.filter((p) => ECM_PROGRAM_OPTIONS.includes(p));
   if (actifs.length === 0) return SEANCE_GROUPS;
   return SEANCE_GROUPS.map((g) =>

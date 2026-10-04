@@ -189,6 +189,9 @@ export function SessionRunnerV2({
   analysisContext,
   sessionKind = "ecm",
   recuperationDefaultMinutes,
+  onSaveResult = saveSessionResult,
+  onUpdateRecap = updateSessionRecap,
+  doneRedirect = "/session/recap",
 }: {
   sessionName: string;
   sessionMeta: string;
@@ -210,6 +213,14 @@ export function SessionRunnerV2({
   sessionKind?: SessionKind;
   /** Récupération active seulement : durée par défaut (min) du chrono général, ajustable. */
   recuperationDefaultMinutes?: number;
+  /** Cible de l'enregistrement — par défaut la séance principale du jour
+   * (Session). Une 2e activité du même jour (doc G.3) passe ses propres
+   * actions, pointant vers ExtraActivity plutôt que Session. */
+  onSaveResult?: typeof saveSessionResult;
+  onUpdateRecap?: typeof updateSessionRecap;
+  /** Page affichée une fois la séance terminée — /session/recap par défaut
+   * (lit Session par date ; une 2e activité n'y correspond pas). */
+  doneRedirect?: string;
 }) {
   const router = useRouter();
   const storageKey = `elc_session_${date}`;
@@ -622,7 +633,7 @@ export function SessionRunnerV2({
   /** Photos ajoutées pendant la séance — enregistrées tout de suite (upsert). */
   function changePhotos(next: string[]) {
     setPhotos(next);
-    void updateSessionRecap(date, { photos: next });
+    void onUpdateRecap(date, { photos: next });
   }
 
   /** Analyse Claude de la photo (calories, retour narratif) — l'ajout de photo ne se
@@ -641,7 +652,7 @@ export function SessionRunnerV2({
         heartRateZones: result.heartRateZones,
       };
     }
-    if (Object.keys(patch).length > 0) void updateSessionRecap(date, patch);
+    if (Object.keys(patch).length > 0) void onUpdateRecap(date, patch);
   }
 
   function changeVolume(value: number) {
@@ -807,9 +818,9 @@ export function SessionRunnerV2({
     });
 
     releaseAudio();
-    saveSessionResult({ date, variant, blocs, durationSec: globalSec, completionRate })
+    onSaveResult({ date, variant, blocs, durationSec: globalSec, completionRate })
       .catch(() => {})
-      .finally(() => router.replace("/session/recap"));
+      .finally(() => router.replace(doneRedirect));
     try {
       localStorage.removeItem(storageKey);
     } catch {

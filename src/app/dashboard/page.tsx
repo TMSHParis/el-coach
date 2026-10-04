@@ -115,7 +115,7 @@ export default async function DashboardPage() {
 
   const fatigueScore = demo.fatigueScore ?? 3;
 
-  const [dbOutput, todayCheckin, recentCheckinRows, todaySession, recentSessions] = userId
+  const [dbOutput, todayCheckin, recentCheckinRows, todaySession, recentSessions, extraActivities] = userId
     ? await Promise.all([
         prisma.dashboardOutput.findUnique({ where: { userId_date: { userId, date: todayKey() } } }),
         prisma.checkin.findUnique({ where: { userId_date: { userId, date: todayKey() } } }),
@@ -129,8 +129,10 @@ export default async function DashboardPage() {
           orderBy: { date: "desc" },
           take: 2,
         }),
+        // 2e (ou 3e...) activité du jour (doc G.3), empilée sous la séance principale.
+        prisma.extraActivity.findMany({ where: { userId, date: todayKey() }, orderBy: { createdAt: "asc" } }),
       ])
-    : [null, null, [], null, []];
+    : [null, null, [], null, [], []];
 
   const real = dbOutput ? (dbOutput.output as unknown as DashboardOutputJson) : null;
 
@@ -241,6 +243,20 @@ export default async function DashboardPage() {
   // La semaine type prime : l'aperçu généré au check-in tient compte de l'état
   // du jour et des blessures. Sinon, repli sur le programme fixe hebdomadaire.
   const tomorrow = real?.tomorrow ?? buildTomorrowPreview(today, fatigueScore);
+
+  // 2e (ou 3e...) activité du jour (doc G.3) — même traitement visuel que la
+  // séance principale, empilée en dessous, statut indépendant par activité.
+  const extraActivityCards = extraActivities.map((a) => ({
+    id: a.id,
+    seanceLabel: stripLeadingEmoji(a.seance),
+    icon: isRestDaySeance(a.seance) ? "🛌" : a.seance in SPORT_LABEL_TO_SLUG ? "⚡" : "🥊",
+    completed: a.completed,
+    durationSec: a.durationSec ?? 0,
+    completionRate: a.completionRate ?? 0,
+    feeling: a.sessionFeeling,
+    calories: a.caloriesBrulees,
+    best: a.bestResult as { nom: string; charge: number; reps: string } | null,
+  }));
 
   return (
     <div className={dashboardFontVariables}>
@@ -505,6 +521,37 @@ export default async function DashboardPage() {
               )}
             </>
           )}
+
+          {/* ACTIVITÉS SUPPLÉMENTAIRES DU JOUR (doc G.3) */}
+          {extraActivityCards.map((a) =>
+            a.completed ? (
+              <SessionRecapCard
+                key={a.id}
+                durationSec={a.durationSec}
+                completionRate={a.completionRate}
+                feeling={a.feeling}
+                calories={a.calories}
+                best={a.best}
+                programme={a.seanceLabel}
+                icon={a.icon}
+                coachMessage={null}
+              />
+            ) : (
+              <div key={a.id} className={styles.sdj}>
+                <div className={styles.sdjLabel}>[ 2E ACTIVITÉ — {a.seanceLabel.toUpperCase()} ]</div>
+                <div className={styles.sdjTitle}>
+                  {a.icon} {a.seanceLabel}
+                </div>
+                <Link href={`/session/extra/${a.id}`} className={styles.sdjBtn}>
+                  <span className={styles.sdjBtnIcon}>▷</span>
+                  <span className={styles.sdjBtnText}>Reprendre cette activité</span>
+                </Link>
+              </div>
+            ),
+          )}
+          <Link href="/session/add" className={styles.addActivityLink}>
+            + Ajouter une activité
+          </Link>
 
           {/* DEMAIN */}
           <div className={styles.sl} style={{ marginTop: 20 }}>

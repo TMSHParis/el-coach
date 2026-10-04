@@ -261,6 +261,24 @@
   margin: 12px 0 26px;
 }
 
+/* 10 · "+ Ajouter une activité" — discret, sous le(s) bloc(s) séance du jour (doc G.3). */
+.addActivityLink {
+  display: block;
+  text-align: center;
+  padding: 11px;
+  border: 1px dashed var(--bd);
+  border-radius: 8px;
+  color: var(--m);
+  font-size: 12px;
+  letter-spacing: .5px;
+  text-decoration: none;
+  margin: 10px 0 20px;
+}
+.addActivityLink:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 /* 3 · Bandeau "Séance terminée" (message de félicitations) — style premium. */
 /* 3 · Carte "Séance terminée" unifiée — remplace les deux blocs distincts et
    redondants (compte rendu compact + message du coach) par un seul bloc. */

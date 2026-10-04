@@ -81,6 +81,7 @@ model Profile {
   checkins         Checkin[]
   dashboardOutputs DashboardOutput[]
   sessions         Session[]
+  extraActivities  ExtraActivity[]
 
   @@map("profiles")
 }
@@ -187,4 +188,36 @@ model Session {
 
   @@unique([userId, date])
   @@map("sessions")
+}
+
+// 2e (ou 3e...) activité d'une même journée (doc G.3) — table séparée plutôt
+// que de toucher la contrainte userId+date de Session (utilisée partout
+// ailleurs comme "la" séance du jour) : un utilisateur peut faire CrossFit
+// Pure le matin et une marche le soir sans dupliquer le check-in quotidien.
+// `seance` est fixé ici (pas sur Checkin, qui reste la déclaration du matin,
+// unique par jour).
+model ExtraActivity {
+  id     String @id @default(cuid())
+  userId String @map("user_id")
+  date   String
+  seance String
+
+  completed Boolean @default(false)
+  data      Json?
+  completionRate Float? @map("completion_rate")
+  durationSec    Int?   @map("duration_sec")
+  sessionFeeling String? @map("session_feeling")
+  sessionNote    String? @map("session_note")
+  caloriesBrulees Int?   @map("calories_brulees")
+  caloriesSource String? @map("calories_source")
+  photos         String[] @default([])
+  bestResult     Json?  @map("best_result")
+  photoAnalysis  Json?  @map("photo_analysis")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  profile Profile @relation(fields: [userId], references: [userId])
+
+  @@index([userId, date])
+  @@map("extra_activities")
 }
