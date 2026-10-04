@@ -30,6 +30,7 @@ import {
 import type { Prisma } from "@prisma/client";
 import type { SleepInsight } from "@/lib/coaching-adaptatif-mock";
 import type { Day } from "@/lib/programming";
+import type { CoachTagsByDay } from "@/lib/coach-message";
 
 const YEAR = 60 * 60 * 24 * 365;
 const COOKIE_CHECKIN_DATE = "el_coach_checkin_date";
@@ -272,20 +273,33 @@ async function persistCheckinAndGenerateDashboard(payload: CheckinPayload, fatig
     profile.poids = poidsDuJour;
   }
 
-  const recentCheckins = await prisma.checkin.findMany({
-    where: { userId },
-    orderBy: { date: "desc" },
-    take: 7,
-  });
+  const [recentCheckins, recentOutputsForTags] = await Promise.all([
+    prisma.checkin.findMany({
+      where: { userId },
+      orderBy: { date: "desc" },
+      take: 7,
+    }),
+    // 3 derniers jours (mémoire courte du coach, doc A) — thèmes à ne pas répéter.
+    prisma.dashboardOutput.findMany({
+      where: { userId, date: { lt: date } },
+      orderBy: { date: "desc" },
+      take: 3,
+      select: { date: true, output: true },
+    }),
+  ]);
+  const recentTags: CoachTagsByDay = recentOutputsForTags.map((o) => ({
+    date: o.date,
+    tags: ((o.output as { coachTags?: string[] } | null)?.coachTags ?? []) as string[],
+  }));
 
   const sleep = buildSleepFromCheckins(recentCheckins);
   const weight = buildWeightFromCheckins(recentCheckins);
 
   // Message mindset de la page intermédiaire post-check-in — best effort,
   // repli déterministe si Claude échoue (la page ne doit jamais rester vide).
-  const mindsetPromise = generateMindsetMessage({ profile, checkin }).catch((err) => {
+  const mindsetPromise = generateMindsetMessage({ profile, checkin, recentTags }).catch((err) => {
     console.error("generateMindsetMessage a échoué, repli sur un message générique:", err);
-    return fallbackMindset(profile.prenom, checkin);
+    return { message: fallbackMindset(profile.prenom, checkin), tags: [] as string[] };
   });
 
   // Aperçu de demain d'après la semaine type — best effort : sans semaine type
@@ -312,10 +326,12 @@ async function persistCheckinAndGenerateDashboard(payload: CheckinPayload, fatig
         return isRestDay(checkin.seance) ? FALLBACK_REST_ADVICE : FALLBACK_ADVICE;
       }),
     ]);
+    const mindset = await mindsetPromise;
     const output = {
       mode: "advice" as const,
       ...analysis,
-      mindsetMessage: await mindsetPromise,
+      mindsetMessage: mindset.message,
+      coachTags: mindset.tags,
       alerts: [...sleepAlertsFrom(sleep), ...analysis.alerts],
       sleep,
       weight,
@@ -360,9 +376,11 @@ async function persistCheckinAndGenerateDashboard(payload: CheckinPayload, fatig
     analysis = fallbackAnalysis(fatigueScore, sleep);
   }
 
+  const mindset = await mindsetPromise;
   const output = {
     mode: "ecm" as const,
-    mindsetMessage: await mindsetPromise,
+    mindsetMessage: mindset.message,
+    coachTags: mindset.tags,
     ecm: analysis.ecm,
     recommendedVariant: analysis.recommendedVariant,
     recommendedReason: analysis.recommendedReason,

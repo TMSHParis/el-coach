@@ -179,12 +179,15 @@ export function CheckinForm({
   programmes = [],
   habits = [],
   todayEcm = null,
+  prevCheckin = null,
 }: {
   programmes?: string[];
   /** 3 séances les plus fréquentes des 30 derniers jours (la plus fréquente en premier). */
   habits?: string[];
   /** Séance ECM programmée aujourd'hui, si un programme actif en a une — carte "Prévu aujourd'hui". */
   todayEcm?: { value: string; label: string; sub: string } | null;
+  /** Rappel du dernier check-in réalisé (bandeau sous le header). */
+  prevCheckin?: { dayLabel: string; stateLabel: string; seance: string | null; energie: number | null } | null;
 }) {
   const router = useRouter();
   // Le groupe "Programmations ECM" se réduit aux programmes actifs de l'athlète
@@ -420,6 +423,14 @@ export function CheckinForm({
           </div>
         </div>
       </div>
+
+      {prevCheckin && (
+        <div className={styles.prevCheckin}>
+          {prevCheckin.dayLabel} : {prevCheckin.stateLabel}
+          {prevCheckin.seance ? ` · ${prevCheckin.seance}` : ""}
+          {prevCheckin.energie ? ` · Énergie ${prevCheckin.energie}/10` : ""}
+        </div>
+      )}
 
       {missing.length > 0 && (
         <div className={styles.errorBanner}>

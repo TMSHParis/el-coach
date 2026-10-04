@@ -633,8 +633,13 @@ export function SessionRunnerV2({
       patch.calories = result.calories;
       patch.caloriesSource = "photo_auto";
     }
-    if (result.retourNarratif) {
-      patch.photoAnalysis = { donneesBrutes: result.donneesBrutes, retourNarratif: result.retourNarratif };
+    if (result.retourNarratif || result.bpmMoyen || result.heartRateZones) {
+      patch.photoAnalysis = {
+        donneesBrutes: result.donneesBrutes,
+        retourNarratif: result.retourNarratif,
+        bpmMoyen: result.bpmMoyen,
+        heartRateZones: result.heartRateZones,
+      };
     }
     if (Object.keys(patch).length > 0) void updateSessionRecap(date, patch);
   }

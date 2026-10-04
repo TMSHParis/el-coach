@@ -3,7 +3,7 @@
 import { Prisma } from "@prisma/client";
 import { getUserId } from "@/lib/user-id";
 import { prisma } from "@/lib/prisma";
-import { generateSessionCongrats } from "@/lib/ecm-engine";
+import { generateSessionCongrats, type HeartRateZoneSplit } from "@/lib/ecm-engine";
 import { isSessionFeeling } from "@/lib/session-feeling";
 import { MAX_SESSION_PHOTOS } from "@/lib/session-media";
 
@@ -86,36 +86,54 @@ export async function saveSessionResult(
 }
 
 async function generateAndStoreCongrats(userId: string, payload: SessionResultPayload): Promise<string | null> {
-  const [profile, checkin, dashboardOutput, previousOutput] = await Promise.all([
+  const [profile, checkin, dashboardOutput, previousOutputs, session] = await Promise.all([
     prisma.profile.findUnique({ where: { userId } }),
     prisma.checkin.findUnique({ where: { userId_date: { userId, date: payload.date } } }),
     prisma.dashboardOutput.findUnique({ where: { userId_date: { userId, date: payload.date } } }),
-    prisma.dashboardOutput.findFirst({
+    // 3 derniers jours (mémoire courte du coach, doc A) — thèmes à ne pas répéter.
+    prisma.dashboardOutput.findMany({
       where: { userId, date: { lt: payload.date } },
       orderBy: { date: "desc" },
-      select: { output: true },
+      take: 3,
+      select: { date: true, output: true },
     }),
+    // Zones FC lues sur la photo ajoutée pendant la séance (doc E.b/E.c), si disponible.
+    prisma.session.findUnique({ where: { userId_date: { userId, date: payload.date } }, select: { photoAnalysis: true } }),
   ]);
   // Pas de profil/checkin/dashboardOutput pour aujourd'hui = état incohérent
   // (ne devrait pas arriver, /session n'est accessible qu'après check-in) —
   // best effort, on abandonne silencieusement plutôt que de planter.
   if (!profile || !checkin || !dashboardOutput) return null;
 
-  const previousMessage = (previousOutput?.output as { sessionMessage?: string } | null)?.sessionMessage ?? null;
+  const previousMessage =
+    (previousOutputs[0]?.output as { sessionMessage?: string } | null)?.sessionMessage ?? null;
+  const recentTags = previousOutputs.map((o) => ({
+    date: o.date,
+    tags: ((o.output as { coachTags?: string[] } | null)?.coachTags ?? []) as string[],
+  }));
+  const heartRateZones =
+    (session?.photoAnalysis as { heartRateZones?: HeartRateZoneSplit[] | null } | null)?.heartRateZones ?? null;
   const durationLabel = formatDurationLabel(payload.durationSec);
 
-  const message = await generateSessionCongrats({
+  const { message, tags } = await generateSessionCongrats({
     profile,
     checkin,
     sportLabel: checkin.seance || "Séance",
     durationLabel,
     previousMessage,
+    recentTags,
+    heartRateZones,
   });
 
+  const existing = dashboardOutput.output as Record<string, unknown>;
+  const existingTags = Array.isArray(existing.coachTags) ? (existing.coachTags as string[]) : [];
   const output = {
-    ...(dashboardOutput.output as Record<string, unknown>),
+    ...existing,
     sessionMessage: message,
     sessionMessageDuration: durationLabel,
+    // Les tags du mindset (généré le matin au check-in) restent — on ajoute
+    // ceux du message de félicitations, sans les écraser.
+    coachTags: [...existingTags, ...tags],
   };
   await prisma.dashboardOutput.update({
     where: { userId_date: { userId, date: payload.date } },
@@ -138,7 +156,12 @@ export type SessionRecapPatch = {
   caloriesSource?: "manuel" | "photo_auto";
   photos?: string[];
   /** Analyse Claude de la photo : métriques brutes détectées + retour narratif. */
-  photoAnalysis?: { donneesBrutes: Record<string, unknown> | null; retourNarratif: string | null } | null;
+  photoAnalysis?: {
+    donneesBrutes: Record<string, unknown> | null;
+    retourNarratif: string | null;
+    bpmMoyen?: number | null;
+    heartRateZones?: HeartRateZoneSplit[] | null;
+  } | null;
 };
 
 export async function updateSessionRecap(date: string, patch: SessionRecapPatch): Promise<{ ok: boolean }> {

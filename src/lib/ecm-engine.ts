@@ -31,6 +31,7 @@ import type { Block, BlockType, Day, Exercise, WodFormat } from "./programming";
 import { validateGeneratedDay } from "./session-adapt";
 import { ageFromDateNaissance } from "./age";
 import { isRestLikeSeance } from "./seance-kinds";
+import { callCoachMessage, formatRecentTags, type CoachMessageResult, type CoachTagsByDay } from "./coach-message";
 
 function normalizeAccents(s: string): string {
   return s
@@ -720,6 +721,23 @@ export function isRestDay(seance: string | null | undefined): boolean {
   return !seance || REST_LABELS.includes(seance) || isRestLikeSeance(seance);
 }
 
+export type DayState = "vert" | "jaune" | "rouge" | "repos";
+
+/** État du jour affiché à l'athlète (page mindset, bandeau "dernier check-in"
+ * du check-in) — score ECM quand il existe, sinon l'énergie du check-in.
+ * Logique partagée pour rester cohérente entre les deux écrans. */
+export function resolveDayState(
+  ecmState: "green" | "yellow" | "red" | undefined,
+  checkin: { energie: number | null; seance: string | null } | null,
+): DayState {
+  if (isRestDay(checkin?.seance)) return "repos";
+  if (ecmState) return ecmState === "green" ? "vert" : ecmState === "yellow" ? "jaune" : "rouge";
+  const energie = checkin?.energie ?? 5;
+  if (energie >= 8) return "vert";
+  if (energie >= 5) return "jaune";
+  return "rouge";
+}
+
 /**
  * Compose la séance du jour (3 blocs) pour une activité hors des 5 programmes
  * ECM (ex. Boxe, Running, cours collectif) ou un jour de repos — appelée à la
@@ -773,25 +791,16 @@ Réponds uniquement via l'appel à l'outil, sans texte additionnel.`;
 // 2026) — généré une fois et stocké avec le dashboard du jour.
 // ============================================================================
 
-const MINDSET_TOOL = {
-  name: "emit_mindset",
-  description: "Message mindset court, affiché à l'athlète juste après son check-in.",
-  input_schema: {
-    type: "object" as const,
-    properties: {
-      message: {
-        type: "string",
-        description: "2-3 phrases max, inclut le prénom, direct et percutant, style coaching.",
-      },
-    },
-    required: ["message"],
-  },
-};
-
-/** Message mindset du jour — ton dicté par l'énergie du check-in (vert/jaune/rouge) ou le repos. */
-export async function generateMindsetMessage(input: { profile: Profile; checkin: Checkin }): Promise<string> {
-  const { profile, checkin } = input;
-  const client = getAnthropicClient();
+/** Message mindset du jour — ton dicté par l'énergie du check-in (vert/jaune/rouge) ou le repos.
+ * `recentTags` : thèmes des messages coach (mindset + félicitations) des 2-3
+ * derniers jours, pour que Claude évite de répéter le même thème/formulation
+ * (doc A — mémoire courte du coach). */
+export async function generateMindsetMessage(input: {
+  profile: Profile;
+  checkin: Checkin;
+  recentTags?: CoachTagsByDay;
+}): Promise<CoachMessageResult> {
+  const { profile, checkin, recentTags = [] } = input;
   const rest = isRestDay(checkin.seance);
   const energie = checkin.energie ?? 5;
   const ton = rest
@@ -806,26 +815,15 @@ export async function generateMindsetMessage(input: { profile: Profile; checkin:
 État du jour (check-in) : énergie ${energie}/10 · mental ${checkin.mental ?? "—"} · stress ${checkin.stress ?? "—"}.
 Sport du jour : ${checkin.seance || "non précisé"}.
 Ton à adopter : ${ton}
-2-3 phrases maximum · direct · percutant · style coaching · pas de blabla · inclure le prénom · varier les formulations.
+2-3 phrases maximum · direct · percutant · style coaching · pas de blabla · inclure le prénom · varier les formulations.${formatRecentTags(recentTags)}
 Réponds uniquement via l'appel à l'outil, sans texte additionnel.`;
 
-  const response = await client.messages.create(
-    {
-      model: ECM_ANALYSIS_MODEL,
-      max_tokens: 300,
-      tools: [MINDSET_TOOL],
-      tool_choice: { type: "tool", name: "emit_mindset" },
-      messages: [{ role: "user", content: prompt }],
-    },
-    { timeout: 15_000 },
-  );
-
-  const toolUse = response.content.find(
-    (block) => block.type === "tool_use" && block.name === "emit_mindset",
-  ) as Anthropic.ToolUseBlock | undefined;
-  if (!toolUse) throw new Error("Claude n'a pas renvoyé de message mindset (pas de tool_use).");
-
-  return (toolUse.input as { message: string }).message;
+  return callCoachMessage({
+    toolName: "emit_mindset",
+    toolDescription: "Message mindset court, affiché à l'athlète juste après son check-in.",
+    messageDescription: "2-3 phrases max, inclut le prénom, direct et percutant, style coaching.",
+    prompt,
+  });
 }
 
 // ============================================================================
@@ -833,21 +831,6 @@ Réponds uniquement via l'appel à l'outil, sans texte additionnel.`;
 // d'une séance (saveSessionResult), stocké dans dashboard_outputs du jour, pas
 // régénéré au refresh. Ton adapté à l'état du check-in du jour (énergie/douleur).
 // ============================================================================
-
-const CONGRATS_TOOL = {
-  name: "emit_congrats",
-  description: "Message de félicitations post-séance, court et direct.",
-  input_schema: {
-    type: "object" as const,
-    properties: {
-      message: {
-        type: "string",
-        description: "2-3 phrases max, inclut le prénom, style coaching direct, jamais identique au message précédent.",
-      },
-    },
-    required: ["message"],
-  },
-};
 
 function congratsState(checkin: Checkin): "vert" | "jaune" | "rouge" | "douleur" {
   if (checkin.douleur) return "douleur";
@@ -864,10 +847,29 @@ const CONGRATS_STATE_GUIDANCE: Record<ReturnType<typeof congratsState>, string> 
   douleur: "Douleur signalée aujourd'hui — félicite la gestion intelligente du corps (avoir fait la séance adaptée plutôt que de forcer).",
 };
 
+export type HeartRateZoneSplit = { zone: 1 | 2 | 3 | 4 | 5; minutes: number };
+
+/** Répartition FC → phrase d'intensité à glisser dans le prompt (doc A/E.c) — la
+ * zone dominante (temps le plus long) donne le ton, pas une simple moyenne. */
+function describeIntensity(zones: HeartRateZoneSplit[] | undefined | null): string | null {
+  if (!zones || zones.length === 0) return null;
+  const total = zones.reduce((sum, z) => sum + z.minutes, 0);
+  if (total <= 0) return null;
+  const dominant = zones.reduce((a, b) => (b.minutes > a.minutes ? b : a));
+  const pct = Math.round((dominant.minutes / total) * 100);
+  const detail = zones.map((z) => `zone ${z.zone} : ${z.minutes} min`).join(" · ");
+  if (dominant.zone >= 4) return `Répartition FC (${detail}) — zone ${dominant.zone} dominante (${pct}%), effort très intense à signaler.`;
+  if (dominant.zone <= 2) return `Répartition FC (${detail}) — zone ${dominant.zone} dominante (${pct}%), effort resté léger : à signaler si la séance visait plus d'intensité.`;
+  return `Répartition FC (${detail}) — zone ${dominant.zone} dominante (${pct}%), intensité modérée.`;
+}
+
 /**
  * Génère le message de félicitations affiché en haut du dashboard après une
- * séance terminée. `previousMessage`, si fourni (dernier message généré, un
- * autre jour), sert uniquement à demander à Claude de ne pas le répéter.
+ * séance terminée. `previousMessage` (dernier message généré, un autre jour)
+ * et `recentTags` (thèmes des 2-3 derniers jours, mindset + félicitations
+ * confondus) servent tous les deux à éviter de répéter le même message/thème
+ * (doc A). `heartRateZones`, si disponible (lecture de capture tracker, voir
+ * E.b), permet de commenter l'intensité réelle de l'effort.
  */
 export async function generateSessionCongrats(input: {
   profile: Profile;
@@ -875,36 +877,27 @@ export async function generateSessionCongrats(input: {
   sportLabel: string;
   durationLabel: string;
   previousMessage?: string | null;
-}): Promise<string> {
-  const { profile, checkin, sportLabel, durationLabel, previousMessage } = input;
-  const client = getAnthropicClient();
+  recentTags?: CoachTagsByDay;
+  heartRateZones?: HeartRateZoneSplit[] | null;
+}): Promise<CoachMessageResult> {
+  const { profile, checkin, sportLabel, durationLabel, previousMessage, recentTags = [], heartRateZones } = input;
   const state = congratsState(checkin);
+  const intensite = describeIntensity(heartRateZones);
 
   const prompt = `Génère un message de félicitations post-séance pour ${profile.prenom || "l'athlète"}.
 État du jour (check-in) : énergie ${checkin.energie ?? "—"}/10 · mental ${checkin.mental ?? "—"} · stress ${checkin.stress ?? "—"}.
 Sport : ${sportLabel} · Durée : ${durationLabel}.
 Ton à adopter : ${CONGRATS_STATE_GUIDANCE[state]}
 2-3 phrases max · direct · style coaching · inclure le prénom.
-${previousMessage ? `Ne répète jamais ce message déjà utilisé un jour précédent : "${previousMessage}"` : "Ne jamais utiliser une formule générique impersonnelle."}
+${previousMessage ? `Ne répète jamais ce message déjà utilisé un jour précédent : "${previousMessage}"` : "Ne jamais utiliser une formule générique impersonnelle."}${intensite ? `\n${intensite} Commente cette intensité réelle quand c'est pertinent (effort au-dessus ou en dessous de ce qui était attendu).` : ""}${formatRecentTags(recentTags)}
 Réponds uniquement via l'appel à l'outil, sans texte additionnel.`;
 
-  const response = await client.messages.create(
-    {
-      model: ECM_ANALYSIS_MODEL,
-      max_tokens: 300,
-      tools: [CONGRATS_TOOL],
-      tool_choice: { type: "tool", name: "emit_congrats" },
-      messages: [{ role: "user", content: prompt }],
-    },
-    { timeout: 15_000 },
-  );
-
-  const toolUse = response.content.find(
-    (block) => block.type === "tool_use" && block.name === "emit_congrats",
-  ) as Anthropic.ToolUseBlock | undefined;
-  if (!toolUse) throw new Error("Claude n'a pas renvoyé de message de félicitations (pas de tool_use).");
-
-  return (toolUse.input as { message: string }).message;
+  return callCoachMessage({
+    toolName: "emit_congrats",
+    toolDescription: "Message de félicitations post-séance, court et direct.",
+    messageDescription: "2-3 phrases max, inclut le prénom, style coaching direct, jamais identique au message précédent.",
+    prompt,
+  });
 }
 
 const TOMORROW_TOOL = {
