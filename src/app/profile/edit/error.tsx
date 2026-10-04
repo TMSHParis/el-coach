@@ -1,11 +1,15 @@
 "use client";
 
-import { PageError } from "@/components/page-error";
+import { useEffect } from "react";
+import { PageError, errorMessageFor } from "@/components/page-error";
 
-export default function ProfileEditError({ reset }: { error: Error & { digest?: string }; reset: () => void }) {
+export default function ProfileEditError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
+  useEffect(() => {
+    console.error("ProfileEditError:", error);
+  }, [error]);
   return (
     <PageError
-      message="Une erreur est survenue en chargeant ton profil. Réessaie."
+      message={errorMessageFor(error, "Une erreur est survenue en chargeant ton profil. Réessaie.")}
       onRetry={reset}
     />
   );

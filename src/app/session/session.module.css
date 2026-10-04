@@ -251,7 +251,7 @@
 .paused { color: var(--yellow); }
 
 /* CHRONO PLEIN ÉCRAN */
-.fsRoot { position: fixed; inset: 0; z-index: 200; display: flex; flex-direction: column; justify-content: space-between; padding: 28px 20px calc(24px + env(safe-area-inset-bottom)); backdrop-filter: blur(2px); background-color: #0a0a0a; }
+.fsRoot { position: fixed; inset: 0; z-index: 200; display: flex; flex-direction: column; justify-content: space-between; padding: 28px 20px calc(24px + env(safe-area-inset-bottom)); background-color: #0a0a0a; }
 /* Grille de fond très subtile — même motif que /signup et l'accueil, pour la cohérence visuelle de l'app. */
 .fsGrid {
   position: absolute;
@@ -285,6 +285,12 @@
 
 /* CHRONO DE REPOS ENTRE SÉRIES — teinte bleu/violet pour se distinguer du travail. */
 .restRoot { position: fixed; inset: 0; z-index: 210; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 28px 20px calc(24px + env(safe-area-inset-bottom)); background: linear-gradient(rgba(99,102,241,.22), rgba(99,102,241,.22)), #080808; }
+.restBack { position: absolute; top: calc(16px + env(safe-area-inset-top)); left: 16px; background: none; border: none; color: #a5b4fc; font-size: 13px; font-family: inherit; cursor: pointer; padding: 8px; }
+
+/* Mini-barre persistante (chrono de repos réduit) — sobre, au-dessus du bandeau du bas. */
+.restMiniBar { position: fixed; bottom: 86px; left: 50%; transform: translateX(-50%); z-index: 150; width: calc(100% - 32px); max-width: 448px; display: flex; align-items: center; gap: 10px; background: var(--s); border: 1px solid var(--bd); border-radius: 10px; padding: 10px 14px; cursor: pointer; }
+.restMiniTime { font-family: var(--font-bebas); font-size: 18px; color: #a5b4fc; letter-spacing: 1px; }
+.restMiniLabel { font-size: 11px; color: var(--t2, #9a9a9a); flex: 1; text-align: left; }
 .restLabel { font-family: var(--font-bebas); font-size: 1.4rem; letter-spacing: 8px; text-transform: uppercase; color: #a5b4fc; }
 .restTime { font-family: var(--font-bebas); font-size: 6rem; line-height: 1; color: #fff; letter-spacing: 2px; }
 .restBarWrap { width: 100%; max-width: 280px; height: 6px; border-radius: 3px; background: rgba(255,255,255,.12); overflow: hidden; }

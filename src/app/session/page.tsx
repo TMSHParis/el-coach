@@ -25,12 +25,6 @@ export default async function SessionPage({
   const { variant: variantParam } = await searchParams;
   const variant = variantParam === "b" ? "b" : "a";
 
-  const demo = await getDemoState();
-  if (!demo.programSlug) redirect("/onboarding");
-
-  const today = resolveTodaySession(demo.programSlug, demo.fatigueScore);
-  if (!today) redirect("/dashboard");
-
   const userId = await getUserId();
   const [profile, todayCheckin, dbOutput, pastSessions, todaySession] = userId
     ? await Promise.all([
@@ -97,6 +91,16 @@ export default async function SessionPage({
       </div>
     );
   }
+
+  // À partir d'ici, uniquement les jours ECM réels (pas d'advice ci-dessus) :
+  // la programmation (choix fait dans les réglages) devient nécessaire pour
+  // composer le contenu de la séance — repos/récup/hors-ECM ne sont jamais
+  // concernés par ce garde-fou, voir le early-return ci-dessus.
+  const demo = await getDemoState();
+  if (!demo.programSlug) redirect("/onboarding");
+
+  const today = resolveTodaySession(demo.programSlug, demo.fatigueScore);
+  if (!today) redirect("/dashboard");
 
   const generatedDay = output?.generatedDay;
 

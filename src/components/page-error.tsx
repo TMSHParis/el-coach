@@ -1,5 +1,26 @@
 "use client";
 
+/** Message adapté à la cause probable plutôt qu'un "connexion perdue" générique
+ * trompeur — un crash de rendu serveur n'a presque jamais à voir avec la
+ * connexion de l'utilisateur. `fallback` est le message par défaut quand la
+ * cause ne peut pas être affinée (ni réseau détecté, ni timeout serveur). */
+export function errorMessageFor(error: Error, fallback: string): string {
+  const text = `${error.name} ${error.message}`.toLowerCase();
+  if (
+    text.includes("fetch failed") ||
+    text.includes("econnrefused") ||
+    text.includes("can't reach database") ||
+    text.includes("timeout") ||
+    text.includes("timed out")
+  ) {
+    return "Le serveur met plus de temps que prévu à répondre. Réessaie dans un instant.";
+  }
+  if (typeof navigator !== "undefined" && !navigator.onLine) {
+    return "Pas de connexion internet détectée. Vérifie ta connexion puis réessaie.";
+  }
+  return fallback;
+}
+
 /** Écran d'erreur générique pour les pages protégées (Next.js error boundary). */
 export function PageError({
   message = "Une erreur est survenue. Ton plan sera généré au prochain essai.",

@@ -336,39 +336,56 @@ export function CheckinForm({
     if (miss.length) return;
 
     setSubmitting(true);
-    const result = await submitCheckin({
-      genre: g,
-      sleepPhoto: d.sleepPhoto,
-      sleepCoucher: d.sleepCoucher,
-      sleepReveil: d.sleepReveil,
-      sleepDuree: d.sleepDuree,
-      sleepAnalysis: d.sleepAnalysis,
-      recuperationPercue: d.recuperationPercue,
-      poids: d.poids,
-      jambes: d.jambes,
-      douleur: d.douleur,
-      douleurDetail: d.douleurTxt,
-      cycle: isH ? null : d.cycle,
-      cycleDouleur: isH ? "" : d.cycleDouleur,
-      cycleJour: isH ? "" : d.cycleJour,
-      energie: d.energie,
-      motivation: d.motivation,
-      mental: d.mental,
-      stress: d.stress,
-      libido: d.libido,
-      nutrition: d.nutrition,
-      hydratation: d.hydratation,
-      seance: d.seance,
-      travail: d.travail,
-      soirPerformance: isH ? d.soirPerformance : null,
-      notes: d.notes,
-      seanceFocus: d.seanceFocus,
-      seanceDuree: d.seanceDuree,
-      seanceEquipement: d.seanceEquipement,
-      seanceIntensite: d.seanceIntensite,
-      seanceNote: d.seanceNote,
-      volumeBlockFocus: isVolumeBlock(d.seance) ? d.volumeBlockFocus || suggestedVolumeFocus() : "",
-    });
+    let result: { ok: true; fatigueScore: number } | { ok: false; error: string };
+    try {
+      result = await submitCheckin({
+        genre: g,
+        sleepPhoto: d.sleepPhoto,
+        sleepCoucher: d.sleepCoucher,
+        sleepReveil: d.sleepReveil,
+        sleepDuree: d.sleepDuree,
+        sleepAnalysis: d.sleepAnalysis,
+        recuperationPercue: d.recuperationPercue,
+        poids: d.poids,
+        jambes: d.jambes,
+        douleur: d.douleur,
+        douleurDetail: d.douleurTxt,
+        cycle: isH ? null : d.cycle,
+        cycleDouleur: isH ? "" : d.cycleDouleur,
+        cycleJour: isH ? "" : d.cycleJour,
+        energie: d.energie,
+        motivation: d.motivation,
+        mental: d.mental,
+        stress: d.stress,
+        libido: d.libido,
+        nutrition: d.nutrition,
+        hydratation: d.hydratation,
+        seance: d.seance,
+        travail: d.travail,
+        soirPerformance: isH ? d.soirPerformance : null,
+        notes: d.notes,
+        seanceFocus: d.seanceFocus,
+        seanceDuree: d.seanceDuree,
+        seanceEquipement: d.seanceEquipement,
+        seanceIntensite: d.seanceIntensite,
+        seanceNote: d.seanceNote,
+        volumeBlockFocus: isVolumeBlock(d.seance) ? d.volumeBlockFocus || suggestedVolumeFocus() : "",
+      });
+    } catch {
+      // Appel réseau qui n'a jamais atteint le serveur (offline, timeout...) —
+      // on ne laisse jamais ça planter le composant et effacer le formulaire
+      // déjà rempli : on reste sur place, rien n'est perdu, l'utilisateur peut
+      // simplement réessayer. Message adapté selon que le client est hors
+      // ligne ou non (pas "connexion perdue" à tort s'il est bien connecté).
+      setSubmitting(false);
+      const offline = typeof navigator !== "undefined" && !navigator.onLine;
+      setMissing([
+        offline
+          ? "Pas de connexion internet détectée. Vérifie ta connexion puis réessaie."
+          : "Le serveur n'a pas répondu. Tes réponses sont conservées — réessaie.",
+      ]);
+      return;
+    }
     if (!result.ok) {
       setSubmitting(false);
       setMissing([result.error]);

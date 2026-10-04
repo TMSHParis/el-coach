@@ -62,6 +62,21 @@ function hexAlpha(hex: string, alpha: number): string {
   return `rgba(${r},${g},${b},${alpha})`;
 }
 
+/** Mélange opaque de `hex` à `pct` sur `baseHex` — jamais de canal alpha, donc
+ * jamais de transparence qui laisserait deviner ce qu'il y a derrière (bug du
+ * chrono plein écran pas vraiment opaque : un gradient rgba(...,0.12) → opaque
+ * a un centre réellement translucide, pas juste "teinté"). */
+function mixOpaque(hex: string, baseHex: string, pct: number): string {
+  const a = parseInt(hex.slice(1), 16);
+  const b = parseInt(baseHex.slice(1), 16);
+  const mix = (shift: number) => {
+    const ca = (a >> shift) & 255;
+    const cb = (b >> shift) & 255;
+    return Math.round(cb + (ca - cb) * pct);
+  };
+  return `rgb(${mix(16)},${mix(8)},${mix(0)})`;
+}
+
 /** Blocs où la saisie se fait par exercice (charge × reps, plusieurs séries). */
 const SERIES_RESULT_TYPES: BlockType[] = ["strength", "accessory", "skill"];
 /** Blocs où la saisie se fait une fois pour tout le bloc (temps/rounds/reps bonus). */
@@ -95,6 +110,9 @@ type BlocState = {
   amrapRounds: number;
   exerciseSeries: ExerciseSerie[][];
   exerciseTimes: string[];
+  /** Préréglage de repos par mouvement (secondes) — null = valeur par défaut
+   * (`parseRestSeconds`). Modifiable avant de lancer la série (doc B.3.a). */
+  restOverrides: (number | null)[];
   temps: string;
   rounds: string;
   score: string;
@@ -218,6 +236,7 @@ export function SessionRunnerV2({
           amrapRounds: 0,
           exerciseSeries: type && SERIES_RESULT_TYPES.includes(type) ? items.map(() => [{ charge: "", reps: "" }]) : [],
           exerciseTimes: items.map(() => ""),
+          restOverrides: items.map(() => null),
           temps: "",
           rounds: "",
           score: "",
@@ -240,7 +259,12 @@ export function SessionRunnerV2({
   const [volume, setVolumeState] = useState(0.8);
   const [photos, setPhotos] = useState<string[]>(initialPhotos);
   /** Chrono de repos entre deux séries — indépendant du chrono du bloc. */
-  const [restTimer, setRestTimer] = useState<{ endsAt: number; totalSec: number } | null>(null);
+  const [restTimer, setRestTimer] = useState<{ endsAt: number; totalSec: number; label: string } | null>(null);
+  // Réduit à une mini-barre en bas de la page séance ("← Retour"/"Passer") —
+  // le décompte continue de tourner, voir l'effect plus bas qui ne dépend pas
+  // de cet état. Pas de retour forcé au plein écran à la fin du repos : on
+  // laisse juste restTimer passer à null (useEffect ci-dessous).
+  const [restMinimized, setRestMinimized] = useState(false);
   const restTickRef = useRef<number>(-1);
   const restTenRef = useRef(false);
   const blocRefs = useRef<Record<number, HTMLDivElement | null>>({});
@@ -269,7 +293,9 @@ export function SessionRunnerV2({
       if (raw) {
         const saved = JSON.parse(raw) as { sessionStartedAt: number; blocks: BlocState[] };
         if (saved.blocks?.length === initial.length && typeof saved.sessionStartedAt === "number") {
-          setBlocks(saved.blocks);
+          // Rétrocompatible avec une séance sauvegardée avant l'ajout du
+          // préréglage de repos par mouvement (restOverrides absent).
+          setBlocks(saved.blocks.map((b) => ({ ...b, restOverrides: b.restOverrides ?? b.exerciseTimes.map(() => null) })));
           setSessionStartedAt(saved.sessionStartedAt);
         }
       }
@@ -486,6 +512,7 @@ export function SessionRunnerV2({
         speakEn("Rest over! Next set!");
         vibrate([600]);
         setRestTimer(null);
+        setRestMinimized(false);
       }
       return;
     }
@@ -649,14 +676,28 @@ export function SessionRunnerV2({
   function startRestTimer(blocIdx: number, exIdx: number) {
     unlockAudio();
     const rest = blockData[blocIdx]?.items[exIdx]?.rest;
-    const durationSec = parseRestSeconds(rest, blockData[blocIdx]?.type);
+    // Préréglage défini par l'athlète (B.3.a) en priorité sur la valeur par défaut.
+    const override = blocks[blocIdx]?.restOverrides[exIdx];
+    const durationSec = override ?? parseRestSeconds(rest, blockData[blocIdx]?.type);
     restTickRef.current = -1;
     restTenRef.current = false;
-    setRestTimer({ endsAt: Date.now() + durationSec * 1000, totalSec: durationSec });
+    setRestMinimized(false);
+    setRestTimer({
+      endsAt: Date.now() + durationSec * 1000,
+      totalSec: durationSec,
+      label: blockData[blocIdx]?.items[exIdx]?.name ?? "",
+    });
   }
 
-  function skipRestTimer() {
-    setRestTimer(null);
+  // "Passer" se comporte maintenant comme "← Retour" : réduit en mini-barre,
+  // ne coupe plus le décompte (voir doc B.1 correction 3 — avant, ça effaçait
+  // le chrono entièrement).
+  function minimizeRestTimer() {
+    setRestMinimized(true);
+  }
+
+  function reopenRestTimer() {
+    setRestMinimized(false);
   }
 
   function addRestTime(extraSec: number) {
@@ -692,6 +733,15 @@ export function SessionRunnerV2({
     setBlocks((prev) =>
       prev.map((x, i) =>
         i === blocIdx ? { ...x, exerciseTimes: x.exerciseTimes.map((t, j) => (j === exIdx ? value : t)) } : x,
+      ),
+    );
+  }
+
+  /** Préréglage de repos pour ce mouvement, avant de lancer la série suivante (doc B.3.a). */
+  function setRestOverride(blocIdx: number, exIdx: number, sec: number) {
+    setBlocks((prev) =>
+      prev.map((x, i) =>
+        i === blocIdx ? { ...x, restOverrides: x.restOverrides.map((r, j) => (j === exIdx ? sec : r)) } : x,
       ),
     );
   }
@@ -804,15 +854,18 @@ export function SessionRunnerV2({
           onClose={() => setFullscreen(null)}
         />
       )}
-      {restTimer && (
+      {restTimer && !restMinimized && (
         <RestTimer
           endsAt={restTimer.endsAt}
           totalSec={restTimer.totalSec}
           now={now}
-          onSkip={skipRestTimer}
+          onMinimize={minimizeRestTimer}
           onAddTime={() => addRestTime(30)}
           onStep={(sec) => addRestTime(sec)}
         />
+      )}
+      {restTimer && restMinimized && (
+        <RestMiniBar endsAt={restTimer.endsAt} label={restTimer.label} now={now} onOpen={reopenRestTimer} />
       )}
       <div className={styles.topbar}>
         <div className={styles.tbLeft}>
@@ -910,6 +963,7 @@ export function SessionRunnerV2({
               onUpdateSerie={(exIdx, serieIdx, patch) => updateSerie(i, exIdx, serieIdx, patch)}
               onRemoveSerie={(exIdx, serieIdx) => removeSerie(i, exIdx, serieIdx)}
               onSetExerciseTime={(exIdx, value) => setExerciseTime(i, exIdx, value)}
+              onSetRestOverride={(exIdx, sec) => setRestOverride(i, exIdx, sec)}
             />
           ))}
         </div>
@@ -978,6 +1032,7 @@ function BlocCard({
   onUpdateSerie,
   onRemoveSerie,
   onSetExerciseTime,
+  onSetRestOverride,
 }: {
   refCb: (el: HTMLDivElement | null) => void;
   index: number;
@@ -1002,6 +1057,7 @@ function BlocCard({
   onUpdateSerie: (exIdx: number, serieIdx: number, patch: Partial<ExerciseSerie>) => void;
   onRemoveSerie: (exIdx: number, serieIdx: number) => void;
   onSetExerciseTime: (exIdx: number, value: string) => void;
+  onSetRestOverride: (exIdx: number, sec: number) => void;
 }) {
   const isDone = state.done;
   const isActive = index === currentIndex && !isDone;
@@ -1076,13 +1132,24 @@ function BlocCard({
                 </div>
 
                 {checked && state.exerciseSeries[j] && (
-                  <SerieInput
-                    series={state.exerciseSeries[j]}
-                    last={lastResults[it.name] ?? lastResults[it.movementName]}
-                    onAdd={() => onAddSerie(j)}
-                    onUpdate={(serieIdx, patch) => onUpdateSerie(j, serieIdx, patch)}
-                    onRemove={(serieIdx) => onRemoveSerie(j, serieIdx)}
-                  />
+                  <>
+                    <SerieInput
+                      series={state.exerciseSeries[j]}
+                      last={lastResults[it.name] ?? lastResults[it.movementName]}
+                      onAdd={() => onAddSerie(j)}
+                      onUpdate={(serieIdx, patch) => onUpdateSerie(j, serieIdx, patch)}
+                      onRemove={(serieIdx) => onRemoveSerie(j, serieIdx)}
+                    />
+                    <Stepper
+                      label="Repos entre séries"
+                      value={state.restOverrides[j] ?? parseRestSeconds(it.rest, block.type)}
+                      step={5}
+                      min={5}
+                      max={600}
+                      format={fmtDurationAdjust}
+                      onChange={(v) => onSetRestOverride(j, v)}
+                    />
+                  </>
                 )}
 
                 {checked && TIME_RESULT_TYPES.includes(block.type) && (
@@ -1645,7 +1712,7 @@ function FullscreenTimer({
   return (
     <div
       className={styles.fsRoot}
-      style={{ background: `radial-gradient(circle at 50% 40%, ${hexAlpha(color, 0.12)} 0%, #0a0a0a 65%)` }}
+      style={{ background: `radial-gradient(circle at 50% 40%, ${mixOpaque(color, "#0a0a0a", 0.12)} 0%, #0a0a0a 65%)` }}
     >
       <div className={styles.fsGrid} />
       <div className={styles.fsTop}>
@@ -1717,14 +1784,16 @@ function RestTimer({
   endsAt,
   totalSec,
   now,
-  onSkip,
+  onMinimize,
   onAddTime,
   onStep,
 }: {
   endsAt: number;
   totalSec: number;
   now: number;
-  onSkip: () => void;
+  /** "← Retour" et "Passer" font la même chose : réduire en mini-barre, le
+   * décompte n'est jamais interrompu (doc B.1 correction 3/B.2). */
+  onMinimize: () => void;
   onAddTime: () => void;
   /** Ajustement fin ±5s, boutons de part et d'autre du chiffre. */
   onStep: (deltaSec: number) => void;
@@ -1733,6 +1802,9 @@ function RestTimer({
 
   return (
     <div className={styles.restRoot}>
+      <button type="button" className={styles.restBack} onClick={onMinimize} aria-label="Retour à la séance">
+        ← Retour
+      </button>
       <div className={styles.restLabel}>REPOS</div>
       <div className={styles.durAdjustRow}>
         <button type="button" className={styles.durAdjustBtn} onClick={() => onStep(-5)} aria-label="Diminuer le repos">
@@ -1750,10 +1822,32 @@ function RestTimer({
         <button type="button" className={styles.restBtn} onClick={onAddTime}>
           + 30 sec
         </button>
-        <button type="button" className={styles.restBtn} onClick={onSkip}>
+        <button type="button" className={styles.restBtn} onClick={onMinimize}>
           Passer →
         </button>
       </div>
     </div>
+  );
+}
+
+/** Mini-barre persistante en bas de la page séance quand le chrono de repos
+ * est réduit — sobre, cohérente avec la charte /progress (doc B.2). */
+function RestMiniBar({
+  endsAt,
+  label,
+  now,
+  onOpen,
+}: {
+  endsAt: number;
+  label: string;
+  now: number;
+  onOpen: () => void;
+}) {
+  const remaining = Math.max(0, Math.ceil((endsAt - now) / 1000));
+  return (
+    <button type="button" className={styles.restMiniBar} onClick={onOpen}>
+      <span className={styles.restMiniTime}>{fmtMS(remaining)}</span>
+      <span className={styles.restMiniLabel}>Repos · {label || "Prochaine série"}</span>
+    </button>
   );
 }
