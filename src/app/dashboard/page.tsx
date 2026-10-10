@@ -446,6 +446,9 @@ export default async function DashboardPage() {
             />
           ))}
 
+          {/* ACTIVITÉ DU JOUR — titre de section (doc H.2), bloc "Prévu aujourd'hui" inchangé */}
+          <div className={styles.sl}>Activité du jour</div>
+
           {/* SÉANCE DU JOUR — contenu selon le check-in, structure identique */}
           {finishedSession ? (
             <SessionRecapCard {...finishedSession} />
