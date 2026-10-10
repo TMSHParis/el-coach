@@ -177,11 +177,18 @@
 .upcomingSub .name { font-family: var(--font-bebas); font-size: 14px; color: var(--w); letter-spacing: .5px; }
 .upcomingNote { padding: 0 18px 14px; font-size: 11px; color: var(--m); }
 .upcomingCtaRow { display: flex; gap: 8px; margin: 0 18px 16px; }
-.upcomingPreviewWrap { flex: 1; }
-.upcomingPreviewWrap summary { list-style: none; text-align: center; background: transparent; border: 1px solid var(--bd); color: var(--t2, #9a9a9a); font-size: 12px; letter-spacing: .5px; padding: 12px; border-radius: 8px; cursor: pointer; }
-.upcomingPreviewWrap summary::-webkit-details-marker { display: none; }
-.upcomingPreviewWrap summary:hover { border-color: var(--m); color: var(--t); }
-.upcomingStartBtn { flex: 2; text-align: center; background: transparent; border: 1.5px solid var(--g); color: var(--g); font-family: var(--font-bebas); font-size: 13px; letter-spacing: 1.5px; padding: 12px; border-radius: 8px; text-decoration: none; display: flex; align-items: center; justify-content: center; }
+.upcomingPreviewBtn { flex: 1; text-align: center; background: transparent; border: 1px solid var(--bd); color: var(--t2, #9a9a9a); font-size: 12px; letter-spacing: .5px; padding: 12px; border-radius: 8px; cursor: pointer; font-family: inherit; white-space: nowrap; }
+.upcomingPreviewBtn:hover { border-color: var(--m); color: var(--t); }
+.upcomingStartBtn { flex: 2; text-align: center; background: transparent; border: 1.5px solid var(--g); color: var(--g); font-family: var(--font-bebas); font-size: 13px; letter-spacing: 1.5px; padding: 12px; border-radius: 8px; text-decoration: none; display: flex; align-items: center; justify-content: center; white-space: nowrap; }
+
+/* Vue "Aperçu" plein largeur (doc H.3) — remplace upcomingCtaRow pendant l'ouverture,
+   ne cohabite jamais avec le bouton Démarrer. */
+.previewPanelFull { margin: 0 18px 16px; }
+.previewPanelHead { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+.previewCloseBtn { background: transparent; border: 1px solid var(--bd); color: var(--t2, #9a9a9a); font-size: 11px; letter-spacing: .5px; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-family: inherit; flex-shrink: 0; }
+.previewCloseBtn:hover { border-color: var(--m); color: var(--t); }
+.previewPanelTitle { flex: 1; font-family: var(--font-bebas); font-size: 13px; letter-spacing: .5px; color: var(--t, #d8d8d8); text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.previewReadonlyBadge { flex-shrink: 0; font-size: 9px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--g); border: 1px solid var(--g); border-radius: 20px; padding: 3px 9px; }
 
 .addedTag { font-size: 8px; color: var(--m); background: rgba(255, 255, 255, .04); border: 1px solid var(--bd); border-radius: 20px; padding: 2px 8px; text-transform: uppercase; letter-spacing: .4px; margin-left: 6px; }
 .multiActivityNote { text-align: center; font-size: 11px; color: var(--m); margin: -6px 0 16px; }
@@ -220,7 +227,8 @@
 
 .block { padding: 14px 16px; border-bottom: 1px solid var(--bd); background: var(--s); }
 .block:last-child { border-bottom: none; }
-.blockTop { display: flex; align-items: center; gap: 9px; margin-bottom: 10px; }
+.blockTop { display: flex; align-items: center; gap: 9px; margin-bottom: 10px; cursor: pointer; }
+.bchevron { font-size: 10px; color: var(--m); flex-shrink: 0; }
 .bletter { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-family: var(--font-bebas); font-size: 14px; flex-shrink: 0; color: #000; font-weight: 700; }
 .sessA .bletter { background: var(--blue); }
 .sessB .bletter { background: var(--orange); }

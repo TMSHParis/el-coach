@@ -67,6 +67,7 @@ import { dashboardFontVariables } from "./dashboard-fonts";
 import { CalendarWeek } from "./calendar-week";
 import { SessionTabs } from "./session-tabs";
 import { SessionPanel } from "./session-panel";
+import { SessionPreviewToggle } from "./session-preview-toggle";
 import styles from "./dashboard.module.css";
 
 export const metadata = { title: "Dashboard — EL COACH METHOD" };
@@ -467,19 +468,19 @@ export default async function DashboardPage() {
                 </span>
               </div>
               <div className={styles.upcomingNote}>Pas encore réalisée</div>
-              <div className={styles.upcomingCtaRow}>
-                <details className={styles.upcomingPreviewWrap}>
-                  <summary>👁 APERÇU</summary>
+              <SessionPreviewToggle
+                startHref="/session"
+                titleLine={`${adviceSession.titre} · ${adviceSession.dureeEstimee} · ${adviceSession.blocks.length} bloc${
+                  adviceSession.blocks.length > 1 ? "s" : ""
+                }`}
+                preview={
                   <AdviceSessionPanel
                     nom={adviceSession.titre}
                     duree={adviceSession.dureeEstimee}
                     blocs={adviceSession.blocks}
                   />
-                </details>
-                <Link href="/session" className={styles.upcomingStartBtn}>
-                  DÉMARRER →
-                </Link>
-              </div>
+                }
+              />
             </div>
           ) : isRestDay ? (
             <div className={styles.upcomingCard}>
@@ -509,60 +510,62 @@ export default async function DashboardPage() {
                 </span>
               </div>
               <div className={styles.upcomingNote}>Pas encore réalisée</div>
-              <div className={styles.upcomingCtaRow}>
-                <details className={styles.upcomingPreviewWrap}>
-                  <summary>👁 APERÇU</summary>
-                  <div
-                    style={{
-                      background: "var(--s)",
-                      border: "1px solid var(--bd)",
-                      borderRadius: 4,
-                      padding: "9px 13px",
-                      marginTop: 10,
-                      marginBottom: 10,
-                      fontSize: 11,
-                      color: "var(--m)",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 7,
-                    }}
-                  >
-                    <span>▶️</span>
-                    <span>Appuie sur le bouton rouge pour voir la démo YouTube du mouvement</span>
-                  </div>
-                  <SessionTabs
-                    recommended={variant.recommended === "A" ? "a" : "b"}
-                    recoText={`Recommandée : ${variant.recommended} · ${variant.reason}`}
-                    labelA="SÉANCE A"
-                    labelB="SÉANCE B"
-                    subA="Standard"
-                    subB="Adaptée"
-                    panelA={
-                      <SessionPanel
-                        variant="a"
-                        nom={sessionTitle}
-                        duree={minutesToHM(safeDay.estimatedMinutes)}
-                        difficulte={difficultyFor(today.template.level, "a")}
-                        tags={sessionTags(safeDay.blocks)}
-                        blocs={toDisplayBlocks(safeDay.blocks)}
-                      />
-                    }
-                    panelB={
-                      <SessionPanel
-                        variant="b"
-                        nom={`${sessionTitle} — Allégée`}
-                        duree={minutesToHM(lightDay.estimatedMinutes)}
-                        difficulte={difficultyFor(today.template.level, "b")}
-                        tags={sessionTags(lightDay.blocks)}
-                        blocs={toDisplayBlocks(lightDay.blocks)}
-                      />
-                    }
-                  />
-                </details>
-                <Link href={`/session?variant=${variant.recommended === "A" ? "a" : "b"}`} className={styles.upcomingStartBtn}>
-                  DÉMARRER →
-                </Link>
-              </div>
+              <SessionPreviewToggle
+                startHref={`/session?variant=${variant.recommended === "A" ? "a" : "b"}`}
+                titleLine={`${baseDay.focus} · ${minutesToHM(baseDay.estimatedMinutes)} · ${baseDay.blocks.length} bloc${
+                  baseDay.blocks.length > 1 ? "s" : ""
+                }`}
+                preview={
+                  <>
+                    <div
+                      style={{
+                        background: "var(--s)",
+                        border: "1px solid var(--bd)",
+                        borderRadius: 4,
+                        padding: "9px 13px",
+                        marginTop: 10,
+                        marginBottom: 10,
+                        fontSize: 11,
+                        color: "var(--m)",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 7,
+                      }}
+                    >
+                      <span>▶️</span>
+                      <span>Appuie sur le bouton rouge pour voir la démo YouTube du mouvement</span>
+                    </div>
+                    <SessionTabs
+                      recommended={variant.recommended === "A" ? "a" : "b"}
+                      recoText={`Recommandée : ${variant.recommended} · ${variant.reason}`}
+                      labelA="SÉANCE A"
+                      labelB="SÉANCE B"
+                      subA="Standard"
+                      subB="Adaptée"
+                      panelA={
+                        <SessionPanel
+                          variant="a"
+                          nom={sessionTitle}
+                          duree={minutesToHM(safeDay.estimatedMinutes)}
+                          difficulte={difficultyFor(today.template.level, "a")}
+                          tags={sessionTags(safeDay.blocks)}
+                          blocs={toDisplayBlocks(safeDay.blocks)}
+                        />
+                      }
+                      panelB={
+                        <SessionPanel
+                          variant="b"
+                          nom={`${sessionTitle} — Allégée`}
+                          duree={minutesToHM(lightDay.estimatedMinutes)}
+                          difficulte={difficultyFor(today.template.level, "b")}
+                          tags={sessionTags(lightDay.blocks)}
+                          blocs={toDisplayBlocks(lightDay.blocks)}
+                        />
+                      }
+                    />
+                  </>
+                }
+              />
             </div>
           )}
 
