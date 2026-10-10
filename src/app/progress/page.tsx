@@ -9,7 +9,7 @@ import Link from "next/link";
 import { isRestLikeSeance } from "@/lib/seance-kinds";
 import { feelingBadge } from "@/lib/session-feeling";
 import type { SessionBlocResult } from "../session/actions";
-import { MovementChart, type TimelineDay } from "./progress-charts";
+import { MovementChart, type TimelineDay, type Intensity } from "./progress-charts";
 import { ProgressTabs, type SessionCard, type ProgramCard, type VolumeStat, type Badge, type WeekRow } from "./progress-tabs";
 import styles from "./progress.module.css";
 
@@ -100,8 +100,20 @@ function buildWeeks(checkinDates: string[]): WeekRow[] {
   return weeks.reverse();
 }
 
-/** Timeline 30 jours — classification par jour (doc F.5.b). */
-function buildTimeline(checkinsByDate: Map<string, string | null>): TimelineDay[] {
+/** "Légère"/"Modérée"/"Intense"/"Maximum" (ressenti saisi au check-in) → les 3 niveaux
+ * d'intensité de la timeline ; "Maximum" rejoint "Intense" (doc H.5). Pas de ressenti
+ * saisi pour un jour "fait" → "modérée" par défaut. */
+function toIntensity(seanceIntensite: string | null | undefined): Intensity {
+  if (seanceIntensite === "Légère") return "legere";
+  if (seanceIntensite === "Intense" || seanceIntensite === "Maximum") return "intense";
+  return "moderee";
+}
+
+/** Timeline 30 jours — classification par jour (doc F.5.b), hauteur par intensité (doc H.5). */
+function buildTimeline(
+  checkinsByDate: Map<string, string | null>,
+  intensityByDate: Map<string, string | null>,
+): TimelineDay[] {
   const today = dateKey(new Date());
   const out: TimelineDay[] = [];
   for (let i = 29; i >= 0; i--) {
@@ -109,7 +121,7 @@ function buildTimeline(checkinsByDate: Map<string, string | null>): TimelineDay[
     const seance = checkinsByDate.get(date);
     const status: TimelineDay["status"] =
       date > today ? "future" : seance !== undefined ? (isRestLikeSeance(seance) ? "rest" : "done") : "miss";
-    out.push({ date, status });
+    out.push({ date, status, intensity: status === "done" ? toIntensity(intensityByDate.get(date)) : undefined });
   }
   return out;
 }
@@ -193,7 +205,11 @@ export default async function ProgressPage({
       orderBy: { date: "asc" },
     }),
     // Toutes les séances (date + seance) : streaks, timeline, historique de semaines, programmes.
-    prisma.checkin.findMany({ where: { userId }, select: { date: true, seance: true }, orderBy: { date: "asc" } }),
+    prisma.checkin.findMany({
+      where: { userId },
+      select: { date: true, seance: true, seanceIntensite: true },
+      orderBy: { date: "asc" },
+    }),
     prisma.session.count({ where: { userId, completed: true } }),
     prisma.checkin.count({ where: { userId } }),
   ]);
@@ -287,7 +303,8 @@ export default async function ProgressPage({
   const { badges, nextThreshold } = buildBadges(best);
   const weeks = buildWeeks(allCheckins.map((c) => c.date));
   const checkinsByDate = new Map(allCheckins.map((c) => [c.date, c.seance]));
-  const timeline = buildTimeline(checkinsByDate);
+  const intensityByDate = new Map(allCheckins.map((c) => [c.date, c.seanceIntensite]));
+  const timeline = buildTimeline(checkinsByDate, intensityByDate);
 
   const movementData = movement
     ? buildMovementHistory(

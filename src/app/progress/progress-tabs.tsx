@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { LineChartCard, TimelineChart, type TimelineDay } from "./progress-charts";
+import { LineChartCard, TimelineChart, TimelineLegend, type TimelineDay } from "./progress-charts";
 import styles from "./progress.module.css";
 
 const cx = (...c: (string | false | undefined)[]) => c.filter(Boolean).join(" ");
@@ -265,34 +265,28 @@ export function ProgressTabs({
           <div className={styles.panel}>
             <div className={styles.sl}>Régularité</div>
             <div className={styles.streakCard}>
-              <div>
-                <div className={styles.streakNum}>{streak.current}</div>
-                <div className={styles.streakLbl}>Jours consécutifs</div>
-              </div>
-              <div className={styles.streakSide}>
-                Record : <b>{streak.best} jours</b>
-                {streak.nextThreshold && (
-                  <>
-                    <br />
-                    Prochain palier : <b>{streak.nextThreshold} jours</b>
-                  </>
-                )}
+              <div className={styles.streakFire}>🔥</div>
+              <div className={styles.streakNum}>{streak.current}</div>
+              <div className={styles.streakLbl}>Jours consécutifs</div>
+              <div className={styles.streakTiles}>
+                <div className={cx(styles.streakTile, styles.streakTileHighlight)}>
+                  <b>{streak.best}</b>
+                  <span>Record actuel</span>
+                </div>
+                <div className={styles.streakTile}>
+                  <b>{streak.nextThreshold ?? "—"}</b>
+                  <span>Prochain palier</span>
+                </div>
+                <div className={styles.streakTile}>
+                  <b>{streak.nextThreshold ? `${Math.min(100, Math.round((streak.current / streak.nextThreshold) * 100))}%` : "—"}</b>
+                  <span>Progression</span>
+                </div>
               </div>
             </div>
 
             <div className={styles.sl}>30 derniers jours</div>
             <div className={styles.timelineCard}>
-              <div className={styles.heatLegend}>
-                <span>
-                  <i style={{ background: "#C9A84C" }} /> Check-in fait
-                </span>
-                <span>
-                  <i style={{ background: "#5b7590" }} /> Repos prévu
-                </span>
-                <span>
-                  <i style={{ background: "#8a4a45" }} /> Manqué
-                </span>
-              </div>
+              <TimelineLegend />
               <TimelineChart data={timeline} />
             </div>
 
@@ -302,8 +296,16 @@ export function ProgressTabs({
                 <div key={b.threshold} className={cx(styles.badge, b.unlocked && styles.unlocked, b.current && styles.current)}>
                   <span className={styles.badgeCheck}>✓</span>
                   <div className={styles.badgeIcon}>{b.icon}</div>
-                  <div className="bn">{b.threshold}</div>
-                  <div className="bl">jours</div>
+                  <div className={styles.bn}>{b.threshold}</div>
+                  <div className={styles.bl}>jours</div>
+                  {b.current && streak.nextThreshold && (
+                    <div className={styles.badgeProgressTrack}>
+                      <div
+                        className={styles.badgeProgressFill}
+                        style={{ width: `${Math.min(100, (streak.current / streak.nextThreshold) * 100)}%` }}
+                      />
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -312,11 +314,11 @@ export function ProgressTabs({
                 <div className={styles.nmHead}>
                   <span>Prochain palier — {streak.nextThreshold} jours</span>
                   <span>
-                    {streak.best} / {streak.nextThreshold}
+                    {streak.current} / {streak.nextThreshold}
                   </span>
                 </div>
                 <div className={styles.nmTrack}>
-                  <div className={styles.nmFill} style={{ width: `${Math.min(100, (streak.best / streak.nextThreshold) * 100)}%` }} />
+                  <div className={styles.nmFill} style={{ width: `${Math.min(100, (streak.current / streak.nextThreshold) * 100)}%` }} />
                 </div>
               </div>
             )}
