@@ -173,6 +173,12 @@ function sessionDateLabel(date: string): string {
   return new Date(y, m - 1, d).toLocaleDateString("fr-FR", { day: "numeric", month: "long" });
 }
 
+/** Date courte (ex. "29 sept.") pour le "dernier WOD" des cartes programme — doc H.6. */
+function shortDateLabel(date: string): string {
+  const [y, m, d] = date.split("-").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
+}
+
 export default async function ProgressPage({
   searchParams,
 }: {
@@ -284,7 +290,7 @@ export default async function ProgressPage({
         const out = await prisma.dashboardOutput.findUnique({ where: { userId_date: { userId, date: lastDate } }, select: { output: true } });
         dernierWod = (out?.output as { generatedDay?: Day } | null)?.generatedDay?.focus ?? null;
       }
-      return { label, seances: dates.length, dernierWod };
+      return { label, seances: dates.length, dernierWod, dernierWodDate: lastDate ? shortDateLabel(lastDate) : null };
     }),
   );
 

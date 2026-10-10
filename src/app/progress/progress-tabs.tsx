@@ -19,7 +19,7 @@ export type SessionCard = {
   heartRateZones: { zone: number; minutes: number }[] | null;
 };
 
-export type ProgramCard = { label: string; seances: number; dernierWod: string | null };
+export type ProgramCard = { label: string; seances: number; dernierWod: string | null; dernierWodDate: string | null };
 export type VolumeStat = { focus: string; label: string; seances: number; meilleureCharge: number | null };
 export type Badge = { threshold: number; icon: string; label: string; unlocked: boolean; current: boolean };
 export type WeekRow = { label: string; sub: string; status: "ok" | "partial" };
@@ -33,6 +33,7 @@ const TABS = [
 type TabKey = (typeof TABS)[number]["key"];
 
 const ZONE_COLORS: Record<number, string> = { 1: "#5b7590", 2: "#5FA97E", 3: "#C9A84C", 4: "#E07B39", 5: "#C9605A" };
+const VOLUME_ICONS: Record<string, string> = { upper: "💪", lower: "🦵", full: "🔄" };
 
 function fmtDuration(sec: number): string {
   const m = Math.round(sec / 60);
@@ -199,7 +200,8 @@ export function ProgressTabs({
                 <b>{stats.sessionsCompleted}</b>
                 <span>Séances</span>
               </div>
-              <div className={styles.stat}>
+              <div className={cx(styles.stat, styles.statStreak)}>
+                <span className={styles.statStreakFire}>🔥</span>
                 <b>{stats.currentStreak}</b>
                 <span>Streak</span>
               </div>
@@ -238,7 +240,7 @@ export function ProgressTabs({
                   <div className={styles.pn}>{p.label}</div>
                   <div className={styles.ps}>
                     {p.seances} séance{p.seances > 1 ? "s" : ""}
-                    {p.dernierWod ? ` · dernier WOD : ${p.dernierWod}` : ""}
+                    {p.dernierWod ? ` · dernier WOD : ${p.dernierWod}${p.dernierWodDate ? ` (${p.dernierWodDate})` : ""}` : ""}
                   </div>
                 </div>
               ))
@@ -247,14 +249,25 @@ export function ProgressTabs({
             {volumeStats.some((v) => v.seances > 0) && (
               <>
                 <div className={styles.sl}>Volume Block par focus</div>
-                <div className={styles.statGrid} style={{ gridTemplateColumns: "1fr 1fr 1fr" }}>
-                  {volumeStats.map((v) => (
-                    <div key={v.focus} className={styles.stat}>
-                      <b>{v.seances}</b>
-                      <span>{v.label}</span>
-                      {v.meilleureCharge && <div style={{ fontSize: 10, color: "#C9A84C", marginTop: 4 }}>{v.meilleureCharge} kg</div>}
-                    </div>
-                  ))}
+                <div className={styles.volumeList}>
+                  {volumeStats.map((v) => {
+                    const max = Math.max(1, ...volumeStats.map((x) => x.seances));
+                    return (
+                      <div key={v.focus} className={styles.volumeRow}>
+                        <span className={styles.volumeIcon}>{VOLUME_ICONS[v.focus] ?? "🏋️"}</span>
+                        <div className={styles.volumeMain}>
+                          <div className={styles.volumeTop}>
+                            <span className={styles.volumeLabel}>{v.label}</span>
+                            <span className={styles.volumeCount}>{v.seances}</span>
+                          </div>
+                          <div className={styles.volumeTrack}>
+                            <div className={styles.volumeFill} style={{ width: `${(v.seances / max) * 100}%` }} />
+                          </div>
+                          {v.meilleureCharge && <div className={styles.volumeBest}>Meilleur résultat : {v.meilleureCharge} kg</div>}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </>
             )}
