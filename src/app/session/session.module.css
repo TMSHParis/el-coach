@@ -41,7 +41,35 @@
 .content { max-width: 480px; margin: 0 auto; padding: 80px 20px 130px; }
 
 .sessHero { padding: 24px 0 20px; }
-.sessLabel { font-size: 9px; letter-spacing: 2.5px; color: var(--m); text-transform: uppercase; margin-bottom: 8px; font-weight: 600; }
+/* Badge "Séance en cours" avec pastille pulsante (doc H.9, remplace le texte gris plat) */
+.sessLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  color: var(--g);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+  font-weight: 600;
+  background: var(--gd);
+  border: 1px solid rgba(201, 168, 76, .3);
+  border-radius: 20px;
+  padding: 5px 12px 5px 10px;
+}
+.sessLabelDot { position: relative; width: 7px; height: 7px; border-radius: 50%; background: var(--g); flex-shrink: 0; }
+.sessLabelDot::after {
+  content: "";
+  position: absolute;
+  inset: -5px;
+  border-radius: 50%;
+  background: var(--g);
+  animation: sessPulse 1.8s ease-out infinite;
+}
+@keyframes sessPulse {
+  0% { transform: scale(0.4); opacity: .6; }
+  100% { transform: scale(1.8); opacity: 0; }
+}
 .sessTitleRow { display: flex; align-items: center; gap: 12px; }
 .sessIconBadge { width: 44px; height: 44px; border-radius: 12px; background: var(--gd); border: 1.5px solid rgba(201, 168, 76, .35); display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
 .sessName { font-family: var(--font-bebas); font-size: 26px; font-weight: 400; color: var(--w); letter-spacing: 1px; line-height: 1.1; }

@@ -938,7 +938,10 @@ export function SessionRunnerV2({
 
       <div className={styles.content}>
         <div className={styles.sessHero}>
-          <div className={styles.sessLabel}>[ SÉANCE EN COURS ]</div>
+          <div className={styles.sessLabel}>
+            <span className={styles.sessLabelDot} />
+            Séance en cours
+          </div>
           <div className={styles.sessTitleRow}>
             <div className={styles.sessIconBadge}>{SESSION_KIND_ICON[sessionKind]}</div>
             <div>
