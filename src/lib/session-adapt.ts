@@ -115,6 +115,26 @@ export function adaptDayForInjuries(
 
 const LIGHT_FACTOR = 0.8; // cohérent avec la matrice d'état "Intensité 80%" (JAUNE).
 
+/**
+ * Contrat Séance A / Séance B (doc H.7) :
+ * - Séance A = `safeDay` (en appelant, cf. dashboard/page.tsx) — toujours la
+ *   version RX/standard, jamais variable dans son format.
+ * - Séance B = `reduceVolume(safeDay)` ci-dessous — toujours proposée à côté
+ *   de A, jamais une 3e carte séparée pour la blessure.
+ * - Les DEUX sources de blessure (profil chronique + check-in du jour) sont
+ *   déjà combinées AVANT cet appel, via `detectInjuryAreas(blessuresDetail,
+ *   douleurDetail)` puis `adaptDayForInjuries` — `safeDay` contient donc déjà
+ *   les substitutions de mouvements à risque, que B hérite automatiquement.
+ * - `reduceVolume` applique aujourd'hui le même facteur de volume (-20%) que
+ *   blessure il y ait ou non : B n'est donc actuellement qu'un "Scaled
+ *   standard" dans tous les cas, jamais une adaptation ciblée différente du
+ *   Scaled générique en cas de blessure déclarée. Si ce comportement doit un
+ *   jour distinguer "pas de blessure → Scaled standard" de "blessure →
+ *   adaptation ciblée sur la blessure ET l'état du jour", c'est ici qu'il
+ *   faudra brancher cette distinction (ex. un second paramètre `activeAreas`
+ *   sur `reduceVolume`, ou un chemin dédié appelé par le même call-site).
+ */
+
 /** Séance allégée : sets/reps/durées réduits d'~20% — la vraie variante B, pas juste un badge. */
 export function reduceVolume(day: Day): Day {
   const blocks: Block[] = day.blocks.map((block) => {
