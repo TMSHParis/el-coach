@@ -11,6 +11,7 @@ import { saveSessionResult, updateSessionRecap, type SessionBlocResult } from ".
 import { SessionPhotos, type PhotoAnalysisContext } from "@/components/session-photos";
 import type { PhotoExtraction } from "@/app/api/extract-photo-data/route";
 import type { LastResult } from "@/lib/last-results";
+import { useLongPress } from "@/lib/use-long-press";
 import {
   getVolume,
   releaseAudio,
@@ -86,6 +87,9 @@ const WOD_RESULT_TYPES: BlockType[] = ["wod", "conditioning"];
 const TIME_RESULT_TYPES: BlockType[] = ["endurance"];
 
 type ExerciseSerie = { charge: string; reps: string; rpe?: string };
+
+/** Chrono de repos actif (doc H.10) — null quand aucun repos n'est en cours. */
+type RestTimerState = { blocIdx: number; exIdx: number; endsAt: number; totalSec: number; label: string } | null;
 
 type BlocState = {
   /** Instant du dernier démarrage (ms epoch) — le chrono se recalcule depuis l'horloge,
@@ -284,13 +288,14 @@ export function SessionRunnerV2({
   const [showPreview, setShowPreview] = useState(false);
   const [volume, setVolumeState] = useState(0.8);
   const [photos, setPhotos] = useState<string[]>(initialPhotos);
-  /** Chrono de repos entre deux séries — indépendant du chrono du bloc. */
-  const [restTimer, setRestTimer] = useState<{ endsAt: number; totalSec: number; label: string } | null>(null);
-  // Réduit à une mini-barre en bas de la page séance ("← Retour"/"Passer") —
-  // le décompte continue de tourner, voir l'effect plus bas qui ne dépend pas
-  // de cet état. Pas de retour forcé au plein écran à la fin du repos : on
-  // laisse juste restTimer passer à null (useEffect ci-dessous).
-  const [restMinimized, setRestMinimized] = useState(false);
+  /** Chrono de repos entre deux séries — rendu in situ à l'emplacement du
+   * réglage "Repos entre séries" du mouvement concerné (doc H.10, remplace
+   * l'ancien overlay plein écran + mini-barre flottante qui chevauchait la
+   * barre de stats en bas d'écran). */
+  const [restTimer, setRestTimer] = useState<RestTimerState>(null);
+  /** Flash + "C'est reparti !" au même emplacement, quelques instants après la
+   * fin naturelle du repos (doc H.10) — jamais déclenché par une annulation. */
+  const [restJustEnded, setRestJustEnded] = useState<{ blocIdx: number; exIdx: number } | null>(null);
   const restTickRef = useRef<number>(-1);
   const restTenRef = useRef(false);
   const blocRefs = useRef<Record<number, HTMLDivElement | null>>({});
@@ -540,8 +545,10 @@ export function SessionRunnerV2({
         soundTriple();
         speakEn("Rest over! Next set!");
         vibrate([600]);
+        const { blocIdx, exIdx } = restTimer;
         setRestTimer(null);
-        setRestMinimized(false);
+        setRestJustEnded({ blocIdx, exIdx });
+        setTimeout(() => setRestJustEnded(null), 1800);
       }
       return;
     }
@@ -728,23 +735,20 @@ export function SessionRunnerV2({
     const durationSec = override ?? parseRestSeconds(rest, blockData[blocIdx]?.type);
     restTickRef.current = -1;
     restTenRef.current = false;
-    setRestMinimized(false);
+    setRestJustEnded(null);
     setRestTimer({
+      blocIdx,
+      exIdx,
       endsAt: Date.now() + durationSec * 1000,
       totalSec: durationSec,
       label: blockData[blocIdx]?.items[exIdx]?.name ?? "",
     });
   }
 
-  // "Passer" se comporte maintenant comme "← Retour" : réduit en mini-barre,
-  // ne coupe plus le décompte (voir doc B.1 correction 3 — avant, ça effaçait
-  // le chrono entièrement).
-  function minimizeRestTimer() {
-    setRestMinimized(true);
-  }
-
-  function reopenRestTimer() {
-    setRestMinimized(false);
+  /** "Passer ✕" — annule le repos à tout moment, enchaîne directement sur la
+   * série suivante (doc H.10, remplace l'ancienne réduction en mini-barre). */
+  function cancelRestTimer() {
+    setRestTimer(null);
   }
 
   function addRestTime(extraSec: number) {
@@ -901,19 +905,9 @@ export function SessionRunnerV2({
           onClose={() => setFullscreen(null)}
         />
       )}
-      {restTimer && !restMinimized && (
-        <RestTimer
-          endsAt={restTimer.endsAt}
-          totalSec={restTimer.totalSec}
-          now={now}
-          onMinimize={minimizeRestTimer}
-          onAddTime={() => addRestTime(30)}
-          onStep={(sec) => addRestTime(sec)}
-        />
-      )}
-      {restTimer && restMinimized && (
-        <RestMiniBar endsAt={restTimer.endsAt} label={restTimer.label} now={now} onOpen={reopenRestTimer} />
-      )}
+      {/* Le chrono de repos n'est plus un overlay global (doc H.10) — il est
+          rendu in situ dans BlocCard, à l'emplacement du réglage "Repos entre
+          séries" du mouvement concerné. */}
       <div className={styles.topbar}>
         <div className={styles.tbLeft}>
           <button className={styles.tbBack} onClick={confirmBack} aria-label="Retour">
@@ -1039,6 +1033,8 @@ export function SessionRunnerV2({
               block={b}
               state={blocks[i]}
               now={now}
+              restTimer={restTimer}
+              restJustEnded={restJustEnded}
               lastResults={lastResults}
               sessionKind={sessionKind}
               onToggle={() => toggleOpen(i)}
@@ -1057,6 +1053,8 @@ export function SessionRunnerV2({
               onRemoveSerie={(exIdx, serieIdx) => removeSerie(i, exIdx, serieIdx)}
               onSetExerciseTime={(exIdx, value) => setExerciseTime(i, exIdx, value)}
               onSetRestOverride={(exIdx, sec) => setRestOverride(i, exIdx, sec)}
+              onAdjustRest={(sec) => addRestTime(sec)}
+              onCancelRest={cancelRestTimer}
             />
           ))}
         </div>
@@ -1113,6 +1111,8 @@ function BlocCard({
   block,
   state,
   now,
+  restTimer,
+  restJustEnded,
   lastResults,
   sessionKind,
   onToggle,
@@ -1131,6 +1131,8 @@ function BlocCard({
   onRemoveSerie,
   onSetExerciseTime,
   onSetRestOverride,
+  onAdjustRest,
+  onCancelRest,
 }: {
   refCb: (el: HTMLDivElement | null) => void;
   index: number;
@@ -1138,6 +1140,8 @@ function BlocCard({
   block: DisplayBlock;
   state: BlocState;
   now: number;
+  restTimer: RestTimerState;
+  restJustEnded: { blocIdx: number; exIdx: number } | null;
   lastResults: Record<string, LastResult>;
   sessionKind: SessionKind;
   onToggle: () => void;
@@ -1156,6 +1160,8 @@ function BlocCard({
   onRemoveSerie: (exIdx: number, serieIdx: number) => void;
   onSetExerciseTime: (exIdx: number, value: string) => void;
   onSetRestOverride: (exIdx: number, sec: number) => void;
+  onAdjustRest: (deltaSec: number) => void;
+  onCancelRest: () => void;
 }) {
   const isDone = state.done;
   const isActive = index === currentIndex && !isDone;
@@ -1254,15 +1260,28 @@ function BlocCard({
                       onUpdate={(serieIdx, patch) => onUpdateSerie(j, serieIdx, patch)}
                       onRemove={(serieIdx) => onRemoveSerie(j, serieIdx)}
                     />
-                    <Stepper
-                      label="Repos entre séries"
-                      value={state.restOverrides[j] ?? parseRestSeconds(it.rest, block.type)}
-                      step={5}
-                      min={5}
-                      max={600}
-                      format={fmtDurationAdjust}
-                      onChange={(v) => onSetRestOverride(j, v)}
-                    />
+                    {restTimer && restTimer.blocIdx === index && restTimer.exIdx === j ? (
+                      <InlineRestTimer
+                        endsAt={restTimer.endsAt}
+                        totalSec={restTimer.totalSec}
+                        now={now}
+                        onStep={onAdjustRest}
+                        onCancel={onCancelRest}
+                      />
+                    ) : restJustEnded && restJustEnded.blocIdx === index && restJustEnded.exIdx === j ? (
+                      <div className={styles.restFlash}>C&apos;est reparti !</div>
+                    ) : (
+                      <Stepper
+                        label="Repos entre séries"
+                        value={state.restOverrides[j] ?? parseRestSeconds(it.rest, block.type)}
+                        step={5}
+                        min={5}
+                        max={600}
+                        format={fmtDurationAdjust}
+                        longPressStep={60}
+                        onChange={(v) => onSetRestOverride(j, v)}
+                      />
+                    )}
                   </>
                 )}
 
@@ -1414,6 +1433,7 @@ function Stepper({
   min,
   max,
   format,
+  longPressStep,
   onChange,
 }: {
   label: string;
@@ -1424,18 +1444,30 @@ function Stepper({
   max: number;
   /** Formatte la valeur affichée (ex. mm:ss) — prime sur `unit` si fourni. */
   format?: (v: number) => string;
+  /** Pas appliqué en répétition continue à l'appui long (doc H.10) — sinon
+   * l'appui long répète juste le pas normal, plus vite. */
+  longPressStep?: number;
   onChange: (v: number) => void;
 }) {
+  const holdStep = longPressStep ?? step;
+  const dec = useLongPress(
+    () => onChange(Math.max(min, value - step)),
+    () => onChange(Math.max(min, value - holdStep)),
+  );
+  const inc = useLongPress(
+    () => onChange(Math.min(max, value + step)),
+    () => onChange(Math.min(max, value + holdStep)),
+  );
   return (
     <div className={styles.stepper}>
-      <button type="button" className={styles.stepBtn} onClick={() => onChange(Math.max(min, value - step))}>
+      <button type="button" className={styles.stepBtn} {...dec}>
         −
       </button>
       <div className={styles.stepValue}>
         {format ? format(value) : value}
         {!format && unit}
       </div>
-      <button type="button" className={styles.stepBtn} onClick={() => onChange(Math.min(max, value + step))}>
+      <button type="button" className={styles.stepBtn} {...inc}>
         +
       </button>
       <div className={styles.stepLabel}>{label}</div>
@@ -1462,27 +1494,25 @@ function DurationAdjust({
   accent: string;
   onChange: (v: number) => void;
 }) {
+  const dec = useLongPress(
+    () => onChange(stepDuration(seconds, "-", step, min, max)),
+    () => onChange(stepDuration(seconds, "-", 60, min, max)),
+  );
+  const inc = useLongPress(
+    () => onChange(stepDuration(seconds, "+", step, min, max)),
+    () => onChange(stepDuration(seconds, "+", 60, min, max)),
+  );
   return (
     <div className={styles.durAdjust}>
       <div className={styles.durAdjustLabel}>{label}</div>
       <div className={styles.durAdjustRow}>
-        <button
-          type="button"
-          className={styles.durAdjustBtn}
-          onClick={() => onChange(stepDuration(seconds, "-", step, min, max))}
-          aria-label="Diminuer la durée"
-        >
+        <button type="button" className={styles.durAdjustBtn} aria-label="Diminuer la durée" {...dec}>
           −
         </button>
         <div className={styles.durAdjustValue} style={{ filter: `drop-shadow(0 0 12px ${accent}66)` }}>
           {fmtDurationAdjust(seconds)}
         </div>
-        <button
-          type="button"
-          className={styles.durAdjustBtn}
-          onClick={() => onChange(stepDuration(seconds, "+", step, min, max))}
-          aria-label="Augmenter la durée"
-        >
+        <button type="button" className={styles.durAdjustBtn} aria-label="Augmenter la durée" {...inc}>
           +
         </button>
       </div>
@@ -1639,8 +1669,8 @@ function TimerZone({
 
       {showTabataConfig && (
         <div className={styles.tabataConfig}>
-          <Stepper label="Travail" value={t.workSec} step={5} min={5} max={120} format={fmtDurationAdjust} onChange={(v) => onPatch({ workSec: v })} />
-          <Stepper label="Repos" value={t.restSec} step={5} min={5} max={120} format={fmtDurationAdjust} onChange={(v) => onPatch({ restSec: v })} />
+          <Stepper label="Travail" value={t.workSec} step={5} min={5} max={120} format={fmtDurationAdjust} longPressStep={60} onChange={(v) => onPatch({ workSec: v })} />
+          <Stepper label="Repos" value={t.restSec} step={5} min={5} max={120} format={fmtDurationAdjust} longPressStep={60} onChange={(v) => onPatch({ restSec: v })} />
           <Stepper label="Tours" value={t.tabataRounds} step={1} min={1} max={30} onChange={(v) => onPatch({ tabataRounds: v })} />
         </div>
       )}
@@ -1894,74 +1924,50 @@ function FullscreenTimer({
 }
 
 /** Chrono de repos entre deux séries — overlay teinté bleu/violet pour bien le distinguer du chrono de travail. */
-function RestTimer({
+/**
+ * Chrono de repos rendu in situ, à la place du réglage "Repos entre séries"
+ * du mouvement concerné (doc H.10) — remplace l'ancien overlay plein écran +
+ * mini-barre flottante, qui chevauchait la barre de stats en bas d'écran.
+ */
+function InlineRestTimer({
   endsAt,
   totalSec,
   now,
-  onMinimize,
-  onAddTime,
   onStep,
+  onCancel,
 }: {
   endsAt: number;
   totalSec: number;
   now: number;
-  /** "← Retour" et "Passer" font la même chose : réduire en mini-barre, le
-   * décompte n'est jamais interrompu (doc B.1 correction 3/B.2). */
-  onMinimize: () => void;
-  onAddTime: () => void;
-  /** Ajustement fin ±5s, boutons de part et d'autre du chiffre. */
+  /** Ajustement fin ±5s (tap) / ±1min (appui long) — n'affecte que ce repos
+   * en cours, pas la durée par défaut des repos suivants. */
   onStep: (deltaSec: number) => void;
+  onCancel: () => void;
 }) {
   const remaining = Math.max(0, Math.ceil((endsAt - now) / 1000));
+  const dec = useLongPress(() => onStep(-5), () => onStep(-60));
+  const inc = useLongPress(() => onStep(5), () => onStep(60));
 
   return (
-    <div className={styles.restRoot}>
-      <button type="button" className={styles.restBack} onClick={onMinimize} aria-label="Retour à la séance">
-        ← Retour
-      </button>
-      <div className={styles.restLabel}>REPOS</div>
+    <div className={styles.restInline}>
+      <div className={styles.restInlineTop}>
+        <span className={styles.restInlineLabel}>Repos</span>
+        <button type="button" className={styles.restInlineCancel} onClick={onCancel}>
+          Passer ✕
+        </button>
+      </div>
       <div className={styles.durAdjustRow}>
-        <button type="button" className={styles.durAdjustBtn} onClick={() => onStep(-5)} aria-label="Diminuer le repos">
+        <button type="button" className={styles.durAdjustBtn} aria-label="Diminuer le repos" {...dec}>
           −
         </button>
-        <div className={styles.restTime}>{fmtMS(remaining)}</div>
-        <button type="button" className={styles.durAdjustBtn} onClick={() => onStep(5)} aria-label="Augmenter le repos">
+        <div className={styles.restInlineTime}>{fmtMS(remaining)}</div>
+        <button type="button" className={styles.durAdjustBtn} aria-label="Augmenter le repos" {...inc}>
           +
         </button>
       </div>
       <div className={styles.restBarWrap}>
         <div className={styles.restBar} style={{ width: `${totalSec > 0 ? ((totalSec - remaining) / totalSec) * 100 : 0}%` }} />
       </div>
-      <div className={styles.restActions}>
-        <button type="button" className={styles.restBtn} onClick={onAddTime}>
-          + 30 sec
-        </button>
-        <button type="button" className={styles.restBtn} onClick={onMinimize}>
-          Passer →
-        </button>
-      </div>
     </div>
-  );
-}
-
-/** Mini-barre persistante en bas de la page séance quand le chrono de repos
- * est réduit — sobre, cohérente avec la charte /progress (doc B.2). */
-function RestMiniBar({
-  endsAt,
-  label,
-  now,
-  onOpen,
-}: {
-  endsAt: number;
-  label: string;
-  now: number;
-  onOpen: () => void;
-}) {
-  const remaining = Math.max(0, Math.ceil((endsAt - now) / 1000));
-  return (
-    <button type="button" className={styles.restMiniBar} onClick={onOpen}>
-      <span className={styles.restMiniTime}>{fmtMS(remaining)}</span>
-      <span className={styles.restMiniLabel}>Repos · {label || "Prochaine série"}</span>
-    </button>
   );
 }

@@ -345,21 +345,35 @@
 .fsBtn { padding: 14px 16px; border: 1px solid rgba(255,255,255,.25); border-radius: 4px; background: rgba(0,0,0,.35); color: #fff; font-family: inherit; font-size: 11px; letter-spacing: 2px; text-transform: uppercase; cursor: pointer; }
 .fsGlobal { font-family: var(--font-bebas); font-size: 1.1rem; letter-spacing: 2px; color: var(--m); }
 
-/* CHRONO DE REPOS ENTRE SÉRIES — teinte bleu/violet pour se distinguer du travail. */
-.restRoot { position: fixed; inset: 0; z-index: 210; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 28px 20px calc(24px + env(safe-area-inset-bottom)); background: linear-gradient(rgba(99,102,241,.22), rgba(99,102,241,.22)), #080808; }
-.restBack { position: absolute; top: calc(16px + env(safe-area-inset-top)); left: 16px; background: none; border: none; color: #a5b4fc; font-size: 13px; font-family: inherit; cursor: pointer; padding: 8px; }
+/* CHRONO DE REPOS — rendu in situ (doc H.10), remplace l'overlay plein écran
+   + mini-barre flottante qui chevauchait .bottombar. */
+.restInline { background: var(--gd); border: 1px solid rgba(201, 168, 76, .3); border-radius: 10px; padding: 12px 14px; margin-top: 8px; }
+.restInlineTop { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.restInlineLabel { font-family: var(--font-bebas); font-size: 11px; letter-spacing: 3px; text-transform: uppercase; color: var(--g); }
+.restInlineCancel { background: none; border: none; color: var(--m); font-size: 11px; font-family: inherit; cursor: pointer; padding: 4px 6px; }
+.restInlineCancel:hover { color: var(--t); }
+.restInlineTime { font-family: var(--font-bebas); font-size: 2.6rem; line-height: 1; color: var(--w); letter-spacing: 1px; }
+.restBarWrap { width: 100%; height: 5px; border-radius: 3px; background: rgba(255, 255, 255, .12); overflow: hidden; margin-top: 10px; }
+.restBar { height: 100%; background: linear-gradient(90deg, var(--g), var(--gl)); transition: width .2s linear; }
 
-/* Mini-barre persistante (chrono de repos réduit) — sobre, au-dessus du bandeau du bas. */
-.restMiniBar { position: fixed; bottom: 86px; left: 50%; transform: translateX(-50%); z-index: 150; width: calc(100% - 32px); max-width: 448px; display: flex; align-items: center; gap: 10px; background: var(--s); border: 1px solid var(--bd); border-radius: 10px; padding: 10px 14px; cursor: pointer; }
-.restMiniTime { font-family: var(--font-bebas); font-size: 18px; color: #a5b4fc; letter-spacing: 1px; }
-.restMiniLabel { font-size: 11px; color: var(--t2, #9a9a9a); flex: 1; text-align: left; }
-.restLabel { font-family: var(--font-bebas); font-size: 1.4rem; letter-spacing: 8px; text-transform: uppercase; color: #a5b4fc; }
-.restTime { font-family: var(--font-bebas); font-size: 6rem; line-height: 1; color: #fff; letter-spacing: 2px; }
-.restBarWrap { width: 100%; max-width: 280px; height: 6px; border-radius: 3px; background: rgba(255,255,255,.12); overflow: hidden; }
-.restBar { height: 100%; background: #818cf8; transition: width .2s linear; }
-.restActions { display: flex; gap: 10px; margin-top: 12px; }
-.restBtn { padding: 14px 20px; border: 1px solid rgba(255,255,255,.25); border-radius: 4px; background: rgba(0,0,0,.35); color: #fff; font-family: inherit; font-size: 12px; letter-spacing: 2px; text-transform: uppercase; cursor: pointer; }
-.restBtn:hover { border-color: #818cf8; color: #a5b4fc; }
+/* Flash de fin de repos (doc H.10) — même emplacement que le chrono qui vient de se terminer. */
+.restFlash {
+  margin-top: 8px;
+  padding: 14px;
+  border-radius: 10px;
+  text-align: center;
+  font-family: var(--font-bebas);
+  font-size: 15px;
+  letter-spacing: 1px;
+  color: var(--gl);
+  background: var(--gd);
+  border: 1px solid var(--g);
+  animation: restFlashPulse 1.8s ease-out;
+}
+@keyframes restFlashPulse {
+  0% { background: rgba(201, 168, 76, .35); }
+  100% { background: var(--gd); }
+}
 
 /* RPE ET RAPPEL DE LA DERNIÈRE SÉANCE */
 .rpeRow { display: flex; align-items: center; gap: 8px; padding: 2px 0 8px 52px; }
