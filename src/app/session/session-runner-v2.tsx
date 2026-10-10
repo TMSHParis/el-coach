@@ -273,6 +273,11 @@ export function SessionRunnerV2({
   const [now, setNow] = useState<number>(() => Date.now());
   const [restored, setRestored] = useState(false);
   const [sessionDone, setSessionDone] = useState(false);
+  /** Vrai dès "Démarrer la séance" — masque ce bouton, qui serait sinon
+   * incohérent affiché à côté de "Fermer" pendant une séance déjà en cours
+   * (doc H.8). Ne redevient jamais faux : la fin de séance se fait via
+   * "Terminer la séance", pas en revenant sur ce bouton. */
+  const [sessionStarted, setSessionStarted] = useState(false);
   /** Bloc affiché en chrono plein écran (null = liste des mouvements). */
   const [fullscreen, setFullscreen] = useState<number | null>(null);
   /** Aperçu en lecture seule du déroulé — jamais affiché par défaut (doc G.4). */
@@ -312,12 +317,15 @@ export function SessionRunnerV2({
     try {
       const raw = localStorage.getItem(storageKey);
       if (raw) {
-        const saved = JSON.parse(raw) as { sessionStartedAt: number; blocks: BlocState[] };
+        const saved = JSON.parse(raw) as { sessionStartedAt: number; blocks: BlocState[]; sessionStarted?: boolean };
         if (saved.blocks?.length === initial.length && typeof saved.sessionStartedAt === "number") {
           // Rétrocompatible avec une séance sauvegardée avant l'ajout du
           // préréglage de repos par mouvement (restOverrides absent).
           setBlocks(saved.blocks.map((b) => ({ ...b, restOverrides: b.restOverrides ?? b.exerciseTimes.map(() => null) })));
           setSessionStartedAt(saved.sessionStartedAt);
+          // Rétrocompatible avec une séance sauvegardée avant sessionStarted
+          // (doc H.8) : on déduit l'état depuis les blocs déjà actifs.
+          setSessionStarted(saved.sessionStarted ?? saved.blocks.some((b) => b.running || b.done));
         }
       }
     } catch {
@@ -329,11 +337,11 @@ export function SessionRunnerV2({
   useEffect(() => {
     if (!restored) return;
     try {
-      localStorage.setItem(storageKey, JSON.stringify({ sessionStartedAt, blocks }));
+      localStorage.setItem(storageKey, JSON.stringify({ sessionStartedAt, blocks, sessionStarted }));
     } catch {
       // Quota/mode privé — sans persistance, le chrono reste juste tant que l'onglet vit.
     }
-  }, [blocks, sessionStartedAt, restored, storageKey]);
+  }, [blocks, sessionStartedAt, sessionStarted, restored, storageKey]);
 
   // Horloge unique : tous les affichages dérivent de `now`.
   useEffect(() => {
@@ -633,6 +641,7 @@ export function SessionRunnerV2({
    * premier bloc non terminé et, en ECM, lance aussi son chrono. */
   function startSession() {
     setShowPreview(false);
+    setSessionStarted(true);
     const idx = blocks.findIndex((b) => !b.done);
     if (idx === -1) return;
     openBloc(idx);
@@ -955,9 +964,13 @@ export function SessionRunnerV2({
             <button type="button" className={styles.ctaPreview} onClick={() => setShowPreview((v) => !v)}>
               👁 {showPreview ? "FERMER" : "APERÇU"}
             </button>
-            <button type="button" className={styles.ctaStart} onClick={startSession}>
-              ▷ DÉMARRER LA SÉANCE
-            </button>
+            {/* Séance déjà lancée : "Démarrer" n'a plus de sens ici, la fin de
+                séance se fait via "Terminer la séance" plus bas (doc H.8). */}
+            {!sessionStarted && (
+              <button type="button" className={styles.ctaStart} onClick={startSession}>
+                ▷ DÉMARRER LA SÉANCE
+              </button>
+            )}
           </div>
 
           {showPreview && (
