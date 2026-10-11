@@ -9,6 +9,7 @@
 import { useState } from "react";
 import type { EcmProfileCookie, EcmObjectifDetail, WeekCycle, WeekCycleDay, WeekCycleDayKey } from "./actions";
 import { BackHomeButton } from "@/components/back-home-button";
+import { getTemplate } from "@/lib/programming";
 import styles from "./ecm-signup.module.css";
 
 function emptyWeekCycle(): WeekCycle {
@@ -516,21 +517,90 @@ export function ProgrammePrincipalPicker({ value, onChange }: { value: string; o
   );
 }
 
+/** Icône + libellé d'un sport ("⚡ CrossFit Pure" → "⚡"/"CrossFit Pure") —
+ * les options sans emoji ("Step", "HIIT"...) retombent sur une icône neutre. */
+function splitIconLabel(raw: string): { icon: string; label: string } {
+  const match = raw.match(/^(\S+)\s+(.*)$/);
+  if (match && !/[a-zA-Z]/.test(match[1])) return { icon: match[1], label: match[2] };
+  return { icon: "🏋️", label: raw };
+}
+
+export type StandardWeekDay = { icon: string; label: string } | null;
+
+/**
+ * Semaine type dérivée du programme principal choisi (doc H.16) — null pour
+ * un jour de repos dans le template. Même source que resolveTodaySession
+ * (demo-session.ts) côté check-in/dashboard, pour rester cohérent avec
+ * "Prévu aujourd'hui" (doc H.15).
+ */
+export function standardWeekFor(programmeLabel: string): Record<WeekCycleDayKey, StandardWeekDay> | null {
+  const slug = SPORT_LABEL_TO_SLUG[programmeLabel];
+  const template = slug ? getTemplate(slug) : undefined;
+  if (!template) return null;
+  const { icon, label } = splitIconLabel(programmeLabel);
+  const days = template.weeks[0]?.days ?? [];
+  const out = {} as Record<WeekCycleDayKey, StandardWeekDay>;
+  WEEK_DAY_KEYS.forEach((key, i) => {
+    const day = days.find((d) => d.day === i + 1);
+    out[key] = day && day.blocks.length > 0 ? { icon, label } : null;
+  });
+  return out;
+}
+
+function standardDayToWeekCycleDay(d: StandardWeekDay): WeekCycleDay {
+  if (!d) return { repos: true, slots: [] };
+  return { repos: false, slots: [{ sport: `${d.icon} ${d.label}`.trim(), heure: "", duree: "", niveau: "" }] };
+}
+
 /** Semaine type — 7 jours, chacun avec repos ou plusieurs créneaux sport (matin/soir). */
-export function WeekCyclePicker({ value, onChange }: { value: WeekCycle; onChange: (next: WeekCycle) => void }) {
+export function WeekCyclePicker({
+  value,
+  programmeLabel,
+  onChange,
+}: {
+  value: WeekCycle;
+  /** Programme principal choisi — dérive la semaine standard affichée tant
+   * qu'aucun jour n'a été personnalisé (doc H.16). */
+  programmeLabel: string;
+  onChange: (next: WeekCycle) => void;
+}) {
   const [activeDay, setActiveDay] = useState<WeekCycleDayKey | null>(null);
+  const standardWeek = standardWeekFor(programmeLabel);
+  // Personnalisée dès qu'un jour porte un repos explicite ou un sport choisi —
+  // la semaine vide par défaut (emptyWeekCycle) ne déclenche jamais ça.
+  const customized = WEEK_DAY_KEYS.some((k) => value[k].repos || value[k].slots.length > 0);
+
+  /** 1er edit (encore "standard") : fige d'abord tous les jours sur la
+   * semaine standard, pour que la personnalisation ne parte pas d'une
+   * semaine à moitié vide (doc H.16). */
+  function seedIfNeeded(): WeekCycle {
+    if (customized || !standardWeek) return value;
+    const seeded = { ...value };
+    WEEK_DAY_KEYS.forEach((k) => {
+      seeded[k] = standardDayToWeekCycleDay(standardWeek[k]);
+    });
+    return seeded;
+  }
 
   function patchDay(day: WeekCycleDayKey, patch: Partial<WeekCycle[WeekCycleDayKey]>) {
-    onChange({ ...value, [day]: { ...value[day], ...patch } });
+    const base = seedIfNeeded();
+    onChange({ ...base, [day]: { ...base[day], ...patch } });
   }
   function patchSlot(day: WeekCycleDayKey, idx: number, patch: Partial<WeekCycle[WeekCycleDayKey]["slots"][number]>) {
-    patchDay(day, { slots: value[day].slots.map((s, i) => (i === idx ? { ...s, ...patch } : s)) });
+    const base = seedIfNeeded();
+    patchDay(day, { slots: base[day].slots.map((s, i) => (i === idx ? { ...s, ...patch } : s)) });
   }
   function addSlot(day: WeekCycleDayKey) {
-    patchDay(day, { slots: [...value[day].slots, { sport: "", heure: "", duree: "", niveau: "" }] });
+    const base = seedIfNeeded();
+    patchDay(day, { slots: [...base[day].slots, { sport: "", heure: "", duree: "", niveau: "" }] });
   }
   function removeSlot(day: WeekCycleDayKey, idx: number) {
-    patchDay(day, { slots: value[day].slots.filter((_, i) => i !== idx) });
+    const base = seedIfNeeded();
+    patchDay(day, { slots: base[day].slots.filter((_, i) => i !== idx) });
+  }
+  function resetToStandard() {
+    onChange(emptyWeekCycle());
+    setActiveDay(null);
   }
 
   return (
@@ -538,13 +608,30 @@ export function WeekCyclePicker({ value, onChange }: { value: WeekCycle; onChang
       <div className={styles.ql}>
         <i>📅</i> Ma semaine type d&apos;entraînement
       </div>
+      <div className={styles.weekBadgeRow}>
+        {customized ? (
+          <span className={styles.weekBadge}>Semaine personnalisée</span>
+        ) : (
+          <span className={styles.weekBadge}>
+            Semaine standard{standardWeek ? ` · Programme : ${programmeLabel.replace(/^\S+\s*/, "")}` : ""}
+          </span>
+        )}
+        {customized && (
+          <button type="button" className={styles.weekResetLink} onClick={resetToStandard}>
+            Rétablir la semaine standard
+          </button>
+        )}
+      </div>
       <p className={styles.weekHint}>
         Clique sur un jour. Tu peux ajouter plusieurs sports le même jour (matin + soir).
       </p>
       <div className={styles.weekSelector}>
         {WEEK_DAY_KEYS.map((d) => {
           const day = value[d];
-          const hasSport = !day.repos && day.slots.some((s) => s.sport);
+          const standardDay = standardWeek?.[d] ?? null;
+          const displayRest = customized ? day.repos : !standardDay;
+          const displaySport = customized ? day.slots.find((s) => s.sport)?.sport ?? null : standardDay && `${standardDay.icon} ${standardDay.label}`;
+          const hasSport = !displayRest && !!displaySport;
           return (
             <div
               key={d}
@@ -552,19 +639,19 @@ export function WeekCyclePicker({ value, onChange }: { value: WeekCycle; onChang
                 styles.dayBtn,
                 activeDay === d && styles.active,
                 hasSport && styles.hasSport,
-                day.repos && styles.isRest,
+                displayRest && styles.isRest,
               )}
               onClick={() => setActiveDay(d)}
             >
               <div className={styles.dayBtnName}>{d.toUpperCase()}</div>
-              <div className={styles.dayBtnDot} />
+              <div className={styles.dayBtnActivity}>{displayRest ? "Repos" : displaySport ?? "—"}</div>
             </div>
           );
         })}
       </div>
       {activeDay && (
         <div className={cx(styles.dayDetail, styles.visible)}>
-          <div className={styles.dayDetailTitle}>{WEEK_DAY_LABELS[activeDay]}</div>
+          <div className={styles.dayDetailTitle}>{WEEK_DAY_LABELS[activeDay]} : que prévois-tu ?</div>
           <label className={styles.dayRestRow}>
             <input
               type="checkbox"

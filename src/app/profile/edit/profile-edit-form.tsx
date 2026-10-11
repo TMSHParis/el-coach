@@ -154,7 +154,11 @@ export function ProfileEditForm() {
           value={profile.programmePrincipal}
           onChange={(v) => setField({ programmePrincipal: v })}
         />
-        <WeekCyclePicker value={profile.weekCycle} onChange={(v) => setField({ weekCycle: v })} />
+        <WeekCyclePicker
+          value={profile.weekCycle}
+          programmeLabel={profile.programmePrincipal}
+          onChange={(v) => setField({ weekCycle: v })}
+        />
         <div className={styles.qc}>
           <div className={styles.ql}>
             <i>🏗️</i> Accès équipement

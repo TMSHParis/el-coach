@@ -353,7 +353,11 @@ export function EcmSignupForm({ defaultProgramSlug }: { defaultProgramSlug: stri
               value={profile.programmePrincipal}
               onChange={(v) => setProfile({ programmePrincipal: v })}
             />
-            <WeekCyclePicker value={profile.weekCycle} onChange={(v) => setProfile({ weekCycle: v })} />
+            <WeekCyclePicker
+              value={profile.weekCycle}
+              programmeLabel={profile.programmePrincipal}
+              onChange={(v) => setProfile({ weekCycle: v })}
+            />
 
             <div className={styles.qc}>
               <div className={styles.ql}>
