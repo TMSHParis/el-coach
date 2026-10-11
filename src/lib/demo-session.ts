@@ -5,6 +5,7 @@ import {
   type Day,
   type ProgramTemplate,
 } from "./programming";
+import type { WeekCycle, WeekCycleDayKey } from "@/app/signup/actions";
 
 const COOKIE_PROGRAM = "el_coach_program";
 const COOKIE_FATIGUE = "el_coach_fatigue";
@@ -109,6 +110,40 @@ export function resolveTodaySession(
 
 export function weekOverview(template: ProgramTemplate): Day[] {
   return template.weeks[0]?.days ?? [];
+}
+
+const WEEK_CYCLE_KEYS: WeekCycleDayKey[] = ["lun", "mar", "mer", "jeu", "ven", "sam", "dim"];
+
+export type PlannedToday = { value: string; label: string; sub: string };
+
+/**
+ * "Prévu aujourd'hui" (doc H.15) — priorité au planning personnalisé du
+ * profil (Profile.weekCycle) sur la programmation de base du programme :
+ * si un créneau est renseigné pour aujourd'hui (jour pas en repos, sport
+ * choisi), on l'utilise ; sinon on retombe sur resolveTodaySession comme
+ * avant. weekCycle ne porte qu'un sport/horaire/niveau par créneau, pas un
+ * bloc de séance structuré — on ne renvoie donc qu'un label/sous-titre, pas
+ * un Day complet (c'est au check-in de rester une simple proposition).
+ */
+export function resolvePlannedToday(
+  weekCycle: WeekCycle | null | undefined,
+  programSlug: string | null,
+  fatigueScore: number | null,
+  ecmLabel: string | undefined,
+): PlannedToday | null {
+  const dayKey = WEEK_CYCLE_KEYS[todayDayNumber() - 1];
+  const plannedDay = weekCycle?.[dayKey];
+  if (plannedDay && !plannedDay.repos) {
+    const slot = plannedDay.slots.find((s) => s.sport);
+    if (slot) {
+      return { value: slot.sport, label: slot.sport, sub: slot.heure ? `Prévu à ${slot.heure}` : "Planning personnalisé" };
+    }
+  }
+
+  if (!programSlug) return null;
+  const session = resolveTodaySession(programSlug, fatigueScore);
+  if (!session || session.needsFatigueInput || session.day.blocks.length === 0 || !ecmLabel) return null;
+  return { value: ecmLabel, label: ecmLabel, sub: session.day.focus };
 }
 
 export const DAY_SHORT_NAMES = ["LUN", "MAR", "MER", "JEU", "VEN", "SAM", "DIM"];

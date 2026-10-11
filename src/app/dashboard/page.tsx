@@ -150,6 +150,13 @@ export default async function DashboardPage() {
   );
   // La séance composée par Claude (moteur de génération dynamique) prime sur le
   // programme fixe hebdomadaire dès qu'elle existe pour aujourd'hui.
+  // Gap connu (doc H.15) : `today.day` (resolveTodaySession) ne lit jamais
+  // profile.weekCycle — avant le check-in du jour (pas encore de
+  // generatedDay), cette carte peut donc proposer le mauvais sport si le
+  // planning personnalisé du profil diffère du programme de base. Pas de fix
+  // ici : weekCycle ne porte qu'un sport/horaire, pas un Day structuré avec
+  // des blocs — contrairement au check-in (resolvePlannedToday, demo-session.ts),
+  // cette carte a besoin d'un Day complet pour Aperçu/Démarrer.
   const baseDay = generatedDay ?? today.day;
   const sessionTitle = generatedDay ? baseDay.focus : `${today.template.name} — ${baseDay.focus}`;
   const adapted = adaptDayForInjuries(baseDay, injuryAreas);

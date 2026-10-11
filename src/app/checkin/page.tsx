@@ -2,8 +2,9 @@ import Link from "next/link";
 import { isCheckinDoneToday } from "./actions";
 import { getUserId } from "@/lib/user-id";
 import { prisma } from "@/lib/prisma";
-import { getDemoState, resolveTodaySession } from "@/lib/demo-session";
+import { getDemoState, resolvePlannedToday } from "@/lib/demo-session";
 import { SLUG_TO_SPORT_LABEL } from "@/lib/ecm-programs";
+import type { WeekCycle } from "@/app/signup/actions";
 import { resolveDayState } from "@/lib/ecm-engine";
 import { stripLeadingEmoji } from "@/lib/advice-session";
 import { todayKey } from "@/lib/date-key";
@@ -35,7 +36,7 @@ export default async function CheckinPage() {
   const userId = await getUserId();
   const [profile, demo] = await Promise.all([
     userId
-      ? prisma.profile.findUnique({ where: { userId }, select: { programme: true, programmes: true } })
+      ? prisma.profile.findUnique({ where: { userId }, select: { programme: true, programmes: true, weekCycle: true } })
       : null,
     getDemoState(),
   ]);
@@ -61,13 +62,15 @@ export default async function CheckinPage() {
     : [];
   const habits = habitRows.map((r) => r.seance).filter((s): s is string => Boolean(s));
 
-  // "Prévu aujourd'hui" — séance ECM programmée si un programme actif en a une pour le jour.
-  const todayEcmSession = demo.programSlug ? resolveTodaySession(demo.programSlug, demo.fatigueScore) : null;
+  // "Prévu aujourd'hui" — planning personnalisé du profil en priorité, sinon
+  // séance ECM programmée si un programme actif en a une pour le jour (doc H.15).
   const todayEcmLabel = demo.programSlug ? SLUG_TO_SPORT_LABEL[demo.programSlug] : undefined;
-  const todayEcm =
-    todayEcmSession && !todayEcmSession.needsFatigueInput && todayEcmSession.day.blocks.length > 0 && todayEcmLabel
-      ? { value: todayEcmLabel, label: todayEcmLabel, sub: todayEcmSession.day.focus }
-      : null;
+  const todayEcm = resolvePlannedToday(
+    (profile?.weekCycle as unknown as WeekCycle | null) ?? null,
+    demo.programSlug,
+    demo.fatigueScore,
+    todayEcmLabel,
+  );
 
   // Rappel du dernier check-in réalisé (pas forcément hier si un jour a été sauté).
   const lastCheckin =
