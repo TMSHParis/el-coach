@@ -10,7 +10,7 @@ import { MAX_SESSION_PHOTOS } from "@/lib/session-media";
 export type SessionBlocResult = {
   bloc: number;
   nom: string;
-  series?: { charge: string; reps: string; rpe?: string }[];
+  series?: { charge: string; reps: string; rpe?: string; time?: string }[];
   temps?: string;
   rounds?: string;
   score?: string;

@@ -37,9 +37,21 @@ export function defaultDurationMinutes(block: Block): number {
   return match ? parseInt(match[1], 10) : 10;
 }
 
-export type ExerciseDisplay = { name: string; qty: string; detail?: string; rest?: string; load?: string };
+export type ExerciseDisplay = {
+  name: string;
+  qty: string;
+  detail?: string;
+  rest?: string;
+  load?: string;
+  /** Champs bruts de l'Exercise, exposés pour détecter le format de saisie
+   * adapté (doc H.14) sans reparser `qty` — ex. gainage/isométrie = sets +
+   * time sans reps. */
+  sets?: number;
+  reps?: number | string;
+  time?: string;
+};
 
-/** Découpe un Exercise en {name, qty, detail, rest, load} pour les cartes dashboard/session. */
+/** Découpe un Exercise en {name, qty, detail, rest, load, sets, reps, time} pour les cartes dashboard/session. */
 export function exerciseDisplay(ex: Exercise, movementName: string): ExerciseDisplay {
   let qty = "";
   if (ex.sets !== undefined && ex.reps !== undefined) qty = `${ex.sets}×${ex.reps}`;
@@ -49,7 +61,7 @@ export function exerciseDisplay(ex: Exercise, movementName: string): ExerciseDis
   else if (ex.distance) qty = ex.distance;
 
   const name = ex.load ? `${movementName} (${ex.load})` : movementName;
-  return { name, qty, detail: ex.notes, rest: ex.rest, load: ex.load };
+  return { name, qty, detail: ex.notes, rest: ex.rest, load: ex.load, sets: ex.sets, reps: ex.reps, time: ex.time };
 }
 
 export type DisplayBlock = {

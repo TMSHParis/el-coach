@@ -181,6 +181,7 @@
 .removeSerieBtn:hover { color: var(--red); }
 .addSerieBtn { background: none; border: 1px dashed var(--bd); color: var(--g); font-size: 11px; letter-spacing: 1px; text-transform: uppercase; padding: 6px 10px; border-radius: 4px; cursor: pointer; margin-top: 2px; }
 .addSerieBtn:hover { border-color: var(--g); }
+.seriesActionsRow { display: flex; gap: 8px; flex-wrap: wrap; }
 
 .wodResultWrap { padding-bottom: 4px; }
 .wodResultRow { display: flex; gap: 10px; padding: 10px 16px 4px; flex-wrap: wrap; }

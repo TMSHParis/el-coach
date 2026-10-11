@@ -101,6 +101,13 @@ function looksLikeMisplacedStrengthBlock(block: DisplayBlock): boolean {
   return block.items.every((it) => /^\d+×\d+(-\d+)?$/.test(it.qty));
 }
 
+/** Gainage/isométrie (doc H.14) : sets + temps tenu, sans reps — ex. "3×30s"
+ * de plank. Distingué d'un mouvement de musculation classique (sets+reps)
+ * uniquement par les champs réellement renseignés sur l'Exercise. */
+function isHoldItem(it: DisplayBlock["items"][number]): boolean {
+  return it.sets !== undefined && !!it.time && it.reps === undefined;
+}
+
 /** Tag de format en haut à droite de la fiche WOD (doc H.11). */
 const WOD_FORMAT_TAG: Partial<Record<WodFormat, string>> = {
   ForTime: "🏆 For Time",
@@ -142,7 +149,10 @@ function wodTimeCap(block: DisplayBlock): string | null {
   return null;
 }
 
-type ExerciseSerie = { charge: string; reps: string; rpe?: string };
+/** `time` (doc H.14) : temps tenu, pour une série de gainage/isométrie — en
+ * plus de `reps`, jamais à la place, pour garder un seul tableau de séries
+ * partagé par musculation et gainage. */
+type ExerciseSerie = { charge: string; reps: string; rpe?: string; time?: string };
 
 /** Chrono de repos actif (doc H.10) — null quand aucun repos n'est en cours. */
 type RestTimerState = { blocIdx: number; exIdx: number; endsAt: number; totalSec: number; label: string } | null;
@@ -902,7 +912,7 @@ export function SessionRunnerV2({
     blockData.forEach((b, i) => {
       const state = blocks[i];
       b.items.forEach((it, j) => {
-        const series = (state.exerciseSeries[j] ?? []).filter((x) => x.charge.trim() || x.reps.trim());
+        const series = (state.exerciseSeries[j] ?? []).filter((x) => x.charge.trim() || x.reps.trim() || x.time?.trim());
         const temps = state.exerciseTimes[j]?.trim();
         if (series.length > 0) blocs.push({ bloc: i + 1, nom: it.name, series });
         else if (temps) blocs.push({ bloc: i + 1, nom: it.name, temps });
@@ -1329,6 +1339,7 @@ function BlocCard({
                     <SerieInput
                       series={state.exerciseSeries[j]}
                       last={lastResults[it.name] ?? lastResults[it.movementName]}
+                      isHold={isHoldItem(it)}
                       onAdd={() => onAddSerie(j)}
                       onUpdate={(serieIdx, patch) => onUpdateSerie(j, serieIdx, patch)}
                       onRemove={(serieIdx) => onRemoveSerie(j, serieIdx)}
@@ -1541,71 +1552,102 @@ function WodResult({
 function SerieInput({
   series,
   last,
+  isHold,
   onAdd,
   onUpdate,
   onRemove,
 }: {
   series: ExerciseSerie[];
   last?: LastResult;
+  /** Gainage/isométrie (doc H.14) : temps tenu par série au lieu de reps,
+   * charge facultative masquée par défaut (mouvement lesté, rare). */
+  isHold?: boolean;
   onAdd: () => void;
   onUpdate: (serieIdx: number, patch: Partial<ExerciseSerie>) => void;
   onRemove: (serieIdx: number) => void;
 }) {
+  const [chargeEnabled, setChargeEnabled] = useState(false);
+  const showCharge = !isHold || chargeEnabled;
+
   return (
     <div className={styles.seriesWrap}>
       {series.map((s, k) => (
         <div key={k}>
         <div className={styles.serieRow}>
           <span className={styles.serieLabel}>Série {k + 1}</span>
-          <input
-            className={styles.serieInput}
-            type="number"
-            inputMode="decimal"
-            placeholder={last ? String(last.suggestion) : "—"}
-            value={s.charge}
-            onChange={(e) => onUpdate(k, { charge: e.target.value })}
-          />
-          <span className={styles.serieUnit}>kg</span>
-          <span>×</span>
-          <input
-            className={styles.serieInput}
-            type="number"
-            inputMode="numeric"
-            placeholder="—"
-            value={s.reps}
-            onChange={(e) => onUpdate(k, { reps: e.target.value })}
-          />
-          <span className={styles.serieUnit}>reps</span>
+          {showCharge && (
+            <>
+              <input
+                className={styles.serieInput}
+                type="number"
+                inputMode="decimal"
+                placeholder={last ? String(last.suggestion) : "—"}
+                value={s.charge}
+                onChange={(e) => onUpdate(k, { charge: e.target.value })}
+              />
+              <span className={styles.serieUnit}>kg</span>
+              <span>×</span>
+            </>
+          )}
+          {isHold ? (
+            <input
+              className={styles.serieInput}
+              type="text"
+              inputMode="numeric"
+              placeholder="MM:SS"
+              value={s.time ?? ""}
+              onChange={(e) => onUpdate(k, { time: e.target.value })}
+            />
+          ) : (
+            <input
+              className={styles.serieInput}
+              type="number"
+              inputMode="numeric"
+              placeholder="—"
+              value={s.reps}
+              onChange={(e) => onUpdate(k, { reps: e.target.value })}
+            />
+          )}
+          <span className={styles.serieUnit}>{isHold ? "tenu" : "reps"}</span>
           {series.length > 1 && (
             <button type="button" className={styles.removeSerieBtn} onClick={() => onRemove(k)}>
               ✕
             </button>
           )}
         </div>
-        <div className={styles.rpeRow}>
-          <span className={styles.rpeLabel}>RPE {s.rpe || "—"}</span>
-          <input
-            className={styles.rpeSlider}
-            type="range"
-            min={1}
-            max={10}
-            step={1}
-            value={s.rpe ? Number(s.rpe) : 5}
-            onChange={(e) => onUpdate(k, { rpe: e.target.value })}
-            aria-label={`RPE série ${k + 1}`}
-          />
-          <span className={styles.rpeHint}>facultatif</span>
-        </div>
+        {!isHold && (
+          <div className={styles.rpeRow}>
+            <span className={styles.rpeLabel}>RPE {s.rpe || "—"}</span>
+            <input
+              className={styles.rpeSlider}
+              type="range"
+              min={1}
+              max={10}
+              step={1}
+              value={s.rpe ? Number(s.rpe) : 5}
+              onChange={(e) => onUpdate(k, { rpe: e.target.value })}
+              aria-label={`RPE série ${k + 1}`}
+            />
+            <span className={styles.rpeHint}>facultatif</span>
+          </div>
+        )}
         </div>
       ))}
-      {last && (
+      {last && !isHold && (
         <div className={styles.lastResult}>
           Dernière fois : {last.charge} kg × {last.reps || "—"} · suggéré {last.suggestion} kg
         </div>
       )}
-      <button type="button" className={styles.addSerieBtn} onClick={onAdd}>
-        + Ajouter une série
-      </button>
+      <div className={styles.seriesActionsRow}>
+        <button type="button" className={styles.addSerieBtn} onClick={onAdd}>
+          + Ajouter une série
+        </button>
+        {isHold && !chargeEnabled && (
+          <button type="button" className={styles.addSerieBtn} onClick={() => setChargeEnabled(true)}>
+            + Ajouter une charge
+          </button>
+        )}
+      </div>
     </div>
   );
 }
