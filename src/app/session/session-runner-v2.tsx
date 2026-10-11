@@ -497,7 +497,7 @@ export function SessionRunnerV2({
           finishBloc(i, total);
           return;
         }
-        if (elapsed >= Math.floor(total / 2)) once("half", () => speakEn("Half Time!"));
+        if (elapsed >= Math.floor(total / 2)) once("half", () => speakEn("Halfway there!"));
         if (remaining <= 10) tenSeconds("ten");
         if (remaining <= 3) beepSecond(remaining);
         return;
@@ -523,7 +523,11 @@ export function SessionRunnerV2({
         }
         const minute = Math.floor(elapsed / 60) + 1;
         const secondsLeftInMinute = 60 - (elapsed % 60);
-        // Compte à rebours des 3 dernières secondes par minute — pas de "Ten seconds!" en EMOM.
+        // "Halfway there !" une seule fois, à la moitié du temps total du bloc (doc H.12).
+        if (elapsed >= Math.floor(total / 2)) once("half", () => speakEn("Halfway there!"));
+        // "Ten seconds !" une fois par minute (doc H.12), avant les 3 bips finaux.
+        if (secondsLeftInMinute <= 10) tenSeconds(`ten-${minute}`);
+        // Compte à rebours des 3 dernières secondes par minute.
         if (secondsLeftInMinute <= 3) beepSecond(secondsLeftInMinute);
         if (minuteRef.current[i] === undefined) minuteRef.current[i] = minute;
         else if (minute !== minuteRef.current[i]) {
