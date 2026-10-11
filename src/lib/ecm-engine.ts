@@ -28,7 +28,7 @@ import { movements, type Movement } from "./movements";
 import { WODS } from "./wods";
 import { SOURCE_PROGRAM_EXAMPLES } from "./source-program-examples";
 import type { Block, BlockType, Day, Exercise, WodFormat } from "./programming";
-import { validateGeneratedDay } from "./session-adapt";
+import { validateGeneratedDay, reclassifyMisplacedStrengthBlocks } from "./session-adapt";
 import { ageFromDateNaissance } from "./age";
 import { isRestLikeSeance } from "./seance-kinds";
 import { callCoachMessage, formatRecentTags, type CoachMessageResult, type CoachTagsByDay } from "./coach-message";
@@ -464,6 +464,7 @@ RÈGLES :
 - N'invente aucune donnée numérique (poids, sommeil) — utilise uniquement les valeurs fournies ci-dessus.
 - Les alertes de la catégorie "injury" ne doivent apparaître que si blessures ou douleur est vrai.
 - sessionBlocks : exactement 5 blocs dans l'ordre — type "warmup" (échauffement court), "strength" (main lift, 1 mouvement de force principal — varier par rapport aux 14 derniers jours listés ci-dessus si possible), "wod" (metcon/conditioning, inspiré de WODS D'INSPIRATION), "accessory" (finisher court), "cooldown" (mobilité/récupération, optionnel = facultatif). Adapte le volume/l'intensité à l'état du jour (énergie/jambes/mental/stress du check-in) — SANS retirer de mouvement pour cause de blessure : cette adaptation-là est gérée déterministiquement en aval, tu n'as pas à l'anticiper.
+- Un mouvement de musculation classique (sets × reps à charge fixe, ex. "3×10") va TOUJOURS dans un bloc "strength" ou "accessory" — jamais dans "wod"/"conditioning". Le bloc "wod" doit toujours porter un champ format (AMRAP/EMOM/ForTime/Tabata/Chipper/...) ; si le contenu n'a pas de format de ce type, ce n'est pas un bloc "wod", c'est un bloc "accessory".
 - Ne considère PAS les blessures/douleurs pour composer sessionBlocks (filet de sécurité séparé et déterministe après coup) — compose la séance "pleine forme" adaptée uniquement à l'énergie/l'équipement/le niveau/la séance prévue.
 - Réponds uniquement via l'appel à l'outil, sans texte additionnel.`;
 
@@ -552,7 +553,7 @@ RÈGLES :
     blocks,
   };
 
-  const generatedDay = validateGeneratedDay(rawDay, allowedMovementIds);
+  const generatedDay = reclassifyMisplacedStrengthBlocks(validateGeneratedDay(rawDay, allowedMovementIds));
 
   return {
     ecm: {

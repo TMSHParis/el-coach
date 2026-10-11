@@ -169,6 +169,28 @@ export function reduceVolume(day: Day): Day {
  */
 const FALLBACK_MOVEMENT_ID = "air-squat";
 
+/**
+ * Filet de sécurité (doc H.13) : un bloc typé "wod"/"conditioning"/"endurance"
+ * sans format de metcon (AMRAP/EMOM/ForTime/...) et dont TOUS les mouvements
+ * portent des sets+reps numériques classiques est presque certainement un
+ * bloc de musculation mal catégorisé par la génération — un vrai metcon a
+ * toujours un format, lui. Recatégorisé en "accessory" pour que l'écran
+ * séance affiche les champs kg/reps/RPE au lieu d'une simple case à cocher.
+ */
+export function reclassifyMisplacedStrengthBlocks(day: Day): Day {
+  const blocks: Block[] = day.blocks.map((block) => {
+    if (block.type !== "wod" && block.type !== "conditioning" && block.type !== "endurance") return block;
+    if (block.format) return block;
+    if (block.exercises.length === 0) return block;
+    const looksLikeStrength = block.exercises.every(
+      (ex) => typeof ex.sets === "number" && (typeof ex.reps === "number" || /^\d+(-\d+)?$/.test(String(ex.reps ?? ""))),
+    );
+    if (!looksLikeStrength) return block;
+    return { ...block, type: "accessory" as const };
+  });
+  return { ...day, blocks };
+}
+
 export function validateGeneratedDay(day: Day, allowedIds: ReadonlySet<string>): Day {
   const blocks: Block[] = day.blocks.map((block) => ({
     ...block,

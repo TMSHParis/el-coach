@@ -86,6 +86,21 @@ const WOD_RESULT_TYPES: BlockType[] = ["wod", "conditioning"];
 /** Blocs cardio : un temps par exercice. */
 const TIME_RESULT_TYPES: BlockType[] = ["endurance"];
 
+/**
+ * Filet de sécurité côté rendu (doc H.13) : un bloc wod/conditioning/endurance
+ * sans format de metcon, dont tous les mouvements affichent un "N×M" (sets ×
+ * reps numériques) classique, est presque sûrement un bloc de musculation mal
+ * catégorisé par la génération (voir aussi reclassifyMisplacedStrengthBlocks,
+ * session-adapt.ts — le même filet côté génération, pour les jours à venir).
+ * Protège l'affichage des jours déjà générés avant ce correctif.
+ */
+function looksLikeMisplacedStrengthBlock(block: DisplayBlock): boolean {
+  if (!WOD_RESULT_TYPES.includes(block.type) && block.type !== "endurance") return false;
+  if (block.format) return false;
+  if (block.items.length === 0) return false;
+  return block.items.every((it) => /^\d+×\d+(-\d+)?$/.test(it.qty));
+}
+
 /** Tag de format en haut à droite de la fiche WOD (doc H.11). */
 const WOD_FORMAT_TAG: Partial<Record<WodFormat, string>> = {
   ForTime: "🏆 For Time",
@@ -300,7 +315,10 @@ export function SessionRunnerV2({
           open: i === 0,
           checked: items.map(() => false),
           amrapRounds: 0,
-          exerciseSeries: type && SERIES_RESULT_TYPES.includes(type) ? items.map(() => [{ charge: "", reps: "" }]) : [],
+          exerciseSeries:
+            type && (SERIES_RESULT_TYPES.includes(type) || looksLikeMisplacedStrengthBlock(blockData[i]))
+              ? items.map(() => [{ charge: "", reps: "" }])
+              : [],
           exerciseTimes: items.map(() => ""),
           restOverrides: items.map(() => null),
           temps: "",
@@ -1217,7 +1235,7 @@ function BlocCard({
   const checkedCount = state.checked.filter(Boolean).length;
   const itemCount = block.items.length;
   /** Metcon/Finisher : fiche WOD écrite, jamais de checkbox par mouvement (doc H.11). */
-  const isWod = WOD_RESULT_TYPES.includes(block.type);
+  const isWod = WOD_RESULT_TYPES.includes(block.type) && !looksLikeMisplacedStrengthBlock(block);
 
   return (
     <div ref={refCb} className={cx(styles.bloc, isActive && styles.active, isDone && styles.done, state.open && styles.open)}>
