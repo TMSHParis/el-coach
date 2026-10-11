@@ -14,6 +14,8 @@ export type SessionBlocResult = {
   temps?: string;
   rounds?: string;
   score?: string;
+  /** Version réellement réalisée d'un Metcon/Finisher (doc H.11). */
+  rxScaled?: "rx" | "scaled";
 };
 
 export type SessionResultPayload = {

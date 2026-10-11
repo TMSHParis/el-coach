@@ -1,7 +1,7 @@
 // Correspondance entre le format de programmation (programming.ts) et l'affichage
 // UI partagé par le dashboard (aperçu séance) et /session (moteur de chrono).
 
-import { resolveExerciseMovement, displayBlockName, type Block, type BlockType, type Exercise } from "./programming";
+import { resolveExerciseMovement, displayBlockName, type Block, type BlockType, type Exercise, type WodFormat } from "./programming";
 
 export type BadgeCls = "nft" | "bth" | "ft" | "amrap" | "emom" | "tabata";
 export type RuntimeFormat = "nft" | "ft" | "amrap" | "emom" | "tabata";
@@ -37,9 +37,9 @@ export function defaultDurationMinutes(block: Block): number {
   return match ? parseInt(match[1], 10) : 10;
 }
 
-export type ExerciseDisplay = { name: string; qty: string; detail?: string; rest?: string };
+export type ExerciseDisplay = { name: string; qty: string; detail?: string; rest?: string; load?: string };
 
-/** Découpe un Exercise en {name, qty, detail, rest} pour les cartes dashboard/session. */
+/** Découpe un Exercise en {name, qty, detail, rest, load} pour les cartes dashboard/session. */
 export function exerciseDisplay(ex: Exercise, movementName: string): ExerciseDisplay {
   let qty = "";
   if (ex.sets !== undefined && ex.reps !== undefined) qty = `${ex.sets}×${ex.reps}`;
@@ -49,7 +49,7 @@ export function exerciseDisplay(ex: Exercise, movementName: string): ExerciseDis
   else if (ex.distance) qty = ex.distance;
 
   const name = ex.load ? `${movementName} (${ex.load})` : movementName;
-  return { name, qty, detail: ex.notes, rest: ex.rest };
+  return { name, qty, detail: ex.notes, rest: ex.rest, load: ex.load };
 }
 
 export type DisplayBlock = {
@@ -61,6 +61,10 @@ export type DisplayBlock = {
   type: BlockType;
   items: (ExerciseDisplay & { movementName: string; videoUrl?: string; /** Conseil/message, pas un mouvement : pas de bouton vidéo. */ noVideo?: boolean })[];
   note?: string;
+  /** Format CrossFit du bloc (doc H.11 — fiche WOD écrite) — uniquement pertinent pour type "wod"/"conditioning". */
+  format?: WodFormat;
+  duration?: string;
+  rounds?: number;
 };
 
 /** Transforme les blocs bruts (programming.ts) en vue prête pour dashboard/session. */
@@ -79,6 +83,9 @@ export function toDisplayBlocks(blocks: Block[]): DisplayBlock[] {
         return { ...exerciseDisplay(ex, movementName), movementName, videoUrl: movement?.videoUrl };
       }),
       note: block.notes,
+      format: block.format,
+      duration: block.duration,
+      rounds: block.rounds,
     };
   });
 }

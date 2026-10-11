@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { DisplayBlock } from "@/lib/session-format";
-import type { BlockType } from "@/lib/programming";
+import type { BlockType, WodFormat } from "@/lib/programming";
 import styles from "./session.module.css";
 import { SessionItemRow } from "../dashboard/session-item-row";
 import { saveSessionResult, updateSessionRecap, type SessionBlocResult } from "./actions";
@@ -86,6 +86,47 @@ const WOD_RESULT_TYPES: BlockType[] = ["wod", "conditioning"];
 /** Blocs cardio : un temps par exercice. */
 const TIME_RESULT_TYPES: BlockType[] = ["endurance"];
 
+/** Tag de format en haut à droite de la fiche WOD (doc H.11). */
+const WOD_FORMAT_TAG: Partial<Record<WodFormat, string>> = {
+  ForTime: "🏆 For Time",
+  RFT: "🏆 For Time",
+  Chipper: "🏆 For Time",
+  Simulation: "🏆 For Time",
+  AMRAP: "🔁 AMRAP",
+  EMOM: "⏱️ EMOM",
+  E2MOM: "⏱️ EMOM",
+  E3MOM: "⏱️ EMOM",
+  Tabata: "🔥 Tabata",
+  Intervals: "⏱️ Intervalles",
+  Circuit: "🔁 Circuit",
+  Superset: "🔁 Superset",
+  StraightSets: "🏋️ Sets",
+};
+
+/** Ligne de format ("10 Rounds for Time", "Every 2:00 × 4 Sets"...) — doc H.11. */
+function wodFormatLine(block: DisplayBlock): string {
+  const { format, rounds, duration } = block;
+  if (format === "ForTime" || format === "RFT" || format === "Chipper" || format === "Simulation") {
+    return rounds ? `${rounds} Rounds for Time` : "For Time";
+  }
+  if (format === "AMRAP") return duration ? `AMRAP ${duration}` : "AMRAP";
+  if (format === "EMOM") return duration ? `EMOM · ${duration}` : "EMOM";
+  if (format === "E2MOM") return `Every 2:00 × ${rounds ?? "?"} Sets`;
+  if (format === "E3MOM") return `Every 3:00 × ${rounds ?? "?"} Sets`;
+  if (format === "Tabata") return duration ? `Tabata · ${duration}` : "Tabata";
+  if (format) return duration ? `${format} · ${duration}` : format;
+  return "";
+}
+
+/** Time cap affiché sur sa propre ligne (doc H.11) — uniquement pour les
+ * formats chronométrés où `duration` représente un plafond, pas une cible. */
+function wodTimeCap(block: DisplayBlock): string | null {
+  const { format, duration } = block;
+  if (!duration) return null;
+  if (format === "ForTime" || format === "RFT" || format === "Chipper" || format === "Simulation") return duration;
+  return null;
+}
+
 type ExerciseSerie = { charge: string; reps: string; rpe?: string };
 
 /** Chrono de repos actif (doc H.10) — null quand aucun repos n'est en cours. */
@@ -121,6 +162,8 @@ type BlocState = {
   temps: string;
   rounds: string;
   score: string;
+  /** Version réellement réalisée du Metcon/Finisher (doc H.11). */
+  rxScaled: "rx" | "scaled";
 };
 
 function fmtMS(totalSec: number): string {
@@ -263,6 +306,7 @@ export function SessionRunnerV2({
           temps: "",
           rounds: "",
           score: "",
+          rxScaled: "rx",
         };
       }),
     [blockData, initial],
@@ -848,6 +892,7 @@ export function SessionRunnerV2({
           temps: state.temps || undefined,
           rounds: state.rounds || undefined,
           score: state.score || undefined,
+          rxScaled: WOD_RESULT_TYPES.includes(b.type) ? state.rxScaled : undefined,
         });
       }
     });
@@ -1167,6 +1212,8 @@ function BlocCard({
   const isActive = index === currentIndex && !isDone;
   const checkedCount = state.checked.filter(Boolean).length;
   const itemCount = block.items.length;
+  /** Metcon/Finisher : fiche WOD écrite, jamais de checkbox par mouvement (doc H.11). */
+  const isWod = WOD_RESULT_TYPES.includes(block.type);
 
   return (
     <div ref={refCb} className={cx(styles.bloc, isActive && styles.active, isDone && styles.done, state.open && styles.open)}>
@@ -1202,19 +1249,23 @@ function BlocCard({
           onOpenFullscreen={onOpenFullscreen}
         />
 
-        {itemCount > 0 && (
-          <div className={styles.blocProgress}>
-            <div className={styles.blocProgressLabel}>
-              {checkedCount} / {itemCount} mouvements
-            </div>
-            <div className={styles.blocProgressTrack}>
-              <div className={styles.blocProgressFill} style={{ width: `${(checkedCount / itemCount) * 100}%` }} />
-            </div>
-          </div>
-        )}
+        {isWod ? (
+          <WodSheet block={block} />
+        ) : (
+          <>
+            {itemCount > 0 && (
+              <div className={styles.blocProgress}>
+                <div className={styles.blocProgressLabel}>
+                  {checkedCount} / {itemCount} mouvements
+                </div>
+                <div className={styles.blocProgressTrack}>
+                  <div className={styles.blocProgressFill} style={{ width: `${(checkedCount / itemCount) * 100}%` }} />
+                </div>
+              </div>
+            )}
 
-        <div className={styles.blocItems}>
-          {block.items.map((it, j) => {
+            <div className={styles.blocItems}>
+              {block.items.map((it, j) => {
             // Conseil/consigne (pas un mouvement à cocher) — lecture seule,
             // style "points de vigilance" (doc G.4.1 — items noVideo uniquement,
             // jamais posé sur un vrai exercice).
@@ -1302,41 +1353,22 @@ function BlocCard({
                 )}
               </div>
             );
-          })}
-        </div>
-
-        {WOD_RESULT_TYPES.includes(block.type) && (
-          <div className={styles.wodResultRow}>
-            <div className={styles.wodResultField}>
-              <label>Temps</label>
-              <input
-                type="text"
-                placeholder="MM:SS"
-                value={state.temps}
-                onChange={(e) => onPatch({ temps: e.target.value })}
-              />
+              })}
             </div>
-            <div className={styles.wodResultField}>
-              <label>Rounds</label>
-              <input
-                type="text"
-                placeholder="—"
-                value={state.rounds}
-                onChange={(e) => onPatch({ rounds: e.target.value })}
-              />
-            </div>
-            <div className={styles.wodResultField}>
-              <label>Reps bonus</label>
-              <input
-                type="text"
-                placeholder="—"
-                value={state.score}
-                onChange={(e) => onPatch({ score: e.target.value })}
-              />
-            </div>
-          </div>
+          </>
         )}
-        {block.note && <div className={styles.blocNote}>{block.note}</div>}
+
+        {isWod && (
+          <WodResult
+            format={block.format}
+            temps={state.temps}
+            rounds={state.rounds}
+            score={state.score}
+            rxScaled={state.rxScaled}
+            onPatch={onPatch}
+          />
+        )}
+        {!isWod && block.note && <div className={styles.blocNote}>{block.note}</div>}
         {isDone && (
           <div className={styles.blocDoneOverlay}>
             <span>✅ Bloc complété</span>
@@ -1350,6 +1382,138 @@ function BlocCard({
 
 function capitalize(s: string) {
   return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+/**
+ * Fiche WOD écrite (doc H.11) — remplace la checkbox par mouvement sur les
+ * blocs Metcon/Finisher : tableau de coach, pas une checklist. Les
+ * standards Rx/Scaled sont déjà dans `it.load` (texte libre, programming.ts),
+ * affiché tel quel entre parenthèses — pas de mise en gras Homme/Femme ici,
+ * le profil (genre) n'est pas remonté jusqu'à ce composant.
+ */
+function WodSheet({ block }: { block: DisplayBlock }) {
+  const tag = (block.format && WOD_FORMAT_TAG[block.format]) || "🏆 For Time";
+  const formatLine = wodFormatLine(block);
+  const timeCap = wodTimeCap(block);
+
+  return (
+    <div className={styles.wodSheet}>
+      <div className={styles.wodSheetHead}>
+        <div className={styles.wodSheetLetter}>{block.lettre}</div>
+        <div className={styles.wodSheetTitle}>{block.titre}</div>
+        <div className={styles.wodSheetTag}>{tag}</div>
+      </div>
+      {formatLine && <div className={styles.wodSheetFormat}>{formatLine}</div>}
+      <div className={styles.wodSheetBody}>
+        {block.items.map((it, j) => (
+          <div key={`${it.movementName}-${j}`} className={styles.wodSheetRow}>
+            {it.qty && <span className={styles.wodSheetQty}>{it.qty}</span>}
+            <span className={styles.wodSheetName}>
+              {it.movementName}
+              {it.load ? ` (${it.load})` : ""}
+            </span>
+          </div>
+        ))}
+      </div>
+      {timeCap && <div className={styles.wodSheetCap}>Time cap : {timeCap}</div>}
+      {block.note && <div className={styles.wodSheetNote}>{block.note}</div>}
+    </div>
+  );
+}
+
+/** Bloc d'enregistrement du résultat, adapté au format réel du Metcon/Finisher
+ * (doc H.11) — For Time / AMRAP / EMOM, repli générique pour les autres
+ * formats WOD (Tabata/Circuit/Superset/Intervals/StraightSets). */
+function WodResult({
+  format,
+  temps,
+  rounds,
+  score,
+  rxScaled,
+  onPatch,
+}: {
+  format?: WodFormat;
+  temps: string;
+  rounds: string;
+  score: string;
+  rxScaled: "rx" | "scaled";
+  onPatch: (patch: Partial<BlocState>) => void;
+}) {
+  const isForTime = format === "ForTime" || format === "RFT" || format === "Chipper" || format === "Simulation";
+  const isAmrap = format === "AMRAP";
+  const isEmom = format === "EMOM" || format === "E2MOM" || format === "E3MOM";
+
+  return (
+    <div className={styles.wodResultWrap}>
+      <div className={styles.wodResultRow}>
+        {isForTime ? (
+          <>
+            <div className={styles.wodResultField}>
+              <label>Temps</label>
+              <input type="text" placeholder="MM:SS" value={temps} onChange={(e) => onPatch({ temps: e.target.value })} />
+            </div>
+            <div className={styles.wodResultField}>
+              <label>Reps restantes (si cap)</label>
+              <input type="text" placeholder="—" value={score} onChange={(e) => onPatch({ score: e.target.value })} />
+            </div>
+          </>
+        ) : isAmrap ? (
+          <>
+            <div className={styles.wodResultField}>
+              <label>Rounds complets</label>
+              <input type="text" placeholder="—" value={rounds} onChange={(e) => onPatch({ rounds: e.target.value })} />
+            </div>
+            <div className={styles.wodResultField}>
+              <label>Reps supplémentaires</label>
+              <input type="text" placeholder="—" value={score} onChange={(e) => onPatch({ score: e.target.value })} />
+            </div>
+          </>
+        ) : isEmom ? (
+          <>
+            <div className={styles.wodResultField}>
+              <label>Charge utilisée</label>
+              <input type="text" placeholder="kg" value={temps} onChange={(e) => onPatch({ temps: e.target.value })} />
+            </div>
+            <div className={styles.wodResultField}>
+              <label>Minutes réussies / total</label>
+              <input type="text" placeholder="ex. 9/10 (loupée : min 4)" value={score} onChange={(e) => onPatch({ score: e.target.value })} />
+            </div>
+          </>
+        ) : (
+          <>
+            <div className={styles.wodResultField}>
+              <label>Temps</label>
+              <input type="text" placeholder="MM:SS" value={temps} onChange={(e) => onPatch({ temps: e.target.value })} />
+            </div>
+            <div className={styles.wodResultField}>
+              <label>Rounds</label>
+              <input type="text" placeholder="—" value={rounds} onChange={(e) => onPatch({ rounds: e.target.value })} />
+            </div>
+            <div className={styles.wodResultField}>
+              <label>Reps bonus</label>
+              <input type="text" placeholder="—" value={score} onChange={(e) => onPatch({ score: e.target.value })} />
+            </div>
+          </>
+        )}
+      </div>
+      <div className={styles.wodRxScaledRow}>
+        <button
+          type="button"
+          className={cx(styles.wodRxScaledBtn, rxScaled === "rx" && styles.wodRxScaledActive)}
+          onClick={() => onPatch({ rxScaled: "rx" })}
+        >
+          RX
+        </button>
+        <button
+          type="button"
+          className={cx(styles.wodRxScaledBtn, rxScaled === "scaled" && styles.wodRxScaledActive)}
+          onClick={() => onPatch({ rxScaled: "scaled" })}
+        >
+          SCALED
+        </button>
+      </div>
+    </div>
+  );
 }
 
 function SerieInput({
