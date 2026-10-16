@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { ReactNode } from "react";
 import Link from "next/link";
 import styles from "./dashboard.module.css";
+import { ApercuPanel } from "./apercu-panel";
 
 /**
  * Remplace l'ancien <details>/<summary> (doc H.3) : ouvrir l'aperçu à
@@ -11,30 +12,45 @@ import styles from "./dashboard.module.css";
  * s'étirer sur toute la hauteur de l'aperçu (stretch par défaut), écrasant
  * son texte dans une bande verticale. Ici, l'aperçu ouvert remplace
  * entièrement la ligne CTA — "Démarrer" ne revient qu'à la fermeture.
+ *
+ * L'aperçu ouvert utilise le modèle unique ApercuPanel (doc H.13 Mission C) :
+ * même en-tête/résumé/pied de page pour toute séance ECM, récupération,
+ * sport hors ECM ou repos — `children` ne porte plus que les cartes.
  */
 export function SessionPreviewToggle({
   startHref,
-  titleLine,
-  preview,
+  programTitle,
+  subtitle,
+  summaryIcon,
+  summaryTitle,
+  summaryLine,
+  durationLabel,
+  children,
 }: {
   startHref: string;
-  titleLine: string;
-  preview: ReactNode;
+  programTitle: string;
+  subtitle: string;
+  summaryIcon: string;
+  summaryTitle: string;
+  summaryLine: string;
+  durationLabel?: string;
+  children: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
 
   if (open) {
     return (
-      <div className={styles.previewPanelFull}>
-        <div className={styles.previewPanelHead}>
-          <button type="button" className={styles.previewCloseBtn} onClick={() => setOpen(false)}>
-            ✕ Fermer
-          </button>
-          <div className={styles.previewPanelTitle}>{titleLine}</div>
-          <div className={styles.previewReadonlyBadge}>Lecture seule</div>
-        </div>
-        {preview}
-      </div>
+      <ApercuPanel
+        onClose={() => setOpen(false)}
+        programTitle={programTitle}
+        subtitle={subtitle}
+        summaryIcon={summaryIcon}
+        summaryTitle={summaryTitle}
+        summaryLine={summaryLine}
+        durationLabel={durationLabel}
+      >
+        {children}
+      </ApercuPanel>
     );
   }
 

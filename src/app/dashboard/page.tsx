@@ -60,14 +60,13 @@ import { SESSION_FEELINGS, shouldRecommendLightSession } from "@/lib/session-fee
 import type { TomorrowPreview } from "@/lib/ecm-engine";
 import { buildAdviceSession, stripLeadingEmoji, type StoredAdvice } from "@/lib/advice-session";
 import { isRestDay as isRestDaySeance } from "@/lib/ecm-engine";
-import { AdviceSessionPanel } from "./advice-session-panel";
 import { adaptDayForInjuries, detectInjuryAreas, reduceVolume, substitutionMessage } from "@/lib/session-adapt";
 import { minutesToHM, ETAT_LABELS, sleepPhaseBadge, trendColor } from "./dashboard-helpers";
 import { dashboardFontVariables } from "./dashboard-fonts";
 import { CalendarWeek } from "./calendar-week";
 import { SessionTabs } from "./session-tabs";
-import { SessionPanel } from "./session-panel";
 import { SessionPreviewToggle } from "./session-preview-toggle";
+import { ApercuCards, blocksToApercuCards } from "./apercu-panel";
 import styles from "./dashboard.module.css";
 
 export const metadata = { title: "Dashboard — EL COACH METHOD" };
@@ -477,17 +476,17 @@ export default async function DashboardPage() {
               <div className={styles.upcomingNote}>Pas encore réalisée</div>
               <SessionPreviewToggle
                 startHref="/session"
-                titleLine={`${adviceSession.titre} · ${adviceSession.dureeEstimee} · ${adviceSession.blocks.length} bloc${
+                programTitle={adviceSession.titre}
+                subtitle={adviceSession.repos ? "EL COACH METHOD" : "HORS PROGRAMME"}
+                summaryIcon={adviceSession.emoji || (adviceSession.repos ? "🛌" : "🥊")}
+                summaryTitle={adviceSession.titre}
+                summaryLine={`${adviceSession.dureeEstimee} · ${adviceSession.blocks.length} bloc${
                   adviceSession.blocks.length > 1 ? "s" : ""
-                }`}
-                preview={
-                  <AdviceSessionPanel
-                    nom={adviceSession.titre}
-                    duree={adviceSession.dureeEstimee}
-                    blocs={adviceSession.blocks}
-                  />
-                }
-              />
+                } · pas encore réalisée`}
+                durationLabel={adviceSession.dureeEstimee}
+              >
+                <ApercuCards cards={blocksToApercuCards(adviceSession.blocks)} />
+              </SessionPreviewToggle>
             </div>
           ) : isRestDay ? (
             <div className={styles.upcomingCard}>
@@ -519,60 +518,43 @@ export default async function DashboardPage() {
               <div className={styles.upcomingNote}>Pas encore réalisée</div>
               <SessionPreviewToggle
                 startHref={`/session?variant=${variant.recommended === "A" ? "a" : "b"}`}
-                titleLine={`${baseDay.focus} · ${minutesToHM(baseDay.estimatedMinutes)} · ${baseDay.blocks.length} bloc${
+                programTitle={today.template.name}
+                subtitle="EL COACH METHOD"
+                summaryIcon="⚡"
+                summaryTitle={baseDay.focus}
+                summaryLine={`${minutesToHM(baseDay.estimatedMinutes)} · ${baseDay.blocks.length} bloc${
                   baseDay.blocks.length > 1 ? "s" : ""
-                }`}
-                preview={
-                  <>
-                    <div
-                      style={{
-                        background: "var(--s)",
-                        border: "1px solid var(--bd)",
-                        borderRadius: 4,
-                        padding: "9px 13px",
-                        marginTop: 10,
-                        marginBottom: 10,
-                        fontSize: 11,
-                        color: "var(--m)",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 7,
-                      }}
-                    >
-                      <span>▶️</span>
-                      <span>Appuie sur le bouton rouge pour voir la démo YouTube du mouvement</span>
-                    </div>
-                    <SessionTabs
-                      recommended={variant.recommended === "A" ? "a" : "b"}
-                      recoText={`Recommandée : ${variant.recommended} · ${variant.reason}`}
-                      labelA="SÉANCE A"
-                      labelB="SÉANCE B"
-                      subA="Standard"
-                      subB="Adaptée"
-                      panelA={
-                        <SessionPanel
-                          variant="a"
-                          nom={sessionTitle}
-                          duree={minutesToHM(safeDay.estimatedMinutes)}
-                          difficulte={difficultyFor(today.template.level, "a")}
-                          tags={sessionTags(safeDay.blocks)}
-                          blocs={toDisplayBlocks(safeDay.blocks)}
-                        />
-                      }
-                      panelB={
-                        <SessionPanel
-                          variant="b"
-                          nom={`${sessionTitle} — Allégée`}
-                          duree={minutesToHM(lightDay.estimatedMinutes)}
-                          difficulte={difficultyFor(today.template.level, "b")}
-                          tags={sessionTags(lightDay.blocks)}
-                          blocs={toDisplayBlocks(lightDay.blocks)}
-                        />
-                      }
-                    />
-                  </>
-                }
-              />
+                } · pas encore réalisée`}
+                durationLabel={minutesToHM(safeDay.estimatedMinutes)}
+              >
+                <div
+                  style={{
+                    background: "var(--s)",
+                    border: "1px solid var(--bd)",
+                    borderRadius: 4,
+                    padding: "9px 13px",
+                    marginBottom: 10,
+                    fontSize: 11,
+                    color: "var(--m)",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 7,
+                  }}
+                >
+                  <span>▶️</span>
+                  <span>Appuie sur le bouton vidéo pour voir la démo YouTube du mouvement</span>
+                </div>
+                <SessionTabs
+                  recommended={variant.recommended === "A" ? "a" : "b"}
+                  recoText={`Recommandée : ${variant.recommended} · ${variant.reason}`}
+                  labelA="SÉANCE A"
+                  labelB="SÉANCE B"
+                  subA="Standard"
+                  subB="Adaptée"
+                  panelA={<ApercuCards cards={blocksToApercuCards(toDisplayBlocks(safeDay.blocks), "a-")} />}
+                  panelB={<ApercuCards cards={blocksToApercuCards(toDisplayBlocks(lightDay.blocks), "b-")} />}
+                />
+              </SessionPreviewToggle>
             </div>
           )}
 
@@ -874,23 +856,6 @@ function normalizeStackOrder(stack: StackMoment[], fatigueScore: number): StackM
   const bySlot = new Map(stack.map((m) => [m.slot, m]));
   const fallback = buildStack4Moments(fatigueScore);
   return STACK_SLOT_ORDER.map((slot, i) => bySlot.get(slot) ?? fallback[i]);
-}
-
-function difficultyFor(level: "beginner" | "intermediate" | "advanced", variant: "a" | "b"): number {
-  const base = level === "beginner" ? 2 : level === "advanced" ? 4 : 3;
-  return variant === "a" ? base : Math.max(1, base - 1);
-}
-
-function sessionTags(blocks: { format?: string }[]): { label: string; cls: "tagBlue" | "tagGreen" | "tagOrange" | "tagRed" | "tagPurple" }[] {
-  const formats = [...new Set(blocks.map((b) => b.format).filter((f): f is string => Boolean(f)))].slice(0, 2);
-  const clsFor = (f: string): "tagBlue" | "tagGreen" | "tagOrange" | "tagRed" | "tagPurple" => {
-    if (f === "AMRAP") return "tagGreen";
-    if (f === "EMOM" || f === "E2MOM" || f === "E3MOM") return "tagBlue";
-    if (f === "Tabata") return "tagPurple";
-    if (f === "ForTime" || f === "RFT") return "tagRed";
-    return "tagOrange";
-  };
-  return formats.map((f) => ({ label: f, cls: clsFor(f) }));
 }
 
 /** Repli quand la semaine type n'est pas renseignée : le programme fixe hebdomadaire. */
