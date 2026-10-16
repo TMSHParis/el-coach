@@ -151,8 +151,10 @@ function wodTimeCap(block: DisplayBlock): string | null {
 
 /** `time` (doc H.14) : temps tenu, pour une série de gainage/isométrie — en
  * plus de `reps`, jamais à la place, pour garder un seul tableau de séries
- * partagé par musculation et gainage. */
-type ExerciseSerie = { charge: string; reps: string; rpe?: string; time?: string };
+ * partagé par musculation et gainage.
+ * `done` (doc H.10/H.13, Étape 0 point 1) : série validée par l'athlète —
+ * grise la ligne et déclenche le repos, reste modifiable. */
+type ExerciseSerie = { charge: string; reps: string; rpe?: string; time?: string; done?: boolean };
 
 /** Chrono de repos actif (doc H.10) — null quand aucun repos n'est en cours. */
 type RestTimerState = { blocIdx: number; exIdx: number; endsAt: number; totalSec: number; label: string } | null;
@@ -180,6 +182,10 @@ type BlocState = {
   /** Rounds comptés en direct pendant un AMRAP (bouton "+ Round"). */
   amrapRounds: number;
   exerciseSeries: ExerciseSerie[][];
+  /** Déplié manuellement (doc H.13, Étape 0 point 3) — indépendant de `checked`,
+   * qui devient automatique pour les mouvements à séries (coché + replié quand
+   * toutes les séries sont validées). Le dépliage reste toujours accessible. */
+  expanded: boolean[];
   exerciseTimes: string[];
   /** Préréglage de repos par mouvement (secondes) — null = valeur par défaut
    * (`parseRestSeconds`). Modifiable avant de lancer la série (doc B.3.a). */
@@ -327,8 +333,14 @@ export function SessionRunnerV2({
           amrapRounds: 0,
           exerciseSeries:
             type && (SERIES_RESULT_TYPES.includes(type) || looksLikeMisplacedStrengthBlock(blockData[i]))
-              ? items.map(() => [{ charge: "", reps: "" }])
+              ? items.map((it) => {
+                  // Une ligne par série prévue (doc H.13, Étape 0 point 2) — 5 lignes
+                  // pour un 5×5, pas seulement 1. Repli à 1 ligne si `sets` est inconnu.
+                  const n = Math.max(1, it.sets ?? 1);
+                  return Array.from({ length: n }, () => ({ charge: "", reps: "", done: false }));
+                })
               : [],
+          expanded: items.map(() => false),
           exerciseTimes: items.map(() => ""),
           restOverrides: items.map(() => null),
           temps: "",
@@ -397,8 +409,16 @@ export function SessionRunnerV2({
         const saved = JSON.parse(raw) as { sessionStartedAt: number; blocks: BlocState[]; sessionStarted?: boolean };
         if (saved.blocks?.length === initial.length && typeof saved.sessionStartedAt === "number") {
           // Rétrocompatible avec une séance sauvegardée avant l'ajout du
-          // préréglage de repos par mouvement (restOverrides absent).
-          setBlocks(saved.blocks.map((b) => ({ ...b, restOverrides: b.restOverrides ?? b.exerciseTimes.map(() => null) })));
+          // préréglage de repos par mouvement (restOverrides absent), ou avant
+          // le dépliage manuel séparé du coché automatique (expanded absent,
+          // doc H.13 Étape 0 point 3).
+          setBlocks(
+            saved.blocks.map((b) => ({
+              ...b,
+              restOverrides: b.restOverrides ?? b.exerciseTimes.map(() => null),
+              expanded: b.expanded ?? b.checked,
+            })),
+          );
           setSessionStartedAt(saved.sessionStartedAt);
           // Rétrocompatible avec une séance sauvegardée avant sessionStarted
           // (doc H.8) : on déduit l'état depuis les blocs déjà actifs.
@@ -783,7 +803,9 @@ export function SessionRunnerV2({
     vibrate([30]);
   }
 
-  /** Nouvelle série pré-remplie avec les valeurs de la précédente — lance le repos. */
+  /** Nouvelle série pré-remplie avec les valeurs de la précédente — ne lance
+   * PAS le repos (doc H.13, Étape 0 point 1) : seule la validation d'une
+   * série (✓) démarre le chrono de repos. */
   function addSerie(blocIdx: number, exIdx: number) {
     setBlocks((prev) =>
       prev.map((x, i) =>
@@ -793,13 +815,49 @@ export function SessionRunnerV2({
               exerciseSeries: x.exerciseSeries.map((es, j) => {
                 if (j !== exIdx) return es;
                 const last = es[es.length - 1];
-                return [...es, { charge: last?.charge ?? "", reps: last?.reps ?? "", rpe: last?.rpe }];
+                return [...es, { charge: last?.charge ?? "", reps: last?.reps ?? "", rpe: last?.rpe, done: false }];
               }),
             }
           : x,
       ),
     );
-    startRestTimer(blocIdx, exIdx);
+  }
+
+  /** ✓ par série (doc H.10 point 1, H.13 points 1, 3 et 4) : valider une série
+   * la grise et lance le repos — sauf si c'est la dernière série du mouvement,
+   * où aucun repos ne démarre (point 4). Quand toutes les séries sont
+   * validées, le mouvement se coche et se replie seul (point 3) ; il reste
+   * modifiable par un dépliage manuel. */
+  function toggleSerieDone(blocIdx: number, exIdx: number, serieIdx: number) {
+    let startRest = false;
+    setBlocks((prev) =>
+      prev.map((x, i) => {
+        if (i !== blocIdx) return x;
+        const es = x.exerciseSeries[exIdx] ?? [];
+        const isLast = serieIdx === es.length - 1;
+        const nowDone = !es[serieIdx]?.done;
+        startRest = nowDone && !isLast;
+        const updatedEs = es.map((s, k) => (k === serieIdx ? { ...s, done: nowDone } : s));
+        const allDone = updatedEs.length > 0 && updatedEs.every((s) => s.done);
+        return {
+          ...x,
+          exerciseSeries: x.exerciseSeries.map((row, j) => (j === exIdx ? updatedEs : row)),
+          checked: x.checked.map((c, j) => (j === exIdx ? allDone : c)),
+          expanded: x.expanded.map((e, j) => (j === exIdx ? (allDone ? false : e) : e)),
+        };
+      }),
+    );
+    if (startRest) startRestTimer(blocIdx, exIdx);
+  }
+
+  /** Dépliage manuel d'un mouvement à séries, indépendant du coché automatique
+   * (doc H.13, Étape 0 point 3) — toujours disponible pour modifier les valeurs. */
+  function toggleExpanded(blocIdx: number, exIdx: number) {
+    setBlocks((prev) =>
+      prev.map((x, i) =>
+        i === blocIdx ? { ...x, expanded: x.expanded.map((e, j) => (j === exIdx ? !e : e)) } : x,
+      ),
+    );
   }
 
   /** Chrono de repos entre deux séries — indépendant du chrono du bloc en cours. */
@@ -1125,7 +1183,9 @@ export function SessionRunnerV2({
               onAddRound={() => addAmrapRound(i)}
               onOpenFullscreen={() => setFullscreen(i)}
               onToggleChecked={(exIdx) => toggleChecked(i, exIdx)}
+              onToggleExpanded={(exIdx) => toggleExpanded(i, exIdx)}
               onAddSerie={(exIdx) => addSerie(i, exIdx)}
+              onToggleSerieDone={(exIdx, serieIdx) => toggleSerieDone(i, exIdx, serieIdx)}
               onUpdateSerie={(exIdx, serieIdx, patch) => updateSerie(i, exIdx, serieIdx, patch)}
               onRemoveSerie={(exIdx, serieIdx) => removeSerie(i, exIdx, serieIdx)}
               onSetExerciseTime={(exIdx, value) => setExerciseTime(i, exIdx, value)}
@@ -1203,7 +1263,9 @@ function BlocCard({
   onAddRound,
   onOpenFullscreen,
   onToggleChecked,
+  onToggleExpanded,
   onAddSerie,
+  onToggleSerieDone,
   onUpdateSerie,
   onRemoveSerie,
   onSetExerciseTime,
@@ -1232,7 +1294,9 @@ function BlocCard({
   onAddRound: () => void;
   onOpenFullscreen: () => void;
   onToggleChecked: (exIdx: number) => void;
+  onToggleExpanded: (exIdx: number) => void;
   onAddSerie: (exIdx: number) => void;
+  onToggleSerieDone: (exIdx: number, serieIdx: number) => void;
   onUpdateSerie: (exIdx: number, serieIdx: number, patch: Partial<ExerciseSerie>) => void;
   onRemoveSerie: (exIdx: number, serieIdx: number) => void;
   onSetExerciseTime: (exIdx: number, value: string) => void;
@@ -1310,15 +1374,28 @@ function BlocCard({
               );
             }
             const checked = state.checked[j] ?? false;
+            // Mouvement à séries (doc H.13, Étape 0 point 3) : le coché devient
+            // automatique (toutes les séries validées) ; tapez pour déplier/replier,
+            // jamais pour cocher à la main. Les autres items gardent l'ancien comportement.
+            const hasSeries = (state.exerciseSeries[j]?.length ?? 0) > 0;
+            const expanded = hasSeries ? state.expanded[j] ?? false : checked;
             return (
               <div key={`${it.movementName}-${j}`} className={cx(checked && styles.itemChecked)}>
                 <div className={styles.itemRow}>
                   <button
                     type="button"
                     className={cx(styles.itemCheck, checked && styles.itemCheckOn)}
-                    onClick={() => onToggleChecked(j)}
-                    aria-label={checked ? `Décocher ${it.name}` : `Cocher ${it.name}`}
-                    aria-pressed={checked}
+                    onClick={() => (hasSeries ? onToggleExpanded(j) : onToggleChecked(j))}
+                    aria-label={
+                      hasSeries
+                        ? expanded
+                          ? `Replier ${it.name}`
+                          : `Déplier ${it.name}`
+                        : checked
+                          ? `Décocher ${it.name}`
+                          : `Cocher ${it.name}`
+                    }
+                    aria-pressed={hasSeries ? expanded : checked}
                   >
                     {checked ? "✓" : ""}
                   </button>
@@ -1334,13 +1411,14 @@ function BlocCard({
                   </div>
                 </div>
 
-                {checked && state.exerciseSeries[j] && (
+                {expanded && state.exerciseSeries[j] && (
                   <>
                     <SerieInput
                       series={state.exerciseSeries[j]}
                       last={lastResults[it.name] ?? lastResults[it.movementName]}
                       isHold={isHoldItem(it)}
                       onAdd={() => onAddSerie(j)}
+                      onToggleDone={(serieIdx) => onToggleSerieDone(j, serieIdx)}
                       onUpdate={(serieIdx, patch) => onUpdateSerie(j, serieIdx, patch)}
                       onRemove={(serieIdx) => onRemoveSerie(j, serieIdx)}
                     />
@@ -1554,6 +1632,7 @@ function SerieInput({
   last,
   isHold,
   onAdd,
+  onToggleDone,
   onUpdate,
   onRemove,
 }: {
@@ -1563,6 +1642,8 @@ function SerieInput({
    * charge facultative masquée par défaut (mouvement lesté, rare). */
   isHold?: boolean;
   onAdd: () => void;
+  /** ✓ par série (doc H.10/H.13, Étape 0 point 1) : valide/dévalide une série. */
+  onToggleDone: (serieIdx: number) => void;
   onUpdate: (serieIdx: number, patch: Partial<ExerciseSerie>) => void;
   onRemove: (serieIdx: number) => void;
 }) {
@@ -1573,7 +1654,7 @@ function SerieInput({
     <div className={styles.seriesWrap}>
       {series.map((s, k) => (
         <div key={k}>
-        <div className={styles.serieRow}>
+        <div className={cx(styles.serieRow, s.done && styles.serieRowDone)}>
           <span className={styles.serieLabel}>Série {k + 1}</span>
           {showCharge && (
             <>
@@ -1610,10 +1691,26 @@ function SerieInput({
           )}
           <span className={styles.serieUnit}>{isHold ? "tenu" : "reps"}</span>
           {series.length > 1 && (
-            <button type="button" className={styles.removeSerieBtn} onClick={() => onRemove(k)}>
+            <button
+              type="button"
+              className={styles.removeSerieBtn}
+              onClick={() => {
+                if (window.confirm(`Supprimer la série ${k + 1} ?`)) onRemove(k);
+              }}
+              aria-label={`Supprimer la série ${k + 1}`}
+            >
               ✕
             </button>
           )}
+          <button
+            type="button"
+            className={cx(styles.serieCheckBtn, s.done && styles.serieCheckBtnOn)}
+            onClick={() => onToggleDone(k)}
+            aria-label={s.done ? `Dévalider la série ${k + 1}` : `Valider la série ${k + 1}`}
+            aria-pressed={!!s.done}
+          >
+            {s.done ? "✓" : ""}
+          </button>
         </div>
         {!isHold && (
           <div className={styles.rpeRow}>

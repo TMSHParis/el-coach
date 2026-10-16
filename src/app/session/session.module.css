@@ -179,6 +179,11 @@
 .serieUnit { font-size: 11px; color: var(--m); }
 .removeSerieBtn { background: none; border: none; color: var(--m); cursor: pointer; font-size: 13px; margin-left: auto; }
 .removeSerieBtn:hover { color: var(--red); }
+/* ✓ par série (doc H.10/H.13, Étape 0 point 1) — à droite du ✕. */
+.serieCheckBtn { flex-shrink: 0; width: 22px; height: 22px; border: 1.5px solid var(--bd); border-radius: 4px; background: var(--s); color: #000; font-size: 12px; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; margin-left: auto; }
+.serieCheckBtnOn { background: var(--g); border-color: var(--g); }
+/* Série validée : grisée, reste modifiable (doc H.13 point 1). */
+.serieRowDone { opacity: .6; }
 .addSerieBtn { background: none; border: 1px dashed var(--bd); color: var(--g); font-size: 11px; letter-spacing: 1px; text-transform: uppercase; padding: 6px 10px; border-radius: 4px; cursor: pointer; margin-top: 2px; }
 .addSerieBtn:hover { border-color: var(--g); }
 .seriesActionsRow { display: flex; gap: 8px; flex-wrap: wrap; }
