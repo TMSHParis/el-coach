@@ -66,6 +66,7 @@ import { dashboardFontVariables } from "./dashboard-fonts";
 import { CalendarWeek } from "./calendar-week";
 import { SessionTabs } from "./session-tabs";
 import { resolveSequenceToday } from "@/lib/program-position";
+import { effectiveWeekCycle } from "@/lib/week-overrides";
 import { VARIANT_HINT, VARIANT_LABEL, parseVariant, resolveModularDay, type ModularVariant } from "@/lib/session-modular";
 import { SessionPreviewToggle } from "./session-preview-toggle";
 import { ApercuCards, blocksToApercuCards } from "./apercu-panel";
@@ -120,7 +121,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     ? await resolveSequenceToday({
         userId,
         slug: programSlug,
-        weekCycle: profile?.weekCycle,
+        weekCycle: await effectiveWeekCycle(userId, profile?.weekCycle, todayKey()),
         fatigueScore: demo.fatigueScore,
         manualDay: dayParam ? Number(dayParam) : null,
       })

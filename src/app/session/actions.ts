@@ -7,6 +7,7 @@ import { generateSessionCongrats, type HeartRateZoneSplit } from "@/lib/ecm-engi
 import { isSessionFeeling } from "@/lib/session-feeling";
 import { MAX_SESSION_PHOTOS } from "@/lib/session-media";
 import { advanceProgramPosition } from "@/lib/program-position";
+import { effectiveWeekCycle } from "@/lib/week-overrides";
 
 export type ResultKind = "strength" | "bodyweight" | "hold" | "carry" | "wod" | "warmup";
 
@@ -99,7 +100,7 @@ export async function saveSessionResult(
   if (payload.programSlug && payload.programDay) {
     try {
       const profile = await prisma.profile.findUnique({ where: { userId }, select: { weekCycle: true } });
-      await advanceProgramPosition({ userId, slug: payload.programSlug, doneDay: payload.programDay, weekCycle: profile?.weekCycle });
+      await advanceProgramPosition({ userId, slug: payload.programSlug, doneDay: payload.programDay, weekCycle: await effectiveWeekCycle(userId, profile?.weekCycle, payload.date) });
     } catch (err) {
       console.error("saveSessionResult: position dans la suite non avancée:", err);
     }

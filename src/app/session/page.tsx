@@ -7,6 +7,7 @@ import type { Day } from "@/lib/programming";
 import { adaptDayForInjuries, detectInjuryAreas, reduceVolume } from "@/lib/session-adapt";
 import { parseVariant, resolveModularDay } from "@/lib/session-modular";
 import { resolveSequenceToday } from "@/lib/program-position";
+import { effectiveWeekCycle } from "@/lib/week-overrides";
 import { toDisplayBlocks, defaultRuntimeFormat, defaultDurationMinutes } from "@/lib/session-format";
 import { minutesToHM } from "../dashboard/dashboard-helpers";
 import { buildAdviceSession, type StoredAdvice } from "@/lib/advice-session";
@@ -108,7 +109,7 @@ export default async function SessionPage({
     ? await resolveSequenceToday({
         userId,
         slug: demo.programSlug,
-        weekCycle: profile?.weekCycle,
+        weekCycle: await effectiveWeekCycle(userId, profile?.weekCycle, todayKey()),
         fatigueScore: demo.fatigueScore,
         manualDay: dayParam ? Number(dayParam) : null,
       })

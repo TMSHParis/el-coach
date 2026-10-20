@@ -557,8 +557,13 @@ export function WeekCyclePicker({
   value,
   programmeLabel,
   onChange,
+  onReset,
+  forceCustomized,
 }: {
   value: WeekCycle;
+  /** Semaine modifiée individuellement : le lien "Rétablir" appelle ceci plutôt que de vider la semaine type. */
+  onReset?: () => void;
+  forceCustomized?: boolean;
   /** Programme principal choisi — dérive la semaine standard affichée tant
    * qu'aucun jour n'a été personnalisé (doc H.16). */
   programmeLabel: string;
@@ -568,7 +573,7 @@ export function WeekCyclePicker({
   const standardWeek = standardWeekFor(programmeLabel);
   // Personnalisée dès qu'un jour porte un repos explicite ou un sport choisi —
   // la semaine vide par défaut (emptyWeekCycle) ne déclenche jamais ça.
-  const customized = WEEK_DAY_KEYS.some((k) => value[k].repos || value[k].slots.length > 0);
+  const customized = forceCustomized || WEEK_DAY_KEYS.some((k) => value[k].repos || value[k].slots.length > 0);
 
   /** 1er edit (encore "standard") : fige d'abord tous les jours sur la
    * semaine standard, pour que la personnalisation ne parte pas d'une
@@ -599,6 +604,11 @@ export function WeekCyclePicker({
     patchDay(day, { slots: base[day].slots.filter((_, i) => i !== idx) });
   }
   function resetToStandard() {
+    if (onReset) {
+      onReset();
+      setActiveDay(null);
+      return;
+    }
     onChange(emptyWeekCycle());
     setActiveDay(null);
   }

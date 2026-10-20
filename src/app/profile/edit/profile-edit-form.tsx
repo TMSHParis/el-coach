@@ -12,9 +12,9 @@ import {
   MoMulti,
   ObjectifsPicker,
   ProgrammePrincipalPicker,
-  WeekCyclePicker,
   YesNo,
 } from "@/app/signup/ecm-shared";
+import { WeekPlanner } from "./week-planner";
 import styles from "@/app/signup/ecm-signup.module.css";
 
 /**
@@ -154,10 +154,10 @@ export function ProfileEditForm() {
           value={profile.programmePrincipal}
           onChange={(v) => setField({ programmePrincipal: v })}
         />
-        <WeekCyclePicker
-          value={profile.weekCycle}
+        <WeekPlanner
+          baseCycle={profile.weekCycle}
           programmeLabel={profile.programmePrincipal}
-          onChange={(v) => setField({ weekCycle: v })}
+          onBaseChange={(v) => setField({ weekCycle: v })}
         />
         <div className={styles.qc}>
           <div className={styles.ql}>

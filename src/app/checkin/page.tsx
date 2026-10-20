@@ -8,6 +8,7 @@ import type { WeekCycle } from "@/app/signup/actions";
 import { resolveDayState } from "@/lib/ecm-engine";
 import { stripLeadingEmoji } from "@/lib/advice-session";
 import { todayKey } from "@/lib/date-key";
+import { effectiveWeekCycle } from "@/lib/week-overrides";
 import { CheckinForm } from "./checkin-form";
 import { checkinFontVariables } from "./checkin-fonts";
 import styles from "./checkin.module.css";
@@ -66,7 +67,7 @@ export default async function CheckinPage() {
   // séance ECM programmée si un programme actif en a une pour le jour (doc H.15).
   const todayEcmLabel = demo.programSlug ? SLUG_TO_SPORT_LABEL[demo.programSlug] : undefined;
   const todayEcm = resolvePlannedToday(
-    (profile?.weekCycle as unknown as WeekCycle | null) ?? null,
+    ((userId ? await effectiveWeekCycle(userId, profile?.weekCycle, todayKey()) : profile?.weekCycle) as unknown as WeekCycle | null) ?? null,
     demo.programSlug,
     demo.fatigueScore,
     todayEcmLabel,
