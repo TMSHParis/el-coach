@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { updateSessionRecap } from "../actions";
+import { upgradeChain } from "../chain-actions";
+import type { ChainId } from "@/lib/chains";
 import type { SessionRecapPatch } from "../actions";
 import { SESSION_FEELINGS } from "@/lib/session-feeling";
 import {
@@ -40,6 +42,7 @@ export function RecapView({
   watch,
   watchText,
   gauge,
+  chainProposals = [],
   onUpdate = updateSessionRecap,
 }: {
   date: string;
@@ -57,6 +60,8 @@ export function RecapView({
   watch: WatchData | null;
   watchText: string | null;
   gauge: { min: number; max: number; value: number } | null;
+  /** At Home : montées de cran proposées (objectif de reps atteint). */
+  chainProposals?: { chain: ChainId; from: string; to: string; toIndex: number }[];
   /** Cible de l'enregistrement — Session (par date) par défaut. Une 2e
    * activité du jour (doc G.3) passe sa propre action, liée par id. */
   onUpdate?: (date: string, patch: SessionRecapPatch) => Promise<{ ok: boolean }>;
@@ -65,6 +70,7 @@ export function RecapView({
   const [note, setNote] = useState(initialNote ?? "");
   const [openBlocs, setOpenBlocs] = useState<Set<number>>(new Set());
   const [missingOpen, setMissingOpen] = useState(false);
+  const [upgraded, setUpgraded] = useState<Set<string>>(new Set());
   const percent = Math.round(completionRate * 100);
 
   // La note libre s'enregistre après une pause de frappe — pas de bouton
@@ -179,6 +185,30 @@ export function RecapView({
                 {c.delta > 0 ? "+" : ""}
                 {c.delta} kg {c.delta > 0 ? "↑" : "↓"}
               </span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {chainProposals.length > 0 && (
+        <div className={styles.congrats}>
+          <div className={styles.congratsLabel}>Monter d&apos;un cran ?</div>
+          {chainProposals.map((p) => (
+            <div key={p.chain} className={styles.compareLine}>
+              <span>
+                {p.from} → {p.to}
+              </span>
+              <button
+                type="button"
+                className={styles.pill}
+                disabled={upgraded.has(p.chain)}
+                onClick={async () => {
+                  const res = await upgradeChain(p.chain, p.toIndex);
+                  if (res.ok) setUpgraded((u) => new Set(u).add(p.chain));
+                }}
+              >
+                {upgraded.has(p.chain) ? "✓ Monté" : "Monter"}
+              </button>
             </div>
           ))}
         </div>

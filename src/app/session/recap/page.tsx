@@ -4,6 +4,11 @@ import { prisma } from "@/lib/prisma";
 import { todayKey } from "@/lib/date-key";
 import { buildLastResults } from "@/lib/last-results";
 import type { BlocSummary, SessionBlocResult } from "../actions";
+import { getOrCreateActiveBlock } from "@/lib/training-block";
+import { getChainLevels } from "@/lib/chain-progress";
+import { upgradeProposals } from "@/lib/chains";
+import { homeLevelForToday } from "@/lib/home-equipment";
+import { SPORT_LABEL_TO_SLUG } from "@/lib/ecm-programs";
 import { buildRecapBlocs, coachMessage, missingEntries, watchDebrief, type WatchData } from "@/lib/recap-text";
 import { sessionFontVariables } from "../session-fonts";
 import { RecapView } from "./recap-view";
@@ -70,6 +75,11 @@ export default async function RecapPage() {
     best,
     wod: wodBloc?.wodLine ? { titre: wodBloc.titre, temps: wodBloc.wodLine } : null,
   });
+  // At Home : propose de monter d'un cran quand l'objectif de reps est atteint (jamais en semaine de décharge).
+  const chainProposals =
+    checkin?.seance && SPORT_LABEL_TO_SLUG[checkin.seance] === "at-home" && !(await getOrCreateActiveBlock(userId, "at-home", date)).info.isDeload
+      ? upgradeProposals(results, await getChainLevels(userId), homeLevelForToday(checkin.seanceEquipement, null))
+      : [];
   const missing = percent < 100 ? missingEntries(recapBlocs) : [];
 
   // Comparaisons : mouvements plus lourds (ou plus légers) que la dernière fois.
@@ -103,6 +113,7 @@ export default async function RecapPage() {
         watch={hasWatch ? watch : null}
         watchText={debrief.text}
         gauge={debrief.gauge}
+        chainProposals={chainProposals}
       />
     </div>
   );

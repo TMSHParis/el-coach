@@ -68,6 +68,9 @@ import { SessionTabs } from "./session-tabs";
 import { resolveSequenceToday } from "@/lib/program-position";
 import { getOrCreateActiveBlock } from "@/lib/training-block";
 import { applyLevel, levelForToday } from "@/lib/level";
+import { applyChains } from "@/lib/chains";
+import { getChainLevels } from "@/lib/chain-progress";
+import { homeLevelForToday } from "@/lib/home-equipment";
 import { PHASE_LABEL, applyPrepToDay, hyroxPrepFor, phaseSentence, type HyroxPhase } from "@/lib/hyrox-prep";
 import { loadsLine } from "@/lib/hyrox-reference";
 import { applyBlockToDay, themeLabel } from "@/lib/training-themes";
@@ -203,7 +206,16 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       : null;
   const prepBase = hyroxPrep ? applyPrepToDay(themedBase, hyroxPrep) : themedBase;
   const leveledBase = applyLevel(prepBase, levelForToday(effCycle as Parameters<typeof levelForToday>[0], programSlug, profile?.niveau, today.dayNumber));
-  const adapted = adaptDayForInjuries(leveledBase, injuryAreas);
+  // At Home : cran actuel des chaînes de progression et niveau de matériel du jour (2.7).
+  const homeBase =
+    userId && programSlug === "at-home"
+      ? applyChains(
+          leveledBase,
+          await getChainLevels(userId),
+          homeLevelForToday(todayCheckin?.seanceEquipement, profile?.equipement),
+        )
+      : leveledBase;
+  const adapted = adaptDayForInjuries(homeBase, injuryAreas);
   const injurySafeDay = adapted.day;
   // Pas de séance ECM à adapter les jours hors ECM / repos → pas d'alertes de substitution.
   const substitutions = advice ? [] : adapted.substitutions;

@@ -9,6 +9,9 @@ import { parseVariant, resolveModularDay } from "@/lib/session-modular";
 import { resolveSequenceToday } from "@/lib/program-position";
 import { getOrCreateActiveBlock } from "@/lib/training-block";
 import { applyLevel, levelForToday } from "@/lib/level";
+import { applyChains } from "@/lib/chains";
+import { getChainLevels } from "@/lib/chain-progress";
+import { homeLevelForToday } from "@/lib/home-equipment";
 import { applyBlockToDay } from "@/lib/training-themes";
 import { effectiveWeekCycle } from "@/lib/week-overrides";
 import { toDisplayBlocks, defaultRuntimeFormat, defaultDurationMinutes } from "@/lib/session-format";
@@ -146,7 +149,16 @@ export default async function SessionPage({
       })
     : baseDay;
   const leveledBase = applyLevel(themedBase, levelForToday(effCycle as Parameters<typeof levelForToday>[0], demo.programSlug, profile?.niveau, today.dayNumber));
-  const { day: injurySafeDay } = adaptDayForInjuries(leveledBase, injuryAreas);
+  // At Home : cran actuel des chaînes de progression et niveau de matériel du jour (2.7).
+  const homeBase =
+    userId && demo.programSlug === "at-home"
+      ? applyChains(
+          leveledBase,
+          await getChainLevels(userId),
+          homeLevelForToday(todayCheckin?.seanceEquipement, profile?.equipement),
+        )
+      : leveledBase;
+  const { day: injurySafeDay } = adaptDayForInjuries(homeBase, injuryAreas);
   // Structure modulable B1-B5 (états vert/jaune/rouge, variantes Complète / Sans finisher / Courte).
   const nextDay = generatedDay ? null : today.template.weeks[0].days.find((d) => d.day === (today.dayNumber % 7) + 1);
   const modular = resolveModularDay({
