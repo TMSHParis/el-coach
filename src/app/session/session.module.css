@@ -340,21 +340,9 @@
 
 /* CHRONO PLEIN ÉCRAN */
 .fsRoot { position: fixed; inset: 0; z-index: 200; display: flex; flex-direction: column; justify-content: space-between; padding: 28px 20px calc(24px + env(safe-area-inset-bottom)); background-color: #0a0a0a; }
-/* Grille de fond très subtile — même motif que /signup et l'accueil, pour la cohérence visuelle de l'app. */
-.fsGrid {
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  background-image:
-    linear-gradient(rgba(255, 255, 255, 1) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 1) 1px, transparent 1px);
-  background-size: 24px 24px;
-  opacity: .03;
-}
 .fsTop { text-align: center; }
 .fsFormat { font-family: var(--font-bebas); font-size: 1.4rem; letter-spacing: 6px; text-transform: uppercase; transition: color .3s; }
-.fsBloc { font-size: 11px; letter-spacing: 3px; text-transform: uppercase; color: var(--m); margin-top: 4px; }
+.fsBloc { font-size: 14px; font-weight: 600; letter-spacing: 3px; text-transform: uppercase; color: #e5e7eb; margin-top: 6px; }
 .fsCenter { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; flex: 1; }
 /* Cercle de progression : le chiffre est superposé au centre de l'anneau. */
 .fsRingWrap { position: relative; width: 240px; height: 240px; display: flex; align-items: center; justify-content: center; }
@@ -362,14 +350,14 @@
 .fsTimeRow { position: relative; z-index: 1; text-align: center; }
 .fsTime { font-family: var(--font-bebas); font-size: 3.4rem; line-height: 1; color: #fff; letter-spacing: 2px; animation: fsDigitPulse .15s ease; }
 @keyframes fsDigitPulse { 0% { transform: scale(1); } 40% { transform: scale(1.05); } 100% { transform: scale(1); } }
-.fsResetBtn { padding: 6px 10px; border: 1px solid rgba(255,255,255,.25); border-radius: 4px; background: rgba(0,0,0,.35); color: var(--m); font-family: inherit; font-size: 11px; letter-spacing: 1px; text-transform: uppercase; cursor: pointer; }
+.fsResetBtn { padding: 6px 10px; border: 1px solid rgba(255,255,255,.25); border-radius: 4px; background: rgba(0,0,0,.35); color: #d1d5db; font-family: inherit; font-size: 11px; letter-spacing: 1px; text-transform: uppercase; cursor: pointer; }
 .fsResetBtn:hover { color: #fff; border-color: rgba(255,255,255,.45); }
-.fsInfo { font-size: 13px; letter-spacing: 3px; text-transform: uppercase; color: #e0e0e0; }
+.fsInfo { font-size: 14px; letter-spacing: 3px; text-transform: uppercase; color: #f3f4f6; }
 .fsPaused { font-size: 12px; letter-spacing: 3px; text-transform: uppercase; color: var(--yellow); }
 .fsRoundBtn { margin-top: 18px; padding: 18px 36px; border: none; border-radius: 6px; background: var(--g); color: #000; font-family: var(--font-bebas); font-size: 1.4rem; letter-spacing: 4px; text-transform: uppercase; cursor: pointer; }
 .fsBottom { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .fsBtn { padding: 14px 16px; border: 1px solid rgba(255,255,255,.25); border-radius: 4px; background: rgba(0,0,0,.35); color: #fff; font-family: inherit; font-size: 11px; letter-spacing: 2px; text-transform: uppercase; cursor: pointer; }
-.fsGlobal { font-family: var(--font-bebas); font-size: 1.1rem; letter-spacing: 2px; color: var(--m); }
+.fsGlobal { font-family: var(--font-bebas); font-size: 1.1rem; letter-spacing: 2px; color: #d1d5db; }
 
 /* CHRONO DE REPOS — rendu in situ (doc H.10), remplace l'overlay plein écran
    + mini-barre flottante qui chevauchait .bottombar. */

@@ -53,6 +53,22 @@ const FS_COLOR: Record<RuntimeFormat, string> = {
 };
 /** Tabata en repos : vert plutôt que la couleur rouge de base du format. */
 const TABATA_REST_COLOR = "#22C55E";
+/** Couleur du halo du chrono plein écran selon le type de bloc (mission A, paramétrable). */
+const BLOCK_HALO_COLOR: Record<string, string> = {
+  warmup: "#3B82F6",
+  strength: "#EF4444",
+  skill: "#EF4444",
+  wod: "#F97316",
+  accessory: "#F97316",
+  conditioning: "#F97316",
+  endurance: "#F97316",
+  finisher: "#A855F7",
+  cooldown: "#22C55E",
+};
+function haloColorFor(block: DisplayBlock): string {
+  if (/finisher/i.test(block.titre)) return BLOCK_HALO_COLOR.finisher;
+  return BLOCK_HALO_COLOR[block.type] ?? "#C9A84C";
+}
 const TICK_MS = 200;
 
 /** "#F97316" + 0.12 → "rgba(249,115,22,0.12)". */
@@ -743,6 +759,8 @@ export function SessionRunnerV2({
   /** "▷ Démarrer la séance" du header (doc G.4, socle commun) — ouvre le
    * premier bloc non terminé et, en ECM, lance aussi son chrono. */
   function startSession() {
+    // Déjà démarrée : ne rien refaire (sinon on rouvrirait/relancerait le chrono du premier bloc non terminé).
+    if (sessionStarted) return;
     setShowPreview(false);
     setSessionStarted(true);
     const idx = blocks.findIndex((b) => !b.done);
@@ -2154,6 +2172,7 @@ function FullscreenTimer({
   // Couleur du format posée sur le fond radial (Tabata : verte en repos) — sert
   // au fond, à l'anneau de progression et au glow derrière le chiffre.
   const color = tabata && tabata.phase === "rest" ? TABATA_REST_COLOR : FS_COLOR[fmt];
+  const halo = haloColorFor(block);
 
   // Progression de la phase en cours (0 → 1) — vide l'anneau à mesure que le
   // temps s'écoule. Pas d'anneau pertinent pour NFT (pas de chrono) ni pour un
@@ -2181,14 +2200,13 @@ function FullscreenTimer({
   return (
     <div
       className={styles.fsRoot}
-      style={{ background: `radial-gradient(circle at 50% 40%, ${mixOpaque(color, "#0a0a0a", 0.12)} 0%, #0a0a0a 65%)` }}
+      style={{ background: `radial-gradient(circle at 50% 44%, ${hexAlpha(halo, 0.3)} 0%, ${hexAlpha(halo, 0.1)} 38%, #050505 72%)` }}
     >
-      <div className={styles.fsGrid} />
       <div className={styles.fsTop}>
-        <div className={styles.fsFormat} style={{ color }}>
+        <div className={styles.fsFormat} style={{ color: fmt === "nft" ? "#D1D5DB" : color }}>
           {FORMAT_LABELS[fmt]}
         </div>
-        <div className={styles.fsBloc}>{block.titre}</div>
+        <div className={styles.fsBloc} style={{ color: halo }}>{block.titre}</div>
       </div>
 
       <div className={styles.fsCenter}>
