@@ -1,3 +1,5 @@
+import { V2_TEMPLATES } from "./programs-v2";
+
 // Programmations — 4 templates (CrossFit pure, Hybride, Hyrox pure, At-home).
 // Chaque template expose une semaine-type détaillée (base répétable pour un cycle).
 // Les mouvements sont référencés par `movementId` depuis movements.ts.
@@ -1306,13 +1308,9 @@ export const VOLUME_BLOCK_HYPERTROPHY: ProgramTemplate = {
 // ============================================================================
 
 // Ordre officiel EL COACH METHOD : At Home toujours en dernier.
-export const programTemplates: ProgramTemplate[] = [
-  CROSSFIT_PURE,
-  HYBRID,
-  HYROX_PURE,
-  VOLUME_BLOCK_HYPERTROPHY,
-  AT_HOME,
-];
+// Partie 2 (octobre 2026) : les 5 programmes en structure B1-B5, voir programs-v2.ts.
+// Les anciens modèles ci-dessus restent exportés pour référence.
+export const programTemplates: ProgramTemplate[] = V2_TEMPLATES;
 
 export function getTemplate(slug: string): ProgramTemplate | undefined {
   return programTemplates.find((t) => t.slug === slug);

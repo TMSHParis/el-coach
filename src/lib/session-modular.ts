@@ -62,10 +62,23 @@ function withoutBlocks(day: Day, drop: (role: Role | null, block: Block) => bool
   return { ...day, blocks, estimatedMinutes: Math.max(10, day.estimatedMinutes - estimate) };
 }
 
+/** Réduit une durée « 45min » (état jaune : 40-45 min → 30 min). */
+function scaleMinutes(block: Block, factor: number): Block {
+  const m = block.duration?.match(/^(\d+)\s*min$/);
+  if (!m) return block;
+  const minutes = Math.max(10, Math.round(Number(m[1]) * factor));
+  return {
+    ...block,
+    duration: `${minutes}min`,
+    exercises: block.exercises.map((e) => (e.time ? { ...e, time: `${minutes}min` } : e)),
+  };
+}
+
 /** Retire le volume d'une série / d'un round sur les blocs de travail (état jaune). */
 function trimOneSet(day: Day): Day {
   const roles = blockRoles(day.blocks);
   const blocks = day.blocks.map((b, i) => {
+    if (b.type === "endurance") return scaleMinutes(b, 0.7);
     if (roles[i] !== "B2" && roles[i] !== "B3") return b;
     const exercises = b.exercises.map((ex) =>
       typeof ex.sets === "number" && ex.sets > 1 ? { ...ex, sets: ex.sets + COACH_PARAMS.yellowVolumeSetsDelta } : ex,

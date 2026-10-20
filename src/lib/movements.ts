@@ -5,6 +5,7 @@
 // Bibliothèque étendue générée depuis ecm_movements_db.html (scripts/parse-content-library.ts)
 // — musculation/hypertrophie, gymnastique, combat, sports... déjà dédupliquée contre coreMovements.
 import { EXTENDED_MOVEMENTS } from "./movements-extended";
+import { V2_MOVEMENTS } from "./movements-v2";
 
 export type MovementCategory =
   | "monostructural"
@@ -369,7 +370,7 @@ const coreMovements: Movement[] = [
   { id: "boxing-bag", name: "Travail au sac (boxe)", category: "bodyweight", subcategory: "cardio", equipment: ["none"], level: "intermediate", tags: ["cooldown", "skill"] },
 ];
 
-export const movements: Movement[] = [...coreMovements, ...EXTENDED_MOVEMENTS];
+export const movements: Movement[] = [...coreMovements, ...EXTENDED_MOVEMENTS, ...V2_MOVEMENTS];
 
 // ============================================================================
 // Helpers
