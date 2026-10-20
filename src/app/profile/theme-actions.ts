@@ -9,6 +9,7 @@ import { COACH_PARAMS } from "@/lib/coach-params";
 import { getOrCreateActiveBlock } from "@/lib/training-block";
 import { MAX_WEAK_POINTS, WEAK_POINT_OPTIONS, suggestVolumeBlockTheme, themesFor } from "@/lib/training-themes";
 import { mondayOf } from "@/lib/week";
+import { hyroxPrepFor } from "@/lib/hyrox-prep";
 
 export type ThemeScreenData = {
   slug: string;
@@ -17,6 +18,8 @@ export type ThemeScreenData = {
   current: { theme: string; weeks: number; week: number; isDeload: boolean; finished: boolean; weakPoints: string[] };
   suggested: string | null;
   objectifLabel: string | null;
+  /** Hyrox : mode Compétition actif (date de course) — les thèmes Force et Endurance ne s'appliquent plus. */
+  competition: boolean;
 };
 
 export async function getThemeScreenData(): Promise<ThemeScreenData | null> {
@@ -44,6 +47,15 @@ export async function getThemeScreenData(): Promise<ThemeScreenData | null> {
     },
     suggested,
     objectifLabel: profile.objectif1Type ?? profile.objectif ?? null,
+    competition:
+      slug === "hyrox-pure" &&
+      hyroxPrepFor(
+        [
+          { event: profile.objectif1Event, dateExacte: profile.objectif1DateExacte, categorie: profile.objectif1Categorie, priorite: profile.objectif1Priorite },
+          { event: profile.objectif2Event, dateExacte: profile.objectif2DateExacte, categorie: profile.objectif2Categorie, priorite: profile.objectif2Priorite },
+        ],
+        todayKey(),
+      ) !== null,
   };
 }
 

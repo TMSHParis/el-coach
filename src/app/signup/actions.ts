@@ -229,6 +229,9 @@ export type EcmObjectifDetail = {
   deadline: string;
   priorite: string;
   event: string;
+  /** Hyrox : date exacte de la course (YYYY-MM-DD) et catégorie (ex. « Open · Solo »). */
+  dateExacte?: string;
+  categorie?: string;
 };
 
 export type EcmProfileCookie = {
@@ -339,11 +342,15 @@ async function persistEcmProfile(profile: EcmProfileCookie): Promise<void> {
     objectif1Deadline: profile.objectifs[0]?.deadline || null,
     objectif1Priorite: profile.objectifs[0]?.priorite || null,
     objectif1Event: profile.objectifs[0]?.event || null,
+    objectif1DateExacte: profile.objectifs[0]?.dateExacte || null,
+    objectif1Categorie: profile.objectifs[0]?.categorie || null,
     objectif2Type: profile.objectifs[1]?.type || null,
     objectif2SousCat: profile.objectifs[1]?.sousCat || null,
     objectif2Deadline: profile.objectifs[1]?.deadline || null,
     objectif2Priorite: profile.objectifs[1]?.priorite || null,
     objectif2Event: profile.objectifs[1]?.event || null,
+    objectif2DateExacte: profile.objectifs[1]?.dateExacte || null,
+    objectif2Categorie: profile.objectifs[1]?.categorie || null,
     programme: profile.programmePrincipal,
     // Pas de niveau global dédié dans le nouveau modèle — repris du 1er créneau
     // configuré sur la semaine type, sinon vide.
@@ -399,10 +406,20 @@ function objectifFromRow(
   priorite: string | null,
   event: string | null,
   legacyType: string | null,
+  dateExacte?: string | null,
+  categorie?: string | null,
 ): EcmObjectifDetail | null {
   const resolvedType = type ?? legacyType;
   if (!resolvedType) return null;
-  return { type: resolvedType, sousCat: sousCat ?? "", deadline: deadline ?? "", priorite: priorite ?? "", event: event ?? "" };
+  return {
+    type: resolvedType,
+    sousCat: sousCat ?? "",
+    deadline: deadline ?? "",
+    priorite: priorite ?? "",
+    event: event ?? "",
+    dateExacte: dateExacte ?? "",
+    categorie: categorie ?? "",
+  };
 }
 
 /** Semaine vide (7 jours, tous en repos, sans créneau) — repli pour les comptes créés avant weekCycle. */
@@ -418,8 +435,8 @@ function profileRowToCookie(row: Profile): EcmProfileCookie {
     taille: String(row.taille),
     poids: String(row.poids),
     objectifs: [
-      objectifFromRow(row.objectif1Type, row.objectif1SousCat, row.objectif1Deadline, row.objectif1Priorite, row.objectif1Event, row.objectif),
-      objectifFromRow(row.objectif2Type, row.objectif2SousCat, row.objectif2Deadline, row.objectif2Priorite, row.objectif2Event, row.objectif2),
+      objectifFromRow(row.objectif1Type, row.objectif1SousCat, row.objectif1Deadline, row.objectif1Priorite, row.objectif1Event, row.objectif, row.objectif1DateExacte, row.objectif1Categorie),
+      objectifFromRow(row.objectif2Type, row.objectif2SousCat, row.objectif2Deadline, row.objectif2Priorite, row.objectif2Event, row.objectif2, row.objectif2DateExacte, row.objectif2Categorie),
     ].filter((v): v is EcmObjectifDetail => v !== null),
     programmePrincipal: row.programme,
     weekCycle: (row.weekCycle as unknown as WeekCycle | null) ?? emptyWeekCycleRow(),

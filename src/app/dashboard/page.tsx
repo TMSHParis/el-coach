@@ -68,6 +68,8 @@ import { SessionTabs } from "./session-tabs";
 import { resolveSequenceToday } from "@/lib/program-position";
 import { getOrCreateActiveBlock } from "@/lib/training-block";
 import { applyLevel, levelForToday } from "@/lib/level";
+import { PHASE_LABEL, applyPrepToDay, hyroxPrepFor, phaseSentence, type HyroxPhase } from "@/lib/hyrox-prep";
+import { loadsLine } from "@/lib/hyrox-reference";
 import { applyBlockToDay, themeLabel } from "@/lib/training-themes";
 import { effectiveWeekCycle } from "@/lib/week-overrides";
 import { VARIANT_HINT, VARIANT_LABEL, parseVariant, resolveModularDay, type ModularVariant } from "@/lib/session-modular";
@@ -188,7 +190,19 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         dayNumber: today.dayNumber,
       })
     : baseDay;
-  const leveledBase = applyLevel(themedBase, levelForToday(effCycle as Parameters<typeof levelForToday>[0], programSlug, profile?.niveau, today.dayNumber));
+  // Mode préparation de compétition Hyrox (1.9) : automatique d'après la date de course.
+  const hyroxPrep =
+    profile && programSlug === "hyrox-pure"
+      ? hyroxPrepFor(
+          [
+            { event: profile.objectif1Event, dateExacte: profile.objectif1DateExacte, categorie: profile.objectif1Categorie, priorite: profile.objectif1Priorite },
+            { event: profile.objectif2Event, dateExacte: profile.objectif2DateExacte, categorie: profile.objectif2Categorie, priorite: profile.objectif2Priorite },
+          ],
+          todayKey(),
+        )
+      : null;
+  const prepBase = hyroxPrep ? applyPrepToDay(themedBase, hyroxPrep) : themedBase;
+  const leveledBase = applyLevel(prepBase, levelForToday(effCycle as Parameters<typeof levelForToday>[0], programSlug, profile?.niveau, today.dayNumber));
   const adapted = adaptDayForInjuries(leveledBase, injuryAreas);
   const injurySafeDay = adapted.day;
   // Pas de séance ECM à adapter les jours hors ECM / repos → pas d'alertes de substitution.
@@ -499,6 +513,55 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           ))}
 
           {/* ACTIVITÉ DU JOUR — titre de section (doc H.2), bloc "Prévu aujourd'hui" inchangé */}
+          {hyroxPrep && (
+            <div className={styles.upcomingCard}>
+              <div className={styles.upcomingHead}>
+                <div className={styles.l}>
+                  <span>🏁</span>
+                  <span className={styles.txt}>{hyroxPrep.phase === "course" ? "SEMAINE DE COURSE" : "PRÉPARATION HYROX"}</span>
+                </div>
+                <span className={styles.name}>
+                  {hyroxPrep.phase === "course"
+                    ? hyroxPrep.daysToRace === 0
+                      ? "Jour J"
+                      : `J−${hyroxPrep.daysToRace}`
+                    : `Dans ${hyroxPrep.weeksOut} semaine${hyroxPrep.weeksOut > 1 ? "s" : ""}`}
+                </span>
+              </div>
+              <div className={styles.upcomingSub}>
+                <span className={styles.name}>
+                  Hyrox{hyroxPrep.categorie ? ` · ${hyroxPrep.categorie}` : ""} ·{" "}
+                  {new Date(hyroxPrep.raceDate).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}
+                  {hyroxPrep.niveauVise ? ` · Objectif : ${hyroxPrep.niveauVise}` : ""}
+                </span>
+              </div>
+              <div style={{ display: "flex", gap: 4, margin: "10px 0" }}>
+                {([["construction", 4], ["specifique", 4], ["affutage", 4], ["course", 1]] as [HyroxPhase, number][]).map(([ph, w]) => {
+                  const order: HyroxPhase[] = ["construction", "specifique", "affutage", "course"];
+                  const past = order.indexOf(ph) < order.indexOf(hyroxPrep.phase);
+                  const current = ph === hyroxPrep.phase;
+                  return (
+                    <div key={ph} style={{ flex: w }}>
+                      <div style={{ height: 6, borderRadius: 3, background: current ? "var(--yellow)" : past ? "#666" : "#2a2a2a" }} />
+                      <div style={{ fontSize: 9, letterSpacing: 1, marginTop: 4, color: current ? "#fff" : "var(--m)", fontWeight: current ? 700 : 400 }}>
+                        {PHASE_LABEL[ph]}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              {hyroxPrep.phase !== "course" && hyroxPrep.weekInPhase && hyroxPrep.phaseWeeks && (
+                <div className={styles.upcomingNote}>
+                  {PHASE_LABEL[hyroxPrep.phase]} · semaine {hyroxPrep.weekInPhase} sur {hyroxPrep.phaseWeeks}
+                  {hyroxPrep.phase === "affutage" ? ` · volume −${Math.round((1 - hyroxPrep.volumeFactor) * 100)} %` : ""}
+                </div>
+              )}
+              <div className={styles.upcomingNote}>{phaseSentence(hyroxPrep)}</div>
+              {hyroxPrep.phase === "course" && hyroxPrep.daysToRace === 0 && (
+                <div className={styles.upcomingNote}>JOUR J · {loadsLine(profile?.genre, hyroxPrep.categorie)}</div>
+              )}
+            </div>
+          )}
           <div className={styles.sl}>Activité du jour</div>
 
           {/* SÉANCE DU JOUR — contenu selon le check-in, structure identique */}

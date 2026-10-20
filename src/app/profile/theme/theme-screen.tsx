@@ -121,13 +121,18 @@ export function ThemeScreen() {
         </div>
       )}
 
+      {data.competition && (
+        <div className={styles.weekHint}>
+          Mode Compétition activé d&apos;après ta date de course : les thèmes Force et Endurance ne s&apos;appliquent plus.
+        </div>
+      )}
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {data.themes.map((t) => (
           <div
             key={t.id}
             className={cx(styles.mo, theme === t.id && styles.sel)}
-            onClick={() => !t.auto && setTheme(t.id)}
-            style={t.auto ? { opacity: 0.6 } : undefined}
+            onClick={() => !t.auto && !data.competition && setTheme(t.id)}
+            style={t.auto || data.competition ? { opacity: 0.6 } : undefined}
           >
             <div className={styles.mc}>{theme === t.id ? "✓" : ""}</div>
             <div>

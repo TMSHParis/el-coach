@@ -138,6 +138,8 @@ export const OBJECTIF_CARDS: ObjectifCardConfig[] = [
   },
 ];
 
+const HYROX_CATEGORIES = ["Open · Solo", "Open · Doubles", "Pro · Solo", "Pro · Doubles"];
+
 function emptyObjectifDetail(card: ObjectifCardConfig): EcmObjectifDetail {
   return { type: `${card.icon} ${card.title}`, sousCat: "", deadline: "", priorite: "", event: "" };
 }
@@ -210,6 +212,29 @@ export function ObjectifsPicker({
                         </div>
                       ))}
                     </div>
+                    {entry.event === "Hyrox" && (
+                      <div className={styles.prepAutre} onClick={(e) => e.stopPropagation()}>
+                        <label className={styles.subLabel}>Date de la course</label>
+                        <input
+                          type="date"
+                          value={entry.dateExacte ?? ""}
+                          onChange={(e) => patch(type, { dateExacte: e.target.value })}
+                        />
+                        <label className={styles.subLabel}>Catégorie</label>
+                        <div className={styles.deadlineOpts}>
+                          {HYROX_CATEGORIES.map((c) => (
+                            <div
+                              key={c}
+                              className={cx(styles.dlBtn, entry.categorie === c && styles.sel)}
+                              onClick={() => patch(type, { categorie: c })}
+                            >
+                              <div className={styles.dlDot} />
+                              {c}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                     {entry.sousCat === "Autre" && (
                       <div className={styles.prepAutre}>
                         <input
