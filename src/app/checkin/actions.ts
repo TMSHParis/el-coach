@@ -91,6 +91,7 @@ export type CheckinPayload = {
   seanceEquipement: string;
   seanceIntensite: string;
   seanceNote: string;
+  seanceFormat?: string;
   /** Volume Block Hypertrophy : "upper" | "lower" | "full" (vide sinon). */
   volumeBlockFocus: string;
 };
@@ -251,6 +252,7 @@ async function persistCheckinAndGenerateDashboard(payload: CheckinPayload, fatig
     seanceEquipement: payload.seanceEquipement || null,
     seanceIntensite: payload.seanceIntensite || null,
     seanceNote: payload.seanceNote || null,
+    seanceFormat: payload.seanceFormat || null,
     volumeBlockFocus: payload.volumeBlockFocus || null,
   };
 

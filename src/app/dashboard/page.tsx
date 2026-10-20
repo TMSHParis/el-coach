@@ -177,6 +177,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     chosen: parseVariant(modularParam),
     goalText: profile?.objectif,
     availableLabel: todayCheckin?.seanceDuree,
+    format: todayCheckin?.seanceFormat,
     nextDayFocus: nextTemplateDay?.focus,
   });
   const safeDay = modular.day;

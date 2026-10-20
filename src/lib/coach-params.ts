@@ -30,6 +30,41 @@ export const COACH_PARAMS = {
   durationOptionsAtHome: [20, 30, 45, 60] as const,
 } as const;
 
+/** Focus du jour proposés au check-in (1.3 c) : s'ajoutent au B4, ne remplacent pas le cœur de séance. */
+export const FOCUS_MUSCLE_OPTIONS = ["Bras", "Épaules", "Abdos", "Dos", "Pectoraux", "Fessiers", "Mollets"] as const;
+export const FOCUS_AT_HOME_OPTIONS = ["Haut du corps", "Jambes", "Core", "Skill"] as const;
+
+/** Matériel du jour proposé au check-in (1.3 d). */
+export const EQUIPMENT_OPTIONS_ECM = ["Salle complète", "Haltères seulement", "Poids du corps"] as const;
+export const EQUIPMENT_OPTIONS_AT_HOME = ["Étendu", "Basique", "Aucun"] as const;
+
+/**
+ * Correspondance profil.equipement (lieux) → niveau de matériel At Home
+ * (Aucun / Basique / Étendu). Table paramétrable : clé = libellé normalisé
+ * (sans accent, minuscules) contenu dans la valeur du profil.
+ */
+export type HomeLevel = "aucun" | "basique" | "etendu";
+export const EQUIPEMENT_TO_HOME_LEVEL: { match: string; level: HomeLevel }[] = [
+  { match: "salle complete", level: "etendu" },
+  { match: "salle limitee", level: "etendu" },
+  { match: "les deux", level: "etendu" },
+  { match: "etendu", level: "etendu" },
+  { match: "maison", level: "basique" },
+  { match: "halteres", level: "basique" },
+  { match: "basique", level: "basique" },
+  { match: "exterieur", level: "aucun" },
+  { match: "poids du corps", level: "aucun" },
+  { match: "aucun", level: "aucun" },
+];
+
+/** Format de séance (1.3 b) proposé d'après la durée disponible. */
+export type SessionFormat = "complet" | "deux_blocs" | "un_bloc";
+export const FORMAT_BY_MINUTES: { maxMinutes: number; format: SessionFormat }[] = [
+  { maxMinutes: 30, format: "un_bloc" },
+  { maxMinutes: 45, format: "deux_blocs" },
+  { maxMinutes: 9999, format: "complet" },
+];
+
 /** Interrupteurs : fonctionnalités à ne pas ouvrir en production avant validation (6.3). */
 export const FEATURE_FLAGS = {
   /** Zone à ménager : validation juridique + table de substitutions écrite par un coach. */

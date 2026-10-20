@@ -4,7 +4,7 @@
 //   accessoire 2) · B5 facultatif.
 
 import type { Block, Day } from "./programming";
-import { COACH_PARAMS } from "./coach-params";
+import { COACH_PARAMS, type SessionFormat } from "./coach-params";
 
 export type ModularVariant = "complete" | "nofinisher" | "short";
 export type ReadinessState = "green" | "yellow" | "red";
@@ -162,6 +162,8 @@ export function resolveModularDay(input: {
   availableLabel?: string | null;
   nextDayFocus?: string | null;
   isDeload?: boolean;
+  /** Format demandé au check-in (checkin.seanceFormat). */
+  format?: string | null;
 }): { day: Day; variant: ModularVariant; suggestion: VariantSuggestion } {
   const suggestion = suggestModularVariant({
     state: input.state,
@@ -174,5 +176,48 @@ export function resolveModularDay(input: {
   const variant = input.chosen ?? suggestion.variant;
   const adjusted = applyReadiness(input.day, input.state === "red" ? "red" : input.state);
   // État rouge : B1 + mobilité déjà appliqués ; une variante ne s'y ajoute pas.
-  return { day: input.state === "red" ? adjusted : applyModularVariant(adjusted, variant), variant, suggestion };
+  const modular = input.state === "red" ? adjusted : applyModularVariant(adjusted, variant);
+  return { day: applyFormat(modular, parseFormat(input.format)), variant, suggestion };
+}
+
+const FORMAT_LIMITS: Record<Exclude<SessionFormat, "complet">, { blocks: number; perBlock: number }> = {
+  deux_blocs: { blocks: 2, perBlock: 4 },
+  un_bloc: { blocks: 1, perBlock: 8 },
+};
+
+/**
+ * Format demandé au check-in (1.3 b) : Complet = séance telle quelle ; Deux
+ * blocs = 2 blocs de 4 mouvements ; Un seul bloc = 6 à 8 mouvements. B1 est
+ * conservé (échauffement), B5 aussi (facultatif). Les mouvements viennent de
+ * B2 à B4 dans l'ordre : le cœur de séance passe toujours en premier.
+ */
+export function applyFormat(day: Day, format: SessionFormat | null): Day {
+  if (!format || format === "complet") return day;
+  const roles = blockRoles(day.blocks);
+  const warmup = day.blocks.filter((_, i) => roles[i] === "B1");
+  const cooldown = day.blocks.filter((_, i) => roles[i] === "B5");
+  const work = day.blocks.filter((_, i) => roles[i] !== "B1" && roles[i] !== "B5");
+  const exercises = work.flatMap((b) => b.exercises);
+  if (exercises.length === 0) return day;
+
+  const { blocks: nBlocks, perBlock } = FORMAT_LIMITS[format];
+  const picked = exercises.slice(0, nBlocks * perBlock);
+  const chunks: (typeof exercises)[] = [];
+  for (let i = 0; i < nBlocks; i++) {
+    const chunk = picked.slice(i * perBlock, (i + 1) * perBlock);
+    if (chunk.length > 0) chunks.push(chunk);
+  }
+  const newBlocks: Block[] = chunks.map((chunk, i) => ({
+    name: format === "un_bloc" ? "Bloc unique" : `Bloc ${i + 1}`,
+    type: i === 0 ? (work[0]?.type ?? "strength") : "accessory",
+    exercises: chunk,
+    notes: format === "un_bloc" ? "Enchaîne les mouvements, repos libre entre les séries." : undefined,
+  }));
+  const blocks = [...warmup, ...newBlocks, ...cooldown];
+  const minutes = format === "un_bloc" ? 30 : 45;
+  return { ...day, blocks, estimatedMinutes: Math.min(day.estimatedMinutes, minutes) };
+}
+
+export function parseFormat(value: string | null | undefined): SessionFormat | null {
+  return value === "complet" || value === "deux_blocs" || value === "un_bloc" ? value : null;
 }

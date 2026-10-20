@@ -267,6 +267,10 @@ const STACK_TOOL = {
 
 function equipmentTierFor(equipementLabel: string): Movement["equipment"] | null {
   const e = normalizeAccents(equipementLabel);
+  // Libellés du check-in "demande du jour" (partie 2) : niveaux de matériel At Home et ECM.
+  if (e.includes("etendu")) return null;
+  if (e.includes("basique") || e.includes("halteres seulement")) return ["none", "dumbbell", "kettlebell", "resistance_band", "mat", "jump_rope", "box", "bench"];
+  if (e.includes("aucun") || e.includes("poids du corps")) return ["none", "mat", "outdoor"];
   if (e.includes("salle complete")) return null; // null = tout le catalogue autorisé
   if (e.includes("salle limitee")) return ["none", "dumbbell", "kettlebell", "machine", "cable", "resistance_band", "mat", "jump_rope", "box", "bench", "pullup_bar"];
   if (e.includes("maison")) return ["none", "dumbbell", "kettlebell", "resistance_band", "mat", "jump_rope", "box", "bench"];
@@ -458,7 +462,7 @@ RÈGLES :
       : ""
   }
 - rest (exercises[].rest, blocs strength/accessory avec plusieurs séries) : renseigne un temps de repos suggéré entre les séries (ex: "90s") selon le type de mouvement — mouvement lourd (squat/deadlift/bench press...) 90-120s, accessoire/isolation 60s, superset/finisher 30-45s.
-- Personnalisation du jour (seanceFocus/seanceDuree/seanceEquipement/seanceIntensite/seanceNote) : quand ces champs sont renseignés (non vides), ils priment SUR TOUT le reste (semaine type, profil.equipement — déjà appliqué dans MOUVEMENTS DISPONIBLES ci-dessus) pour composer sessionBlocks. seanceFocus oriente le choix des blocs (ex. "Mobilité" → réduit le bloc strength/wod, renforce cooldown) ; seanceDuree ajuste le nombre/la durée des blocs (30 min → 3 blocs courts, 2h+ → 5 blocs complets voire allongés) ; seanceIntensite ajuste charges/volume (Légère → StraightSets légers, Maximum → charges proches du max) ; seanceNote est une instruction directe à respecter littéralement (ex. "pas de deadlift aujourd'hui" → ne choisis aucun mouvement deadlift). Champs vides = ignore, comportement inchangé.
+- Personnalisation du jour (seanceFocus/seanceDuree/seanceEquipement/seanceIntensite/seanceNote) : quand ces champs sont renseignés (non vides), ils priment SUR TOUT le reste (semaine type, profil.equipement — déjà appliqué dans MOUVEMENTS DISPONIBLES ci-dessus) pour composer sessionBlocks. seanceFocus oriente le choix des blocs (ex. "Mobilité" → réduit le bloc strength/wod, renforce cooldown) ; seanceDuree ajuste le nombre/la durée des blocs (30 min → 3 blocs courts, 2h+ → 5 blocs complets voire allongés) ; seanceIntensite ajuste charges/volume (Légère → StraightSets légers, Maximum → charges proches du max) ; seanceFormat (complet / deux_blocs = 2 blocs de 4 mouvements / un_bloc = 6 à 8 mouvements) fixe la structure demandée ; seanceFocus peut contenir des groupes musculaires (Bras, Épaules, Abdos, Dos, Pectoraux, Fessiers, Mollets) ou, At Home, Haut du corps / Jambes / Core / Skill : ils s'ajoutent au Bloc 4 (accessoires) sans remplacer le cœur de séance ; seanceNote est une instruction directe à respecter littéralement (ex. "pas de deadlift aujourd'hui" → ne choisis aucun mouvement deadlift). Champs vides = ignore, comportement inchangé.
 - Le stack utilise UNIQUEMENT des compléments réalistes cohérents avec la liste "complements" (${profile.complements.join(", ") || "aucun déclaré — stack vide ou générique léger"}).
 - recommendedVariant = "B" si état jaune/rouge ou douleur/blessure signalée, sinon "A".
 - N'invente aucune donnée numérique (poids, sommeil) — utilise uniquement les valeurs fournies ci-dessus.

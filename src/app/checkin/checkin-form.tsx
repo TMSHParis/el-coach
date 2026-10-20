@@ -1,6 +1,16 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import {
+  COACH_PARAMS,
+  EQUIPMENT_OPTIONS_AT_HOME,
+  EQUIPMENT_OPTIONS_ECM,
+  FOCUS_AT_HOME_OPTIONS,
+  FOCUS_MUSCLE_OPTIONS,
+  FORMAT_BY_MINUTES,
+  type SessionFormat,
+} from "@/lib/coach-params";
+import { parseAvailableMinutes } from "@/lib/session-modular";
 import { useRouter } from "next/navigation";
 import { submitCheckin, type CheckinGender, type SleepPhotoAnalysis } from "./actions";
 import { BackHomeButton } from "@/components/back-home-button";
@@ -55,7 +65,6 @@ export function buildSeanceGroups(programmes: string[]): { label: string; option
   );
 }
 
-const FOCUS_OPTIONS = ["Force", "Cardio", "Technique", "Mobilité", "Récupération active"];
 
 const VOLUME_BLOCK_LABEL = "💪 Volume Block Hypertrophy";
 const VOLUME_FOCUS_OPTIONS: { value: string; label: string }[] = [
@@ -75,8 +84,11 @@ function suggestedVolumeFocus(): string {
   if (day === 2 || day === 6) return "lower";
   return "full";
 }
-const DUREE_OPTIONS = ["30 min", "45 min", "1h", "1h30", "2h+"];
-const EQUIPEMENT_OPTIONS = ["Salle complète", "Maison", "Extérieur", "Salle limitée"];
+const FORMAT_OPTIONS: { value: SessionFormat; label: string; hint: string }[] = [
+  { value: "complet", label: "Complet", hint: "5 blocs" },
+  { value: "deux_blocs", label: "Deux blocs", hint: "2 × 4 mouvements" },
+  { value: "un_bloc", label: "Un seul bloc", hint: "6 à 8 mouvements" },
+];
 const INTENSITE_OPTIONS = ["Légère", "Modérée", "Intense", "Maximum"];
 
 const RECUP_PERCUE_OPTIONS = ["😩 Faible", "😐 Moyenne", "💪 Bonne"];
@@ -120,6 +132,8 @@ type FormState = {
   seanceEquipement: string;
   seanceIntensite: string;
   seanceNote: string;
+  /** "complet" | "deux_blocs" | "un_bloc" (vide = séance du programme). */
+  seanceFormat: string;
   volumeBlockFocus: string;
 };
 
@@ -158,6 +172,7 @@ const INITIAL_STATE: FormState = {
   seanceEquipement: "",
   seanceIntensite: "",
   seanceNote: "",
+  seanceFormat: "",
   volumeBlockFocus: "",
 };
 
@@ -198,6 +213,7 @@ export function CheckinForm({
   const [submitting, setSubmitting] = useState(false);
   const [slowSubmit, setSlowSubmit] = useState(false);
   const [missing, setMissing] = useState<string[]>([]);
+  const [demandeOpen, setDemandeOpen] = useState(false);
 
   useEffect(() => {
     if (!submitting) {
@@ -372,6 +388,7 @@ export function CheckinForm({
         seanceEquipement: d.seanceEquipement,
         seanceIntensite: d.seanceIntensite,
         seanceNote: d.seanceNote,
+        seanceFormat: d.seanceFormat,
         volumeBlockFocus: isVolumeBlock(d.seance) ? d.volumeBlockFocus || suggestedVolumeFocus() : "",
       });
     } catch {
@@ -772,35 +789,81 @@ export function CheckinForm({
           </div>
         )}
 
-        {showPersonalize && (
-          <div className={cx(styles.qc, styles.opt)}>
-            <div className={styles.ql}>
-              <i>🎛️</i> Personnaliser ma séance <span className={styles.bo}>Facultatif</span>
+        {showPersonalize && (() => {
+          const atHome = d.seance.includes("At Home");
+          const durations = (atHome ? COACH_PARAMS.durationOptionsAtHome : COACH_PARAMS.durationOptions).map((m) => `${m} min`);
+          const minutes = parseAvailableMinutes(d.seanceDuree);
+          const proposed = minutes ? FORMAT_BY_MINUTES.find((f) => minutes <= f.maxMinutes)?.format : null;
+          return (
+            <div className={cx(styles.qc, styles.opt)}>
+              <button
+                type="button"
+                className={styles.ql}
+                style={{ width: "100%", background: "none", border: "none", cursor: "pointer", textAlign: "left", font: "inherit", color: "inherit" }}
+                onClick={() => setDemandeOpen((v) => !v)}
+                aria-expanded={demandeOpen}
+              >
+                <i>🎛️</i> Une demande pour aujourd&apos;hui ? <span className={styles.bo}>Facultatif</span>
+                <span style={{ marginLeft: "auto" }}>{demandeOpen ? "▴" : "▾"}</span>
+              </button>
+              <div className={styles.dl}>Si tu ne touches à rien, la séance reste celle prévue au programme.</div>
+
+              {demandeOpen && (
+                <>
+                  <div className={styles.dl} style={{ marginTop: 12 }}>DURÉE DISPONIBLE · facultatif</div>
+                  <OptRow gender={g} options={durations} value={d.seanceDuree} onChange={(v) => set({ seanceDuree: v })} />
+
+                  <div className={styles.dl} style={{ marginTop: 12 }}>FORMAT DE LA SÉANCE · facultatif</div>
+                  <OptRow
+                    gender={g}
+                    options={FORMAT_OPTIONS.map((f) => `${f.label} (${f.hint})`)}
+                    value={FORMAT_OPTIONS.filter((f) => f.value === d.seanceFormat).map((f) => `${f.label} (${f.hint})`)[0] ?? ""}
+                    onChange={(label) => set({ seanceFormat: FORMAT_OPTIONS.find((f) => `${f.label} (${f.hint})` === label)?.value ?? "" })}
+                  />
+                  {proposed && (
+                    <div className={styles.dl}>Proposé d&apos;après la durée : {FORMAT_OPTIONS.find((f) => f.value === proposed)?.label}</div>
+                  )}
+
+                  <div className={styles.dl} style={{ marginTop: 12 }}>FOCUS DU JOUR · facultatif</div>
+                  <MultiOptRow
+                    gender={g}
+                    options={[...(atHome ? FOCUS_AT_HOME_OPTIONS : FOCUS_MUSCLE_OPTIONS)]}
+                    values={d.seanceFocus}
+                    onToggle={(v) =>
+                      set({ seanceFocus: d.seanceFocus.includes(v) ? d.seanceFocus.filter((x) => x !== v) : [...d.seanceFocus, v] })
+                    }
+                  />
+                  <div className={styles.dl}>
+                    {atHome
+                      ? "Le focus choisi s'ajoute à la séance, il ne remplace pas le cœur de la séance."
+                      : "Le groupe choisi s'ajoute au Bloc 4 (accessoires), il ne remplace pas le cœur de la séance."}
+                  </div>
+
+                  <div className={styles.dl} style={{ marginTop: 12 }}>MATÉRIEL DISPONIBLE AUJOURD&apos;HUI · facultatif</div>
+                  <OptRow
+                    gender={g}
+                    options={[...(atHome ? EQUIPMENT_OPTIONS_AT_HOME : EQUIPMENT_OPTIONS_ECM)]}
+                    value={d.seanceEquipement}
+                    onChange={(v) => set({ seanceEquipement: v })}
+                  />
+                  <div className={styles.dl}>Par défaut : ton équipement du profil. Le changement vaut pour la journée seulement.</div>
+
+                  <div className={styles.dl} style={{ marginTop: 12 }}>INTENSITÉ SOUHAITÉE · facultatif</div>
+                  <OptRow gender={g} options={INTENSITE_OPTIONS} value={d.seanceIntensite} onChange={(v) => set({ seanceIntensite: v })} />
+
+                  <div className={styles.dl} style={{ marginTop: 12 }}>NOTE LIBRE SUR LA SÉANCE</div>
+                  <textarea
+                    className={styles.ta}
+                    placeholder="ex : Je veux travailler les épaules · Pas de deadlift aujourd'hui"
+                    value={d.seanceNote}
+                    onChange={(e) => set({ seanceNote: e.target.value })}
+                  />
+                  {/* Zone à ménager et option "Sans impact" : derrière FEATURE_FLAGS (6.3), désactivés. */}
+                </>
+              )}
             </div>
-
-            <div className={styles.dl}>Focus du jour</div>
-            <MultiOptRow gender={g} options={FOCUS_OPTIONS} values={d.seanceFocus} onToggle={(v) => set({
-              seanceFocus: d.seanceFocus.includes(v) ? d.seanceFocus.filter((x) => x !== v) : [...d.seanceFocus, v],
-            })} />
-
-            <div className={styles.dl} style={{ marginTop: 10 }}>Durée disponible</div>
-            <OptRow gender={g} options={DUREE_OPTIONS} value={d.seanceDuree} onChange={(v) => set({ seanceDuree: v })} />
-
-            <div className={styles.dl} style={{ marginTop: 10 }}>Équipement disponible aujourd&apos;hui</div>
-            <OptRow gender={g} options={EQUIPEMENT_OPTIONS} value={d.seanceEquipement} onChange={(v) => set({ seanceEquipement: v })} />
-
-            <div className={styles.dl} style={{ marginTop: 10 }}>Intensité souhaitée</div>
-            <OptRow gender={g} options={INTENSITE_OPTIONS} value={d.seanceIntensite} onChange={(v) => set({ seanceIntensite: v })} />
-
-            <div className={styles.dl} style={{ marginTop: 10 }}>Note libre sur la séance</div>
-            <textarea
-              className={styles.ta}
-              placeholder="ex : Je veux travailler les épaules · Pas de deadlift aujourd'hui"
-              value={d.seanceNote}
-              onChange={(e) => set({ seanceNote: e.target.value })}
-            />
-          </div>
-        )}
+          );
+        })()}
 
         <div className={cx(styles.qc, d.travail !== null && (isH ? styles.onH : styles.onF))}>
           <div className={styles.ql}>

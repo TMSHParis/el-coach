@@ -127,6 +127,7 @@ export default async function SessionPage({
     chosen: parseVariant(modularParam),
     goalText: profile?.objectif,
     availableLabel: todayCheckin?.seanceDuree,
+    format: todayCheckin?.seanceFormat,
     nextDayFocus: nextDay?.focus,
   });
   const safeDay = modular.day;
