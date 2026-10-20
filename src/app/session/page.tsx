@@ -9,7 +9,9 @@ import { parseVariant, resolveModularDay } from "@/lib/session-modular";
 import { resolveSequenceToday } from "@/lib/program-position";
 import { getOrCreateActiveBlock } from "@/lib/training-block";
 import { applyLevel, levelForToday } from "@/lib/level";
+import { cookies } from "next/headers";
 import { applyChains } from "@/lib/chains";
+import { applyDaySubstitutions, NO_IMPACT_COOKIE, ZONE_COOKIE } from "@/lib/substitutions";
 import { getChainLevels } from "@/lib/chain-progress";
 import { homeLevelForToday } from "@/lib/home-equipment";
 import { applyBlockToDay } from "@/lib/training-themes";
@@ -158,7 +160,12 @@ export default async function SessionPage({
           homeLevelForToday(todayCheckin?.seanceEquipement, profile?.equipement),
         )
       : leveledBase;
-  const { day: injurySafeDay } = adaptDayForInjuries(homeBase, injuryAreas);
+  const { day: injuryAdapted } = adaptDayForInjuries(homeBase, injuryAreas);
+  const jar = await cookies();
+  const injurySafeDay = applyDaySubstitutions(injuryAdapted, {
+    zone: jar.get(ZONE_COOKIE)?.value ? decodeURIComponent(jar.get(ZONE_COOKIE)!.value) : null,
+    noImpact: jar.get(NO_IMPACT_COOKIE)?.value === "1",
+  });
   // Structure modulable B1-B5 (états vert/jaune/rouge, variantes Complète / Sans finisher / Courte).
   const nextDay = generatedDay ? null : today.template.weeks[0].days.find((d) => d.day === (today.dayNumber % 7) + 1);
   const modular = resolveModularDay({

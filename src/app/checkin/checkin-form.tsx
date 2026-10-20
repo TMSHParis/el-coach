@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   COACH_PARAMS,
+  FEATURE_FLAGS,
   EQUIPMENT_OPTIONS_AT_HOME,
   EQUIPMENT_OPTIONS_ECM,
   FOCUS_AT_HOME_OPTIONS,
@@ -11,6 +12,7 @@ import {
   type SessionFormat,
 } from "@/lib/coach-params";
 import { parseAvailableMinutes } from "@/lib/session-modular";
+import { NO_IMPACT_COOKIE, ZONES, ZONE_COOKIE, ZONE_WARNING } from "@/lib/substitutions";
 import { useRouter } from "next/navigation";
 import { submitCheckin, type CheckinGender, type SleepPhotoAnalysis } from "./actions";
 import { BackHomeButton } from "@/components/back-home-button";
@@ -858,7 +860,32 @@ export function CheckinForm({
                     value={d.seanceNote}
                     onChange={(e) => set({ seanceNote: e.target.value })}
                   />
-                  {/* Zone à ménager et option "Sans impact" : derrière FEATURE_FLAGS (6.3), désactivés. */}
+                  {/* Zone à ménager et "Sans impact" : derrière FEATURE_FLAGS (6.3), désactivés tant qu'un coach et le juridique n'ont pas validé. */}
+                  {atHome && FEATURE_FLAGS.sansImpact && (
+                    <label className={styles.dl} style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                      <input
+                        type="checkbox"
+                        onChange={(e) => {
+                          document.cookie = `${NO_IMPACT_COOKIE}=${e.target.checked ? "1" : ""}; path=/; max-age=${24 * 3600}; samesite=lax`;
+                        }}
+                      />
+                      Sans impact / silencieux : remplace les sauts par des variantes sans impact
+                    </label>
+                  )}
+                  {FEATURE_FLAGS.zoneAMenager && (
+                    <>
+                      <div className={styles.dl} style={{ marginTop: 12 }}>ZONE À MÉNAGER · facultatif</div>
+                      <OptRow
+                        gender={g}
+                        options={[...ZONES]}
+                        value=""
+                        onChange={(v) => {
+                          document.cookie = `${ZONE_COOKIE}=${encodeURIComponent(v)}; path=/; max-age=${24 * 3600}; samesite=lax`;
+                        }}
+                      />
+                      <div className={styles.dl}>{ZONE_WARNING}</div>
+                    </>
+                  )}
                 </>
               )}
             </div>

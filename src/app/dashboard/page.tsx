@@ -68,7 +68,9 @@ import { SessionTabs } from "./session-tabs";
 import { resolveSequenceToday } from "@/lib/program-position";
 import { getOrCreateActiveBlock } from "@/lib/training-block";
 import { applyLevel, levelForToday } from "@/lib/level";
+import { cookies } from "next/headers";
 import { applyChains } from "@/lib/chains";
+import { applyDaySubstitutions, NO_IMPACT_COOKIE, ZONE_COOKIE } from "@/lib/substitutions";
 import { getChainLevels } from "@/lib/chain-progress";
 import { homeLevelForToday } from "@/lib/home-equipment";
 import { PHASE_LABEL, applyPrepToDay, hyroxPrepFor, phaseSentence, type HyroxPhase } from "@/lib/hyrox-prep";
@@ -216,7 +218,11 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         )
       : leveledBase;
   const adapted = adaptDayForInjuries(homeBase, injuryAreas);
-  const injurySafeDay = adapted.day;
+  const jar = await cookies();
+  const injurySafeDay = applyDaySubstitutions(adapted.day, {
+    zone: jar.get(ZONE_COOKIE)?.value ? decodeURIComponent(jar.get(ZONE_COOKIE)!.value) : null,
+    noImpact: jar.get(NO_IMPACT_COOKIE)?.value === "1",
+  });
   // Pas de séance ECM à adapter les jours hors ECM / repos → pas d'alertes de substitution.
   const substitutions = advice ? [] : adapted.substitutions;
 
