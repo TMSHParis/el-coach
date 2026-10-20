@@ -7,6 +7,8 @@ import type { Day } from "@/lib/programming";
 import { adaptDayForInjuries, detectInjuryAreas, reduceVolume } from "@/lib/session-adapt";
 import { parseVariant, resolveModularDay } from "@/lib/session-modular";
 import { resolveSequenceToday } from "@/lib/program-position";
+import { getOrCreateActiveBlock } from "@/lib/training-block";
+import { applyBlockToDay } from "@/lib/training-themes";
 import { effectiveWeekCycle } from "@/lib/week-overrides";
 import { toDisplayBlocks, defaultRuntimeFormat, defaultDurationMinutes } from "@/lib/session-format";
 import { minutesToHM } from "../dashboard/dashboard-helpers";
@@ -131,7 +133,17 @@ export default async function SessionPage({
     profile?.blessures ? profile.blessuresDetail : null,
     todayCheckin?.douleur ? todayCheckin.douleurDetail : null,
   );
-  const { day: injurySafeDay } = adaptDayForInjuries(baseDay, injuryAreas);
+  const activeBlock = userId ? await getOrCreateActiveBlock(userId, demo.programSlug, todayKey()) : null;
+  const themedBase = activeBlock
+    ? applyBlockToDay(baseDay, {
+        slug: demo.programSlug,
+        theme: activeBlock.theme,
+        week: activeBlock.info,
+        weakPoints: activeBlock.weakPoints,
+        dayNumber: today.dayNumber,
+      })
+    : baseDay;
+  const { day: injurySafeDay } = adaptDayForInjuries(themedBase, injuryAreas);
   // Structure modulable B1-B5 (états vert/jaune/rouge, variantes Complète / Sans finisher / Courte).
   const nextDay = generatedDay ? null : today.template.weeks[0].days.find((d) => d.day === (today.dayNumber % 7) + 1);
   const modular = resolveModularDay({
@@ -141,6 +153,7 @@ export default async function SessionPage({
     goalText: profile?.objectif,
     availableLabel: todayCheckin?.seanceDuree,
     format: todayCheckin?.seanceFormat,
+    isDeload: activeBlock?.info.isDeload,
     nextDayFocus: nextDay?.focus,
   });
   const safeDay = modular.day;

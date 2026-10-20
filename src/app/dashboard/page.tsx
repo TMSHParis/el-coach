@@ -66,6 +66,8 @@ import { dashboardFontVariables } from "./dashboard-fonts";
 import { CalendarWeek } from "./calendar-week";
 import { SessionTabs } from "./session-tabs";
 import { resolveSequenceToday } from "@/lib/program-position";
+import { getOrCreateActiveBlock } from "@/lib/training-block";
+import { applyBlockToDay, themeLabel } from "@/lib/training-themes";
 import { effectiveWeekCycle } from "@/lib/week-overrides";
 import { VARIANT_HINT, VARIANT_LABEL, parseVariant, resolveModularDay, type ModularVariant } from "@/lib/session-modular";
 import { SessionPreviewToggle } from "./session-preview-toggle";
@@ -173,7 +175,18 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   // cette carte a besoin d'un Day complet pour Aperçu/Démarrer.
   const baseDay = generatedDay ?? today.day;
   const sessionTitle = generatedDay ? baseDay.focus : `${today.template.name} — ${baseDay.focus}`;
-  const adapted = adaptDayForInjuries(baseDay, injuryAreas);
+  // Bloc d'entraînement en cours : thème, puis décharge sur la dernière semaine (1.6, 1.12).
+  const activeBlock = userId ? await getOrCreateActiveBlock(userId, programSlug, todayKey()) : null;
+  const themedBase = activeBlock
+    ? applyBlockToDay(baseDay, {
+        slug: programSlug,
+        theme: activeBlock.theme,
+        week: activeBlock.info,
+        weakPoints: activeBlock.weakPoints,
+        dayNumber: today.dayNumber,
+      })
+    : baseDay;
+  const adapted = adaptDayForInjuries(themedBase, injuryAreas);
   const injurySafeDay = adapted.day;
   // Pas de séance ECM à adapter les jours hors ECM / repos → pas d'alertes de substitution.
   const substitutions = advice ? [] : adapted.substitutions;
@@ -191,6 +204,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     goalText: profile?.objectif,
     availableLabel: todayCheckin?.seanceDuree,
     format: todayCheckin?.seanceFormat,
+    isDeload: activeBlock?.info.isDeload,
     nextDayFocus: nextTemplateDay?.focus,
   });
   const safeDay = modular.day;
@@ -572,6 +586,19 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                   <span>▶️</span>
                   <span>Appuie sur le bouton vidéo pour voir la démo YouTube du mouvement</span>
                 </div>
+                {activeBlock && (
+                  <div className={styles.modularPicker}>
+                    <div className={styles.modularTitle}>
+                      Bloc : {themeLabel(programSlug, activeBlock.theme)} · semaine {activeBlock.info.week} sur {activeBlock.info.weeks}
+                      {activeBlock.info.isDeload && <span className={styles.modularWhy}> · décharge</span>}
+                    </div>
+                    {activeBlock.info.finished && (
+                      <Link href="/profile/theme" className={styles.modularBtn}>
+                        <span>BLOC TERMINÉ : choisir le bloc suivant</span>
+                      </Link>
+                    )}
+                  </div>
+                )}
                 {seq && seq.sequence.length > 1 && (
                   <details className={styles.modularPicker}>
                     <summary className={styles.modularTitle}>

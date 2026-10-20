@@ -15,6 +15,7 @@ import {
   YesNo,
 } from "@/app/signup/ecm-shared";
 import { WeekPlanner } from "./week-planner";
+import { BlockCard } from "./block-card";
 import styles from "@/app/signup/ecm-signup.module.css";
 
 /**
@@ -154,6 +155,7 @@ export function ProfileEditForm() {
           value={profile.programmePrincipal}
           onChange={(v) => setField({ programmePrincipal: v })}
         />
+        <BlockCard />
         <WeekPlanner
           baseCycle={profile.weekCycle}
           programmeLabel={profile.programmePrincipal}
