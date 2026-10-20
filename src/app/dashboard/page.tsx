@@ -65,6 +65,7 @@ import { minutesToHM, ETAT_LABELS, sleepPhaseBadge, trendColor } from "./dashboa
 import { dashboardFontVariables } from "./dashboard-fonts";
 import { CalendarWeek } from "./calendar-week";
 import { SessionTabs } from "./session-tabs";
+import { VARIANT_HINT, VARIANT_LABEL, parseVariant, resolveModularDay, type ModularVariant } from "@/lib/session-modular";
 import { SessionPreviewToggle } from "./session-preview-toggle";
 import { ApercuCards, blocksToApercuCards } from "./apercu-panel";
 import styles from "./dashboard.module.css";
@@ -73,7 +74,8 @@ export const metadata = { title: "Dashboard — EL COACH METHOD" };
 
 const cx = (...classes: (string | false | undefined)[]) => classes.filter(Boolean).join(" ");
 
-export default async function DashboardPage() {
+export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ v?: string }> }) {
+  const { v: modularParam } = await searchParams;
   const demo = await getDemoState();
   const userId = await getUserId();
 
@@ -159,14 +161,26 @@ export default async function DashboardPage() {
   const baseDay = generatedDay ?? today.day;
   const sessionTitle = generatedDay ? baseDay.focus : `${today.template.name} — ${baseDay.focus}`;
   const adapted = adaptDayForInjuries(baseDay, injuryAreas);
-  const safeDay = adapted.day;
+  const injurySafeDay = adapted.day;
   // Pas de séance ECM à adapter les jours hors ECM / repos → pas d'alertes de substitution.
   const substitutions = advice ? [] : adapted.substitutions;
-  const lightDay = reduceVolume(safeDay);
 
   // Repli sur le moteur mock déterministe si pas encore de profil ECM /
   // génération Claude pour cet utilisateur (mode démo classique inchangé).
   const ecm = real?.ecm ?? computeEcmScore(fatigueScore);
+
+  // Structure modulable B1-B5 : état du jour puis variante (choisie, sinon proposée).
+  const nextTemplateDay = generatedDay ? null : today.template.weeks[0].days.find((d) => d.day === (today.dayNumber % 7) + 1);
+  const modular = resolveModularDay({
+    day: injurySafeDay,
+    state: ecm.state,
+    chosen: parseVariant(modularParam),
+    goalText: profile?.objectif,
+    availableLabel: todayCheckin?.seanceDuree,
+    nextDayFocus: nextTemplateDay?.focus,
+  });
+  const safeDay = modular.day;
+  const lightDay = reduceVolume(safeDay);
   const sleep = real?.sleep ?? buildSleepInsight(fatigueScore);
   const weight = real?.weight ?? buildWeightInsight(fatigueScore);
   const stack = real?.stack ? normalizeStackOrder(real.stack, fatigueScore) : buildStack4Moments(fatigueScore);
@@ -517,7 +531,7 @@ export default async function DashboardPage() {
               </div>
               <div className={styles.upcomingNote}>Pas encore réalisée</div>
               <SessionPreviewToggle
-                startHref={`/session?variant=${variant.recommended === "A" ? "a" : "b"}`}
+                startHref={`/session?variant=${variant.recommended === "A" ? "a" : "b"}&v=${modular.variant}`}
                 programTitle={today.template.name}
                 subtitle="EL COACH METHOD"
                 summaryIcon="⚡"
@@ -544,6 +558,30 @@ export default async function DashboardPage() {
                   <span>▶️</span>
                   <span>Appuie sur le bouton vidéo pour voir la démo YouTube du mouvement</span>
                 </div>
+                {baseDay.blocks.length >= 4 && (
+                  <div className={styles.modularPicker}>
+                    <div className={styles.modularTitle}>
+                      Format du jour
+                      {modular.suggestion.reasons.length > 0 && (
+                        <span className={styles.modularWhy}> · proposé : {modular.suggestion.reasons.join(", ")}</span>
+                      )}
+                    </div>
+                    <div className={styles.modularRow}>
+                      {(["complete", "nofinisher", "short"] as ModularVariant[]).map((v) => (
+                        <Link
+                          key={v}
+                          href={`/dashboard?v=${v}`}
+                          replace
+                          scroll={false}
+                          className={cx(styles.modularBtn, modular.variant === v && styles.modularBtnOn)}
+                        >
+                          <span>{VARIANT_LABEL[v]}</span>
+                          <small>{VARIANT_HINT[v]}</small>
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 <SessionTabs
                   recommended={variant.recommended === "A" ? "a" : "b"}
                   recoText={`Recommandée : ${variant.recommended} · ${variant.reason}`}

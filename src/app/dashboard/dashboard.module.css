@@ -385,3 +385,12 @@
   letter-spacing: 1px;
 }
 .backLink:hover { color: var(--w); border-color: var(--m); }
+
+/* Format du jour (structure modulable B1-B5) */
+.modularPicker { margin-bottom: 10px; }
+.modularTitle { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--m); margin-bottom: 6px; }
+.modularWhy { text-transform: none; letter-spacing: 0; color: var(--yellow); }
+.modularRow { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.modularBtn { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 9px 4px; border: 1px solid var(--bd); border-radius: 4px; background: var(--s); color: var(--m); font-size: 12px; text-decoration: none; text-align: center; }
+.modularBtn small { font-size: 9px; letter-spacing: .5px; opacity: .7; }
+.modularBtnOn { border-color: var(--g, #C9A84C); color: #fff; }

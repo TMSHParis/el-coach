@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { todayKey } from "@/lib/date-key";
 import type { Day } from "@/lib/programming";
 import { adaptDayForInjuries, detectInjuryAreas, reduceVolume } from "@/lib/session-adapt";
+import { parseVariant, resolveModularDay } from "@/lib/session-modular";
 import { toDisplayBlocks, defaultRuntimeFormat, defaultDurationMinutes } from "@/lib/session-format";
 import { minutesToHM } from "../dashboard/dashboard-helpers";
 import { buildAdviceSession, type StoredAdvice } from "@/lib/advice-session";
@@ -20,9 +21,9 @@ export const metadata = { title: "Séance en cours — EL COACH METHOD" };
 export default async function SessionPage({
   searchParams,
 }: {
-  searchParams: Promise<{ variant?: string }>;
+  searchParams: Promise<{ variant?: string; v?: string }>;
 }) {
-  const { variant: variantParam } = await searchParams;
+  const { variant: variantParam, v: modularParam } = await searchParams;
   const variant = variantParam === "b" ? "b" : "a";
 
   const userId = await getUserId();
@@ -57,7 +58,7 @@ export default async function SessionPage({
     donneesBrutes: (s.photoAnalysis as { donneesBrutes?: Record<string, unknown> | null } | null)?.donneesBrutes ?? null,
   }));
 
-  const output = dbOutput?.output as { generatedDay?: Day; mode?: string; advice?: StoredAdvice } | null;
+  const output = dbOutput?.output as { generatedDay?: Day; mode?: string; advice?: StoredAdvice; ecm?: { state?: "green" | "yellow" | "red" } } | null;
 
   // Jour hors ECM (sport libre), repos ou récupération active : la séance est
   // la routine en 3 blocs générée au check-in. Le comportement de chrono
@@ -117,7 +118,18 @@ export default async function SessionPage({
     profile?.blessures ? profile.blessuresDetail : null,
     todayCheckin?.douleur ? todayCheckin.douleurDetail : null,
   );
-  const { day: safeDay } = adaptDayForInjuries(baseDay, injuryAreas);
+  const { day: injurySafeDay } = adaptDayForInjuries(baseDay, injuryAreas);
+  // Structure modulable B1-B5 (états vert/jaune/rouge, variantes Complète / Sans finisher / Courte).
+  const nextDay = generatedDay ? null : today.template.weeks[0].days.find((d) => d.day === (today.dayNumber % 7) + 1);
+  const modular = resolveModularDay({
+    day: injurySafeDay,
+    state: output?.ecm?.state ?? "green",
+    chosen: parseVariant(modularParam),
+    goalText: profile?.objectif,
+    availableLabel: todayCheckin?.seanceDuree,
+    nextDayFocus: nextDay?.focus,
+  });
+  const safeDay = modular.day;
   const day = variant === "b" ? reduceVolume(safeDay) : safeDay;
 
   const displayBlocks = toDisplayBlocks(day.blocks);
