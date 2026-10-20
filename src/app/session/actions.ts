@@ -9,7 +9,7 @@ import { MAX_SESSION_PHOTOS } from "@/lib/session-media";
 import { advanceProgramPosition } from "@/lib/program-position";
 import { effectiveWeekCycle } from "@/lib/week-overrides";
 
-export type ResultKind = "strength" | "bodyweight" | "hold" | "carry" | "wod" | "warmup";
+export type ResultKind = "strength" | "bodyweight" | "hold" | "carry" | "wod" | "warmup" | "endurance";
 
 /** Un bloc de la séance, réalisé ou non — sert à lister TOUS les blocs sur la page "Séance terminée". */
 export type BlocSummary = {
@@ -28,6 +28,8 @@ export type SessionBlocResult = {
   series?: { charge: string; reps: string; rpe?: string; time?: string; unit?: "m" | "km" }[];
   /** Type de saisie du mouvement (page "Séance terminée") : détermine l'affichage 43 kg × 5, 20 reps, 32 kg × 40 m… */
   kind?: ResultKind;
+  /** Cardio / endurance : ligne prête à afficher (distance · temps · allure · zone). */
+  detail?: string;
   temps?: string;
   rounds?: string;
   score?: string;

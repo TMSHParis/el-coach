@@ -19,6 +19,7 @@ export function fmtSerie(s: SerieLike, kind: string | undefined): string | null 
   const charge = parseFloat(s.charge);
   const hasCharge = Number.isFinite(charge) && charge > 0;
   const reps = s.reps?.trim();
+  if (kind === "endurance") return s.time?.trim() || null;
   if (kind === "hold" || (!reps && s.time?.trim())) {
     const t = s.time?.trim();
     if (!t) return null;
@@ -99,7 +100,7 @@ export function buildRecapBlocs(summary: BlocSummary[] | undefined, results: Ses
             name: it.name,
             done: it.done,
             kind: it.kind,
-            series: r?.series ?? (times?.temps ? [{ charge: "", reps: "", time: times.temps }] : []),
+            series: r?.series ?? (times?.temps ? [{ charge: "", reps: "", time: times.detail ?? times.temps }] : []),
           };
         }),
       };

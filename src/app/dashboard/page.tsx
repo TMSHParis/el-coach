@@ -67,6 +67,7 @@ import { CalendarWeek } from "./calendar-week";
 import { SessionTabs } from "./session-tabs";
 import { resolveSequenceToday } from "@/lib/program-position";
 import { getOrCreateActiveBlock } from "@/lib/training-block";
+import { applyLevel, levelForToday } from "@/lib/level";
 import { applyBlockToDay, themeLabel } from "@/lib/training-themes";
 import { effectiveWeekCycle } from "@/lib/week-overrides";
 import { VARIANT_HINT, VARIANT_LABEL, parseVariant, resolveModularDay, type ModularVariant } from "@/lib/session-modular";
@@ -119,11 +120,12 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const weekdayToday = resolveTodaySession(programSlug, demo.fatigueScore);
   if (!weekdayToday) return <EmptyState />;
   // Suite ordonnée (1.4) : la séance suivante de la suite, sinon le jour de la semaine.
+  const effCycle = userId ? await effectiveWeekCycle(userId, profile?.weekCycle, todayKey()) : profile?.weekCycle;
   const seq = userId
     ? await resolveSequenceToday({
         userId,
         slug: programSlug,
-        weekCycle: await effectiveWeekCycle(userId, profile?.weekCycle, todayKey()),
+        weekCycle: effCycle,
         fatigueScore: demo.fatigueScore,
         manualDay: dayParam ? Number(dayParam) : null,
       })
@@ -186,7 +188,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         dayNumber: today.dayNumber,
       })
     : baseDay;
-  const adapted = adaptDayForInjuries(themedBase, injuryAreas);
+  const leveledBase = applyLevel(themedBase, levelForToday(effCycle as Parameters<typeof levelForToday>[0], programSlug, profile?.niveau, today.dayNumber));
+  const adapted = adaptDayForInjuries(leveledBase, injuryAreas);
   const injurySafeDay = adapted.day;
   // Pas de séance ECM à adapter les jours hors ECM / repos → pas d'alertes de substitution.
   const substitutions = advice ? [] : adapted.substitutions;

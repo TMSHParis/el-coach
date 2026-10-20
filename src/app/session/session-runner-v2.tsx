@@ -7,6 +7,7 @@ import type { DisplayBlock } from "@/lib/session-format";
 import type { BlockType, WodFormat } from "@/lib/programming";
 import styles from "./session.module.css";
 import { SessionItemRow } from "../dashboard/session-item-row";
+import { CARDIO_ZONES, cardioLine, paceText } from "@/lib/cardio";
 import { saveSessionResult, updateSessionRecap, type BlocSummary, type ResultKind, type SessionBlocResult } from "./actions";
 import { SessionPhotos, type PhotoAnalysisContext } from "@/components/session-photos";
 import type { PhotoExtraction } from "@/app/api/extract-photo-data/route";
@@ -132,6 +133,7 @@ function isCarryItem(it: DisplayBlock["items"][number]): boolean {
 
 function resultKindFor(block: DisplayBlock, it: DisplayBlock["items"][number]): ResultKind {
   if (block.type === "warmup" || block.type === "cooldown") return "warmup";
+  if (block.type === "endurance") return "endurance";
   if (isHoldItem(it)) return "hold";
   if (isCarryItem(it)) return "carry";
   if (WOD_RESULT_TYPES.includes(block.type) && block.format) return "wod";
@@ -217,6 +219,8 @@ type BlocState = {
    * toutes les séries sont validées). Le dépliage reste toujours accessible. */
   expanded: boolean[];
   exerciseTimes: string[];
+  /** Cardio / endurance : distance (km) et zone FC par mouvement (partie 2, 1.10). */
+  exerciseCardio?: { distance: string; zone: string }[];
   /** Préréglage de repos par mouvement (secondes) — null = valeur par défaut
    * (`parseRestSeconds`). Modifiable avant de lancer la série (doc B.3.a). */
   restOverrides: (number | null)[];
@@ -377,6 +381,7 @@ export function SessionRunnerV2({
               : [],
           expanded: items.map(() => false),
           exerciseTimes: items.map(() => ""),
+          exerciseCardio: items.map(() => ({ distance: "", zone: "" })),
           restOverrides: items.map(() => null),
           temps: "",
           rounds: "",
@@ -954,6 +959,22 @@ export function SessionRunnerV2({
     );
   }
 
+  function setExerciseCardio(blocIdx: number, exIdx: number, patch: Partial<{ distance: string; zone: string }>) {
+    setBlocks((prev) =>
+      prev.map((x, i) =>
+        i === blocIdx
+          ? {
+              ...x,
+              exerciseCardio: x.exerciseTimes.map((_, j) => {
+                const cur = x.exerciseCardio?.[j] ?? { distance: "", zone: "" };
+                return j === exIdx ? { ...cur, ...patch } : cur;
+              }),
+            }
+          : x,
+      ),
+    );
+  }
+
   function setExerciseTime(blocIdx: number, exIdx: number, value: string) {
     setBlocks((prev) =>
       prev.map((x, i) =>
@@ -1014,7 +1035,11 @@ export function SessionRunnerV2({
         const temps = state.exerciseTimes[j]?.trim();
         const kind = resultKindFor(b, it);
         if (series.length > 0) blocs.push({ bloc: i + 1, nom: it.name, series, kind });
-        else if (temps) blocs.push({ bloc: i + 1, nom: it.name, temps });
+        else if (temps) {
+          const cardio = state.exerciseCardio?.[j];
+          const detail = cardioLine(cardio?.distance ?? "", temps, cardio?.zone ?? "");
+          blocs.push({ bloc: i + 1, nom: it.name, temps, kind: "endurance", detail: detail ?? undefined });
+        }
       });
       if (state.temps || state.rounds || state.score) {
         blocs.push({
@@ -1242,6 +1267,7 @@ export function SessionRunnerV2({
               onUpdateSerie={(exIdx, serieIdx, patch) => updateSerie(i, exIdx, serieIdx, patch)}
               onRemoveSerie={(exIdx, serieIdx) => removeSerie(i, exIdx, serieIdx)}
               onSetExerciseTime={(exIdx, value) => setExerciseTime(i, exIdx, value)}
+              onSetExerciseCardio={(exIdx, patch) => setExerciseCardio(i, exIdx, patch)}
               onSetRestOverride={(exIdx, sec) => setRestOverride(i, exIdx, sec)}
               onAdjustRest={(sec) => addRestTime(sec)}
               onCancelRest={cancelRestTimer}
@@ -1322,6 +1348,7 @@ function BlocCard({
   onUpdateSerie,
   onRemoveSerie,
   onSetExerciseTime,
+  onSetExerciseCardio,
   onSetRestOverride,
   onAdjustRest,
   onCancelRest,
@@ -1353,6 +1380,7 @@ function BlocCard({
   onUpdateSerie: (exIdx: number, serieIdx: number, patch: Partial<ExerciseSerie>) => void;
   onRemoveSerie: (exIdx: number, serieIdx: number) => void;
   onSetExerciseTime: (exIdx: number, value: string) => void;
+  onSetExerciseCardio: (exIdx: number, patch: Partial<{ distance: string; zone: string }>) => void;
   onSetRestOverride: (exIdx: number, sec: number) => void;
   onAdjustRest: (deltaSec: number) => void;
   onCancelRest: () => void;
@@ -1513,7 +1541,36 @@ function BlocCard({
                         value={state.exerciseTimes[j] ?? ""}
                         onChange={(e) => onSetExerciseTime(j, e.target.value)}
                       />
+                      <input
+                        className={styles.serieInput}
+                        type="text"
+                        inputMode="decimal"
+                        placeholder="—"
+                        value={state.exerciseCardio?.[j]?.distance ?? ""}
+                        onChange={(e) => onSetExerciseCardio(j, { distance: e.target.value })}
+                        aria-label="Distance en kilomètres"
+                      />
+                      <span className={styles.serieUnit}>km</span>
                     </div>
+                    <div className={styles.serieRow}>
+                      <span className={styles.serieLabel}>Zone</span>
+                      {CARDIO_ZONES.map((z) => (
+                        <button
+                          key={z}
+                          type="button"
+                          className={cx(styles.serieCheckBtn, state.exerciseCardio?.[j]?.zone === z && styles.serieCheckBtnOn)}
+                          onClick={() => onSetExerciseCardio(j, { zone: state.exerciseCardio?.[j]?.zone === z ? "" : z })}
+                          aria-pressed={state.exerciseCardio?.[j]?.zone === z}
+                        >
+                          {z}
+                        </button>
+                      ))}
+                    </div>
+                    {paceText(state.exerciseCardio?.[j]?.distance ?? "", state.exerciseTimes[j] ?? "") && (
+                      <div className={styles.lastResult}>
+                        Allure : {paceText(state.exerciseCardio?.[j]?.distance ?? "", state.exerciseTimes[j] ?? "")}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

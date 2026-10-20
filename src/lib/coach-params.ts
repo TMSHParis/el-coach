@@ -30,6 +30,18 @@ export const COACH_PARAMS = {
   durationOptionsAtHome: [20, 30, 45, 60] as const,
 } as const;
 
+/**
+ * Niveau (1.8) : les programmes sont écrits pour Intermédiaire. Les chiffres précis par
+ * niveau ne sont pas définis (à fournir par un coach) ; valeurs de départ : le Débutant a
+ * une série de moins par mouvement, l'Avancé et l'Élite gardent le volume du modèle.
+ */
+export const LEVEL_SETS_DELTA: Record<"debutant" | "intermediaire" | "avance" | "elite", number> = {
+  debutant: -1,
+  intermediaire: 0,
+  avance: 0,
+  elite: 0,
+};
+
 /** Focus du jour proposés au check-in (1.3 c) : s'ajoutent au B4, ne remplacent pas le cœur de séance. */
 export const FOCUS_MUSCLE_OPTIONS = ["Bras", "Épaules", "Abdos", "Dos", "Pectoraux", "Fessiers", "Mollets"] as const;
 export const FOCUS_AT_HOME_OPTIONS = ["Haut du corps", "Jambes", "Core", "Skill"] as const;

@@ -8,6 +8,7 @@ import { adaptDayForInjuries, detectInjuryAreas, reduceVolume } from "@/lib/sess
 import { parseVariant, resolveModularDay } from "@/lib/session-modular";
 import { resolveSequenceToday } from "@/lib/program-position";
 import { getOrCreateActiveBlock } from "@/lib/training-block";
+import { applyLevel, levelForToday } from "@/lib/level";
 import { applyBlockToDay } from "@/lib/training-themes";
 import { effectiveWeekCycle } from "@/lib/week-overrides";
 import { toDisplayBlocks, defaultRuntimeFormat, defaultDurationMinutes } from "@/lib/session-format";
@@ -107,11 +108,12 @@ export default async function SessionPage({
   const weekdayToday = resolveTodaySession(demo.programSlug, demo.fatigueScore);
   if (!weekdayToday) redirect("/dashboard");
   // Suite ordonnée (1.4) : la séance suivante de la suite, sinon le jour de la semaine.
+  const effCycle = userId ? await effectiveWeekCycle(userId, profile?.weekCycle, todayKey()) : profile?.weekCycle;
   const seq = userId
     ? await resolveSequenceToday({
         userId,
         slug: demo.programSlug,
-        weekCycle: await effectiveWeekCycle(userId, profile?.weekCycle, todayKey()),
+        weekCycle: effCycle,
         fatigueScore: demo.fatigueScore,
         manualDay: dayParam ? Number(dayParam) : null,
       })
@@ -143,7 +145,8 @@ export default async function SessionPage({
         dayNumber: today.dayNumber,
       })
     : baseDay;
-  const { day: injurySafeDay } = adaptDayForInjuries(themedBase, injuryAreas);
+  const leveledBase = applyLevel(themedBase, levelForToday(effCycle as Parameters<typeof levelForToday>[0], demo.programSlug, profile?.niveau, today.dayNumber));
+  const { day: injurySafeDay } = adaptDayForInjuries(leveledBase, injuryAreas);
   // Structure modulable B1-B5 (états vert/jaune/rouge, variantes Complète / Sans finisher / Courte).
   const nextDay = generatedDay ? null : today.template.weeks[0].days.find((d) => d.day === (today.dayNumber % 7) + 1);
   const modular = resolveModularDay({
