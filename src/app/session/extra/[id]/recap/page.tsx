@@ -13,8 +13,6 @@ export default async function ExtraActivityRecapPage({ params }: { params: Promi
   const activity = await getExtraActivity(id);
   if (!activity || !activity.completed) redirect("/dashboard");
 
-  const photoAnalysis = activity.photoAnalysis as { retourNarratif?: string | null } | null;
-
   return (
     <div className={sessionFontVariables}>
       <RecapView
@@ -24,13 +22,13 @@ export default async function ExtraActivityRecapPage({ params }: { params: Promi
         completionRate={activity.completionRate ?? 0}
         feeling={activity.sessionFeeling}
         note={activity.sessionNote}
-        calories={activity.caloriesBrulees}
-        caloriesSource={activity.caloriesSource}
-        retourNarratif={photoAnalysis?.retourNarratif ?? null}
-        best={activity.bestResult as { nom: string; charge: number; reps: string } | null}
-        comparisons={[]}
         blocs={[]}
-        congrats={activity.coachMessage}
+        missing={[]}
+        comparisons={[]}
+        coachText={activity.coachMessage}
+        watch={activity.caloriesBrulees !== null ? { kcalActive: null, kcalTotal: null, effort: null, bpm: null, kcalUnknown: activity.caloriesBrulees } : null}
+        watchText={null}
+        gauge={null}
         onUpdate={updateExtraActivityRecap.bind(null, id)}
       />
     </div>

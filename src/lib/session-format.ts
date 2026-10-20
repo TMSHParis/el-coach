@@ -49,6 +49,7 @@ export type ExerciseDisplay = {
   sets?: number;
   reps?: number | string;
   time?: string;
+  distance?: string;
 };
 
 /** Découpe un Exercise en {name, qty, detail, rest, load, sets, reps, time} pour les cartes dashboard/session. */
@@ -61,7 +62,7 @@ export function exerciseDisplay(ex: Exercise, movementName: string): ExerciseDis
   else if (ex.distance) qty = ex.distance;
 
   const name = ex.load ? `${movementName} (${ex.load})` : movementName;
-  return { name, qty, detail: ex.notes, rest: ex.rest, load: ex.load, sets: ex.sets, reps: ex.reps, time: ex.time };
+  return { name, qty, detail: ex.notes, rest: ex.rest, load: ex.load, sets: ex.sets, reps: ex.reps, time: ex.time, distance: ex.distance };
 }
 
 export type DisplayBlock = {

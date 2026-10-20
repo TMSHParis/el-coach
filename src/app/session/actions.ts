@@ -7,10 +7,25 @@ import { generateSessionCongrats, type HeartRateZoneSplit } from "@/lib/ecm-engi
 import { isSessionFeeling } from "@/lib/session-feeling";
 import { MAX_SESSION_PHOTOS } from "@/lib/session-media";
 
+export type ResultKind = "strength" | "bodyweight" | "hold" | "carry" | "wod" | "warmup";
+
+/** Un bloc de la séance, réalisé ou non — sert à lister TOUS les blocs sur la page "Séance terminée". */
+export type BlocSummary = {
+  bloc: number;
+  titre: string;
+  type: string;
+  format?: string;
+  /** Tous les mouvements cochés (ou bloc terminé). */
+  done: boolean;
+  items: { name: string; done: boolean; kind: ResultKind }[];
+};
+
 export type SessionBlocResult = {
   bloc: number;
   nom: string;
-  series?: { charge: string; reps: string; rpe?: string; time?: string }[];
+  series?: { charge: string; reps: string; rpe?: string; time?: string; unit?: "m" | "km" }[];
+  /** Type de saisie du mouvement (page "Séance terminée") : détermine l'affichage 43 kg × 5, 20 reps, 32 kg × 40 m… */
+  kind?: ResultKind;
   temps?: string;
   rounds?: string;
   score?: string;
@@ -22,6 +37,7 @@ export type SessionResultPayload = {
   date: string;
   variant: "A" | "B";
   blocs: SessionBlocResult[];
+  summary?: BlocSummary[];
   /** Durée totale de la séance (secondes) — sert au message de félicitations. */
   durationSec: number;
   /** Part des mouvements cochés (0 à 1). */
@@ -47,7 +63,7 @@ function computeBestResult(blocs: SessionBlocResult[]): BestResult {
 function formatDurationLabel(totalSec: number): string {
   const h = Math.floor(totalSec / 3600);
   const m = Math.floor((totalSec % 3600) / 60);
-  if (h > 0) return `${h}H${String(m).padStart(2, "0")}`;
+  if (h > 0) return `${h}h${String(m).padStart(2, "0")}`;
   return `${m} MIN`;
 }
 
@@ -60,7 +76,7 @@ export async function saveSessionResult(
   const row = {
     variant: payload.variant,
     completed: true,
-    data: { blocs: payload.blocs },
+    data: { blocs: payload.blocs, summary: payload.summary ?? [] },
     completionRate: payload.completionRate ?? null,
     durationSec: payload.durationSec,
     bestResult: computeBestResult(payload.blocs) as Prisma.InputJsonValue,
@@ -163,6 +179,10 @@ export type SessionRecapPatch = {
     retourNarratif: string | null;
     bpmMoyen?: number | null;
     heartRateZones?: HeartRateZoneSplit[] | null;
+    /** Lues séparément sur la montre (page "Séance terminée"). */
+    caloriesActivite?: number | null;
+    caloriesTotales?: number | null;
+    dureeMontre?: string | null;
   } | null;
 };
 

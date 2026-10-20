@@ -18,6 +18,9 @@ export type PhotoExtraction = {
   caloriesBase: "activite" | "totale" | null;
   confidence: "high" | "low" | null;
   dureeMontre: string | null;
+  /** Les deux valeurs lues séparément (page "Séance terminée" : kcal en activité vs total). */
+  caloriesActivite?: number | null;
+  caloriesTotales?: number | null;
   bpmMoyen: number | null;
   /** Répartition du temps par zone de FC (1 à 5) — doc E.b, lue sur la même capture. */
   heartRateZones: HeartRateZoneSplit[] | null;
@@ -218,6 +221,8 @@ export async function POST(req: Request) {
       caloriesBase,
       confidence: calories === null ? null : raw.confidence,
       dureeMontre: raw.dureeMontre ?? null,
+      caloriesActivite,
+      caloriesTotales,
       bpmMoyen: typeof raw.bpmMoyen === "number" && Number.isFinite(raw.bpmMoyen) ? Math.round(raw.bpmMoyen) : null,
       heartRateZones: cleanZones(raw.zones),
       donneesBrutes: raw.donneesBrutes && Object.keys(raw.donneesBrutes).length > 0 ? raw.donneesBrutes : null,

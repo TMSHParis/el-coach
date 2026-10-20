@@ -3,7 +3,8 @@ import { getUserId } from "@/lib/user-id";
 import { prisma } from "@/lib/prisma";
 import { todayKey } from "@/lib/date-key";
 import { buildLastResults } from "@/lib/last-results";
-import type { SessionBlocResult } from "../actions";
+import type { BlocSummary, SessionBlocResult } from "../actions";
+import { buildRecapBlocs, coachMessage, missingEntries, watchDebrief, type WatchData } from "@/lib/recap-text";
 import { sessionFontVariables } from "../session-fonts";
 import { RecapView } from "./recap-view";
 
@@ -17,26 +18,62 @@ export default async function RecapPage() {
   const date = todayKey();
   if (!userId) redirect("/dashboard");
 
-  const [session, checkin, output, pastSessions] = await Promise.all([
+  const [session, checkin, pastSessions, profile] = await Promise.all([
     prisma.session.findUnique({ where: { userId_date: { userId, date } } }),
     prisma.checkin.findUnique({ where: { userId_date: { userId, date } } }),
-    prisma.dashboardOutput.findUnique({ where: { userId_date: { userId, date } } }),
     prisma.session.findMany({ where: { userId, date: { lt: date } }, orderBy: { date: "desc" }, take: 12 }),
+    prisma.profile.findUnique({ where: { userId }, select: { prenom: true } }),
   ]);
 
   // Pas de séance terminée aujourd'hui — rien à raconter.
   if (!session?.completed) redirect("/dashboard");
 
-  const blocs = ((session.data as { blocs?: SessionBlocResult[] } | null)?.blocs ?? []).filter(
-    (b) => b.series?.length || b.temps || b.rounds || b.score,
-  );
+  const data = session.data as { blocs?: SessionBlocResult[]; summary?: BlocSummary[] } | null;
+  const results = data?.blocs ?? [];
   const previous = buildLastResults(pastSessions);
   const best = session.bestResult as { nom: string; charge: number; reps: string } | null;
-  const congrats = (output?.output as { sessionMessage?: string } | null)?.sessionMessage ?? null;
-  const photoAnalysis = session.photoAnalysis as { donneesBrutes?: Record<string, unknown> | null; retourNarratif?: string | null } | null;
+  const photoAnalysis = session.photoAnalysis as {
+    bpmMoyen?: number | null;
+    caloriesActivite?: number | null;
+    caloriesTotales?: number | null;
+    dureeMontre?: string | null;
+  } | null;
+
+  const recapBlocs = buildRecapBlocs(data?.summary, results);
+  const durationSec = session.durationSec ?? 0;
+  const percent = Math.round((session.completionRate ?? 0) * 100);
+
+  // Montre : "kcal en activité" seulement quand la montre l'a indiqué séparément.
+  const watch: WatchData = {
+    kcalActive: photoAnalysis?.caloriesActivite ?? null,
+    kcalTotal: photoAnalysis?.caloriesTotales ?? null,
+    effort: photoAnalysis?.dureeMontre ?? null,
+    bpm: photoAnalysis?.bpmMoyen ?? null,
+  };
+  const hasWatch = watch.kcalActive !== null || watch.effort !== null || watch.bpm !== null;
+  const debrief = watchDebrief(
+    watch,
+    durationSec,
+    pastSessions.map((p) => ({
+      kcal: (p.photoAnalysis as { caloriesActivite?: number | null } | null)?.caloriesActivite ?? null,
+      durationSec: p.durationSec,
+    })),
+  );
+
+  const wodBloc = recapBlocs.find((b) => b.wodLine && ["wod", "conditioning"].includes(b.type));
+  const coachText = coachMessage({
+    prenom: profile?.prenom ?? "",
+    durationSec,
+    percent,
+    energie: checkin?.energie ?? null,
+    mental: checkin?.mental ?? null,
+    best,
+    wod: wodBloc?.wodLine ? { titre: wodBloc.titre, temps: wodBloc.wodLine } : null,
+  });
+  const missing = percent < 100 ? missingEntries(recapBlocs) : [];
 
   // Comparaisons : mouvements plus lourds (ou plus légers) que la dernière fois.
-  const comparisons = blocs
+  const comparisons = results
     .flatMap((bloc) => {
       const last = previous[bloc.nom];
       const top = (bloc.series ?? [])
@@ -55,17 +92,17 @@ export default async function RecapPage() {
       <RecapView
         date={date}
         sport={checkin?.seance ?? "Séance"}
-        durationSec={session.durationSec ?? 0}
+        durationSec={durationSec}
         completionRate={session.completionRate ?? 0}
         feeling={session.sessionFeeling}
         note={session.sessionNote}
-        calories={session.caloriesBrulees}
-        caloriesSource={session.caloriesSource}
-        retourNarratif={photoAnalysis?.retourNarratif ?? null}
-        best={best}
+        blocs={recapBlocs}
+        missing={missing}
         comparisons={comparisons}
-        blocs={blocs}
-        congrats={congrats}
+        coachText={coachText}
+        watch={hasWatch ? watch : null}
+        watchText={debrief.text}
+        gauge={debrief.gauge}
       />
     </div>
   );

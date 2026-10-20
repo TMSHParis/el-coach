@@ -7,7 +7,7 @@ import type { DisplayBlock } from "@/lib/session-format";
 import type { BlockType, WodFormat } from "@/lib/programming";
 import styles from "./session.module.css";
 import { SessionItemRow } from "../dashboard/session-item-row";
-import { saveSessionResult, updateSessionRecap, type SessionBlocResult } from "./actions";
+import { saveSessionResult, updateSessionRecap, type BlocSummary, type ResultKind, type SessionBlocResult } from "./actions";
 import { SessionPhotos, type PhotoAnalysisContext } from "@/components/session-photos";
 import type { PhotoExtraction } from "@/app/api/extract-photo-data/route";
 import type { LastResult } from "@/lib/last-results";
@@ -124,6 +124,20 @@ function isHoldItem(it: DisplayBlock["items"][number]): boolean {
   return it.sets !== undefined && !!it.time && it.reps === undefined;
 }
 
+/** Portés (Farmer's Carry…) : distance au lieu de reps, avec unité (m par défaut). */
+function isCarryItem(it: DisplayBlock["items"][number]): boolean {
+  if (/carry|farmer|porté|suitcase|yoke/i.test(it.movementName)) return true;
+  return !!it.distance && it.reps === undefined && it.time === undefined;
+}
+
+function resultKindFor(block: DisplayBlock, it: DisplayBlock["items"][number]): ResultKind {
+  if (block.type === "warmup" || block.type === "cooldown") return "warmup";
+  if (isHoldItem(it)) return "hold";
+  if (isCarryItem(it)) return "carry";
+  if (WOD_RESULT_TYPES.includes(block.type) && block.format) return "wod";
+  return it.load?.toLowerCase() === "bw" ? "bodyweight" : "strength";
+}
+
 /** Tag de format en haut à droite de la fiche WOD (doc H.11). */
 const WOD_FORMAT_TAG: Partial<Record<WodFormat, string>> = {
   ForTime: "🏆 For Time",
@@ -170,7 +184,7 @@ function wodTimeCap(block: DisplayBlock): string | null {
  * partagé par musculation et gainage.
  * `done` (doc H.10/H.13, Étape 0 point 1) : série validée par l'athlète —
  * grise la ligne et déclenche le repos, reste modifiable. */
-type ExerciseSerie = { charge: string; reps: string; rpe?: string; time?: string; done?: boolean };
+type ExerciseSerie = { charge: string; reps: string; rpe?: string; time?: string; done?: boolean; unit?: "m" | "km" };
 
 /** Chrono de repos actif (doc H.10) — null quand aucun repos n'est en cours. */
 type RestTimerState = { blocIdx: number; exIdx: number; endsAt: number; totalSec: number; label: string } | null;
@@ -802,6 +816,9 @@ export function SessionRunnerV2({
         retourNarratif: result.retourNarratif,
         bpmMoyen: result.bpmMoyen,
         heartRateZones: result.heartRateZones,
+        caloriesActivite: result.caloriesActivite ?? null,
+        caloriesTotales: result.caloriesTotales ?? null,
+        dureeMontre: result.dureeMontre,
       };
     }
     if (Object.keys(patch).length > 0) void onUpdateRecap(date, patch);
@@ -990,7 +1007,8 @@ export function SessionRunnerV2({
       b.items.forEach((it, j) => {
         const series = (state.exerciseSeries[j] ?? []).filter((x) => x.charge.trim() || x.reps.trim() || x.time?.trim());
         const temps = state.exerciseTimes[j]?.trim();
-        if (series.length > 0) blocs.push({ bloc: i + 1, nom: it.name, series });
+        const kind = resultKindFor(b, it);
+        if (series.length > 0) blocs.push({ bloc: i + 1, nom: it.name, series, kind });
         else if (temps) blocs.push({ bloc: i + 1, nom: it.name, temps });
       });
       if (state.temps || state.rounds || state.score) {
@@ -1005,8 +1023,20 @@ export function SessionRunnerV2({
       }
     });
 
+    const summary: BlocSummary[] = blockData.map((b, i) => {
+      const state = blocks[i];
+      return {
+        bloc: i + 1,
+        titre: b.titre,
+        type: b.type,
+        format: b.format,
+        done: state.done || (b.items.length > 0 && state.checked.every(Boolean)),
+        items: b.items.map((it, j) => ({ name: it.name, done: !!state.checked[j], kind: resultKindFor(b, it) })),
+      };
+    });
+
     releaseAudio();
-    onSaveResult({ date, variant, blocs, durationSec: globalSec, completionRate })
+    onSaveResult({ date, variant, blocs, summary, durationSec: globalSec, completionRate })
       .catch(() => {})
       .finally(() => router.replace(doneRedirect));
     try {
@@ -1435,6 +1465,7 @@ function BlocCard({
                       series={state.exerciseSeries[j]}
                       last={lastResults[it.name] ?? lastResults[it.movementName]}
                       isHold={isHoldItem(it)}
+                      isCarry={isCarryItem(it)}
                       onAdd={() => onAddSerie(j)}
                       onToggleDone={(serieIdx) => onToggleSerieDone(j, serieIdx)}
                       onUpdate={(serieIdx, patch) => onUpdateSerie(j, serieIdx, patch)}
@@ -1649,6 +1680,7 @@ function SerieInput({
   series,
   last,
   isHold,
+  isCarry,
   onAdd,
   onToggleDone,
   onUpdate,
@@ -1659,6 +1691,8 @@ function SerieInput({
   /** Gainage/isométrie (doc H.14) : temps tenu par série au lieu de reps,
    * charge facultative masquée par défaut (mouvement lesté, rare). */
   isHold?: boolean;
+  /** Portés : la 2e valeur est une distance, avec son unité (m par défaut). */
+  isCarry?: boolean;
   onAdd: () => void;
   /** ✓ par série (doc H.10/H.13, Étape 0 point 1) : valide/dévalide une série. */
   onToggleDone: (serieIdx: number) => void;
@@ -1707,7 +1741,19 @@ function SerieInput({
               onChange={(e) => onUpdate(k, { reps: e.target.value })}
             />
           )}
-          <span className={styles.serieUnit}>{isHold ? "tenu" : "reps"}</span>
+          {isCarry ? (
+            <select
+              className={styles.serieUnit}
+              value={s.unit ?? "m"}
+              onChange={(e) => onUpdate(k, { unit: e.target.value as "m" | "km" })}
+              aria-label={`Unité de la série ${k + 1}`}
+            >
+              <option value="m">m</option>
+              <option value="km">km</option>
+            </select>
+          ) : (
+            <span className={styles.serieUnit}>{isHold ? "tenu" : "reps"}</span>
+          )}
           {series.length > 1 && (
             <button
               type="button"
@@ -2200,7 +2246,7 @@ function FullscreenTimer({
   return (
     <div
       className={styles.fsRoot}
-      style={{ background: `radial-gradient(circle at 50% 44%, ${hexAlpha(halo, 0.3)} 0%, ${hexAlpha(halo, 0.1)} 38%, #050505 72%)` }}
+      style={{ background: `radial-gradient(circle at 50% 44%, ${mixOpaque(halo, "#050505", 0.3)} 0%, ${mixOpaque(halo, "#050505", 0.1)} 38%, #050505 72%)` }}
     >
       <div className={styles.fsTop}>
         <div className={styles.fsFormat} style={{ color: fmt === "nft" ? "#D1D5DB" : color }}>

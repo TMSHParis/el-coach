@@ -2,46 +2,29 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import type { SessionBlocResult } from "../actions";
 import { updateSessionRecap } from "../actions";
-import { SESSION_FEELINGS } from "@/lib/session-feeling";
 import type { SessionRecapPatch } from "../actions";
+import { SESSION_FEELINGS } from "@/lib/session-feeling";
+import {
+  bestSerieIndex,
+  blocKeyResult,
+  fmtDurationH,
+  fmtSerie,
+  type MissingEntry,
+  type RecapBloc,
+  type WatchData,
+} from "@/lib/recap-text";
 import styles from "./recap.module.css";
 
-function fmtDuration(totalSec: number): string {
-  const h = Math.floor(totalSec / 3600);
-  const m = Math.floor((totalSec % 3600) / 60);
-  const s = totalSec % 60;
-  if (h > 0) return `${h}h${String(m).padStart(2, "0")}`;
-  return `${m} min ${String(s).padStart(2, "0")}`;
-}
-
+/** "Dim. 11 octobre" */
 function fmtDate(date: string): string {
   const [y, m, d] = date.split("-").map(Number);
-  return new Date(y, m - 1, d).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
+  const text = new Date(y, m - 1, d).toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "long" });
+  return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
-function blocLine(bloc: SessionBlocResult): string {
-  return [bloc.temps && `temps ${bloc.temps}`, bloc.rounds && `${bloc.rounds} rounds`, bloc.score && `${bloc.score} reps bonus`]
-    .filter(Boolean)
-    .join(" · ");
-}
-
-/** RPE de l'exercice affiché en badge — celui de la dernière série renseignée. */
-function blocRpe(bloc: SessionBlocResult): number | null {
-  const series = bloc.series ?? [];
-  for (let i = series.length - 1; i >= 0; i--) {
-    const n = Number(series[i].rpe);
-    if (Number.isFinite(n) && n > 0) return n;
-  }
-  return null;
-}
-
-function rpeCls(rpe: number): string {
-  if (rpe >= 8) return styles.rpeHigh;
-  if (rpe >= 5) return styles.rpeMid;
-  return styles.rpeLow;
-}
+const RING_R = 52;
+const RING_C = 2 * Math.PI * RING_R;
 
 export function RecapView({
   date,
@@ -50,13 +33,13 @@ export function RecapView({
   completionRate,
   feeling: initialFeeling,
   note: initialNote,
-  calories,
-  caloriesSource,
-  retourNarratif,
-  best,
-  comparisons,
   blocs,
-  congrats,
+  missing,
+  comparisons,
+  coachText,
+  watch,
+  watchText,
+  gauge,
   onUpdate = updateSessionRecap,
 }: {
   date: string;
@@ -65,22 +48,23 @@ export function RecapView({
   completionRate: number;
   feeling: string | null;
   note: string | null;
-  /** Relevées sur la montre, extraites automatiquement de la photo ajoutée en fin de
-   * séance (/session) — cette page n'affiche plus que le résultat, en lecture seule. */
-  calories: number | null;
-  caloriesSource: string | null;
-  /** Retour narratif généré par l'analyse de la photo. */
-  retourNarratif: string | null;
-  best: { nom: string; charge: number; reps: string } | null;
+  blocs: RecapBloc[];
+  missing: MissingEntry[];
   comparisons: { nom: string; delta: number; charge: number }[];
-  blocs: SessionBlocResult[];
-  congrats: string | null;
+  /** Message du coach, calculé à partir de données connues uniquement. */
+  coachText: string | null;
+  /** Null = aucune montre connectée : la section n'est pas affichée. */
+  watch: WatchData | null;
+  watchText: string | null;
+  gauge: { min: number; max: number; value: number } | null;
   /** Cible de l'enregistrement — Session (par date) par défaut. Une 2e
    * activité du jour (doc G.3) passe sa propre action, liée par id. */
   onUpdate?: (date: string, patch: SessionRecapPatch) => Promise<{ ok: boolean }>;
 }) {
   const [feeling, setFeeling] = useState(initialFeeling);
   const [note, setNote] = useState(initialNote ?? "");
+  const [openBlocs, setOpenBlocs] = useState<Set<number>>(new Set());
+  const [missingOpen, setMissingOpen] = useState(false);
   const percent = Math.round(completionRate * 100);
 
   // La note libre s'enregistre après une pause de frappe — pas de bouton
@@ -103,6 +87,20 @@ export function RecapView({
     void onUpdate(date, { feeling: value });
   }
 
+  function toggleBloc(n: number) {
+    setOpenBlocs((prev) => {
+      const next = new Set(prev);
+      if (next.has(n)) next.delete(n);
+      else next.add(n);
+      return next;
+    });
+  }
+
+  const kcal = watch?.kcalActive ?? watch?.kcalUnknown ?? null;
+  const gaugePos = gauge && gauge.max > gauge.min ? Math.max(0, Math.min(1, (gauge.value - gauge.min) / (gauge.max - gauge.min))) : null;
+  const subParts = [`⚡ ${sport}`, fmtDurationH(durationSec)];
+  if (blocs.length > 0) subParts.push(`${blocs.length} bloc${blocs.length > 1 ? "s" : ""}`);
+
   return (
     <div className={styles.root}>
       <div className={styles.top}>
@@ -110,37 +108,65 @@ export function RecapView({
         <Link href="/" className={styles.back}>
           ← Accueil
         </Link>
+        <span className={styles.topDate}>{fmtDate(date)}</span>
       </div>
 
       <div className={styles.header}>
-        <div className={styles.trophy}>🏆</div>
+        <div className={styles.ringWrap}>
+          <svg viewBox="0 0 120 120" className={styles.ring} aria-hidden="true">
+            <circle cx="60" cy="60" r={RING_R} fill="none" stroke="#1c1c1c" strokeWidth="8" />
+            <circle
+              cx="60"
+              cy="60"
+              r={RING_R}
+              fill="none"
+              stroke="#E8FF00"
+              strokeWidth="8"
+              strokeLinecap="round"
+              strokeDasharray={RING_C}
+              strokeDashoffset={RING_C * (1 - Math.min(1, Math.max(0, completionRate)))}
+              transform="rotate(-90 60 60)"
+            />
+          </svg>
+          <div className={styles.ringText}>
+            <div className={styles.percentValue}>{percent}%</div>
+            <div className={styles.percentLabel}>Complété</div>
+          </div>
+        </div>
         <h1 className={styles.title}>Séance terminée</h1>
-        <div className={styles.sub}>
-          {sport} · {fmtDate(date)} · {fmtDuration(durationSec)}
-        </div>
+        <div className={styles.sub}>{subParts.join(" · ")}</div>
       </div>
 
-      <div className={styles.percentCard}>
-        <div className={styles.percentValue}>{percent}%</div>
-        <div className={styles.percentLabel}>Mouvements complétés</div>
-        <div className={styles.progressTrack}>
-          <div className={styles.progressFill} style={{ width: `${percent}%` }} />
-        </div>
-      </div>
-
-      {congrats && (
-        <div className={styles.congrats}>
-          <div className={styles.congratsLabel}>Message de ton coach</div>
-          {congrats}
+      {missing.length > 0 && (
+        <div className={styles.missing}>
+          <button
+            type="button"
+            className={styles.missingBtn}
+            onClick={() => setMissingOpen((v) => !v)}
+            aria-expanded={missingOpen}
+          >
+            <span>Ce qui manque ({100 - percent} %)</span>
+            <span className={styles.chev}>{missingOpen ? "▴" : "▾"}</span>
+          </button>
+          {missingOpen && (
+            <ul className={styles.missingList}>
+              {missing.map((m) => (
+                <li key={m.bloc}>
+                  <strong>{m.bloc}</strong> : {m.elements.join(", ")}
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       )}
 
-      {best && (
-        <div className={styles.best}>
-          <div className={styles.bestLabel}>Meilleur résultat du jour</div>
-          <div className={styles.bestValue}>
-            {best.nom} — {best.charge} kg × {best.reps || "—"}
+      {coachText && (
+        <div className={styles.congrats}>
+          <div className={styles.congratsHead}>
+            <span className={styles.ecBadge}>EC</span>
+            <span className={styles.congratsLabel}>Message de ton coach</span>
           </div>
+          {coachText}
         </div>
       )}
 
@@ -161,7 +187,6 @@ export function RecapView({
       {/* RESSENTI — alimente Claude pour ajuster les prochaines séances. */}
       <div className={styles.sectionTitle}>Ton ressenti</div>
       <div className={styles.feelingBlock}>
-        <div className={styles.calLabel}>Comment tu t&apos;es senti pendant la séance ?</div>
         <div className={styles.feelingRow}>
           {SESSION_FEELINGS.map((f) => (
             <button
@@ -185,63 +210,103 @@ export function RecapView({
         />
       </div>
 
-      {/* CALORIES — lecture seule : la photo se prend pendant la séance, pas ici. */}
-      {(calories !== null || retourNarratif) && (
+      {blocs.length > 0 && (
         <>
-          <div className={styles.sectionTitle}>🔥 Calories brûlées</div>
-          <div className={styles.calCard}>
-            {calories !== null && (
-              <>
-                <div className={styles.calValue}>{calories}</div>
-                <div className={styles.calUnit}>KCAL</div>
-                {caloriesSource === "photo_auto" && (
-                  <div className={styles.calAuto}>✓ Détecté automatiquement</div>
-                )}
-              </>
-            )}
-            {retourNarratif && (
-              <div className={styles.narratif}>
-                <div className={styles.narratifLabel}>Analyse de ta montre</div>
-                {retourNarratif}
+          <div className={styles.sectionTitle}>Résultats par bloc</div>
+          <div className={styles.blocList}>
+            {blocs.map((b) => {
+              const open = openBlocs.has(b.bloc);
+              const key = blocKeyResult(b);
+              const withSeries = b.items.filter((it) => it.series.length > 0);
+              return (
+                <div key={b.bloc} className={styles.blocCard}>
+                  <button type="button" className={styles.blocHead} onClick={() => toggleBloc(b.bloc)} aria-expanded={open}>
+                    <span className={b.done ? styles.blocCheck : styles.blocCheckOff}>{b.done ? "✓" : ""}</span>
+                    <span className={styles.blocInfo}>
+                      <span className={styles.blocName}>{b.titre}</span>
+                      {key && <span className={styles.blocKey}>{key}</span>}
+                    </span>
+                    <span className={styles.chev}>{open ? "▴" : "▾"}</span>
+                  </button>
+                  {open && (
+                    <div className={styles.blocBody}>
+                      {withSeries.length === 0 && !b.wodLine && (
+                        <div className={styles.blocEmpty}>
+                          {b.items.length > 0 ? b.items.map((it) => it.name).join(" · ") : "Aucun résultat saisi"}
+                        </div>
+                      )}
+                      {b.wodLine && <div className={styles.blocEmpty}>{b.wodLine}</div>}
+                      {withSeries.map((it) => {
+                        const bestIdx = bestSerieIndex(it.series);
+                        return (
+                          <div key={it.name} className={styles.moveRow}>
+                            <Link href={`/progress?movement=${encodeURIComponent(it.name)}`} className={styles.resultName}>
+                              {it.name}
+                            </Link>
+                            <div className={styles.pillRow}>
+                              {it.series.map((s, k) => {
+                                const text = fmtSerie(s, it.kind);
+                                if (!text) return null;
+                                return (
+                                  <span key={k} className={k === bestIdx && it.series.length > 1 ? styles.pillBest : styles.pill}>
+                                    {text}
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+
+      {watch && (
+        <>
+          <div className={styles.sectionTitle}>
+            Ta montre <span className={styles.auto}>✓ Auto</span>
+          </div>
+          <div className={styles.watchCard}>
+            <div className={styles.watchStats}>
+              <div>
+                <div className={styles.statVal}>{kcal ?? "—"}</div>
+                <div className={styles.statLabel}>{watch.kcalActive !== null ? "Kcal en activité" : "Kcal"}</div>
+              </div>
+              <div>
+                <div className={styles.statVal}>{watch.effort ?? "—"}</div>
+                <div className={styles.statLabel}>Temps d&apos;effort</div>
+              </div>
+              <div>
+                <div className={styles.statVal}>{watch.bpm ?? "—"}</div>
+                <div className={styles.statLabel}>BPM moyen</div>
+              </div>
+            </div>
+            {watchText && <div className={styles.narratif}>{watchText}</div>}
+            {gauge && gaugePos !== null && (
+              <div className={styles.gauge}>
+                <div className={styles.gaugeTrack}>
+                  <div className={styles.gaugeDot} style={{ left: `${gaugePos * 100}%` }} />
+                </div>
+                <div className={styles.gaugeScale}>
+                  <span>{gauge.min}</span>
+                  <span>{gauge.max}</span>
+                </div>
               </div>
             )}
           </div>
         </>
       )}
 
-      {blocs.length > 0 && (
-        <div className={styles.results}>
-          <div className={styles.sectionTitle}>Résultats détaillés</div>
-          {blocs.map((bloc, i) => {
-            const rpe = blocRpe(bloc);
-            return (
-              <div key={`${bloc.nom}-${i}`} className={styles.resultCard}>
-                <div className={styles.resultHeader}>
-                  <Link href={`/progress?movement=${encodeURIComponent(bloc.nom)}`} className={styles.resultName}>
-                    {bloc.nom}
-                  </Link>
-                  {rpe !== null && <span className={`${styles.rpeBadge} ${rpeCls(rpe)}`}>RPE {rpe}</span>}
-                </div>
-                {bloc.series?.length ? (
-                  <div className={styles.pillRow}>
-                    {bloc.series.map((s, k) => (
-                      <span key={k} className={styles.pill}>
-                        {s.charge || "—"}kg × {s.reps || "—"}
-                      </span>
-                    ))}
-                  </div>
-                ) : (
-                  <div className={styles.resultValue}>{blocLine(bloc)}</div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      <Link href="/dashboard" className={styles.cta}>
-        Voir mon dashboard →
-      </Link>
+      <div className={styles.ctaBar}>
+        <Link href="/dashboard" className={styles.cta}>
+          Voir mon dashboard →
+        </Link>
+      </div>
     </div>
   );
 }
