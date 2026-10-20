@@ -65,6 +65,7 @@ import { minutesToHM, ETAT_LABELS, sleepPhaseBadge, trendColor } from "./dashboa
 import { dashboardFontVariables } from "./dashboard-fonts";
 import { CalendarWeek } from "./calendar-week";
 import { SessionTabs } from "./session-tabs";
+import { resolveSequenceToday } from "@/lib/program-position";
 import { VARIANT_HINT, VARIANT_LABEL, parseVariant, resolveModularDay, type ModularVariant } from "@/lib/session-modular";
 import { SessionPreviewToggle } from "./session-preview-toggle";
 import { ApercuCards, blocksToApercuCards } from "./apercu-panel";
@@ -74,8 +75,8 @@ export const metadata = { title: "Dashboard — EL COACH METHOD" };
 
 const cx = (...classes: (string | false | undefined)[]) => classes.filter(Boolean).join(" ");
 
-export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ v?: string }> }) {
-  const { v: modularParam } = await searchParams;
+export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ v?: string; d?: string }> }) {
+  const { v: modularParam, d: dayParam } = await searchParams;
   const demo = await getDemoState();
   const userId = await getUserId();
 
@@ -112,8 +113,19 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     return <CheckinPendingState userFirstName={userFirstName} everCheckedIn={everCheckedIn} />;
   }
 
-  const today = resolveTodaySession(programSlug, demo.fatigueScore);
-  if (!today) return <EmptyState />;
+  const weekdayToday = resolveTodaySession(programSlug, demo.fatigueScore);
+  if (!weekdayToday) return <EmptyState />;
+  // Suite ordonnée (1.4) : la séance suivante de la suite, sinon le jour de la semaine.
+  const seq = userId
+    ? await resolveSequenceToday({
+        userId,
+        slug: programSlug,
+        weekCycle: profile?.weekCycle,
+        fatigueScore: demo.fatigueScore,
+        manualDay: dayParam ? Number(dayParam) : null,
+      })
+    : null;
+  const today = seq ? { ...weekdayToday, day: seq.day, dayNumber: seq.dayNumber, needsFatigueInput: false } : weekdayToday;
 
   const fatigueScore = demo.fatigueScore ?? 3;
 
@@ -532,7 +544,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
               </div>
               <div className={styles.upcomingNote}>Pas encore réalisée</div>
               <SessionPreviewToggle
-                startHref={`/session?variant=${variant.recommended === "A" ? "a" : "b"}&v=${modular.variant}`}
+                startHref={`/session?variant=${variant.recommended === "A" ? "a" : "b"}&v=${modular.variant}${seq?.manual ? `&d=${seq.dayNumber}` : ""}`}
                 programTitle={today.template.name}
                 subtitle="EL COACH METHOD"
                 summaryIcon="⚡"
@@ -559,6 +571,24 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                   <span>▶️</span>
                   <span>Appuie sur le bouton vidéo pour voir la démo YouTube du mouvement</span>
                 </div>
+                {seq && seq.sequence.length > 1 && (
+                  <details className={styles.modularPicker}>
+                    <summary className={styles.modularTitle}>
+                      Séance {(seq.position % seq.sequence.length) + 1} sur {seq.sequence.length} de ta suite · changer
+                    </summary>
+                    <div className={styles.modularRow}>
+                      {Array.from(new Set(seq.sequence)).map((n) => {
+                        const d = today.template.weeks[0].days.find((x) => x.day === n);
+                        if (!d) return null;
+                        return (
+                          <Link key={n} href={`/dashboard?d=${n}`} replace scroll={false} className={cx(styles.modularBtn, seq.dayNumber === n && styles.modularBtnOn)}>
+                            <span>{d.focus}</span>
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  </details>
+                )}
                 {baseDay.blocks.length >= 4 && (
                   <div className={styles.modularPicker}>
                     <div className={styles.modularTitle}>
@@ -571,7 +601,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                       {(["complete", "nofinisher", "short"] as ModularVariant[]).map((v) => (
                         <Link
                           key={v}
-                          href={`/dashboard?v=${v}`}
+                          href={`/dashboard?v=${v}${seq?.manual ? `&d=${seq.dayNumber}` : ""}`}
                           replace
                           scroll={false}
                           className={cx(styles.modularBtn, modular.variant === v && styles.modularBtnOn)}

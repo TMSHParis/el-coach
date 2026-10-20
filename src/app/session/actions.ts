@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { generateSessionCongrats, type HeartRateZoneSplit } from "@/lib/ecm-engine";
 import { isSessionFeeling } from "@/lib/session-feeling";
 import { MAX_SESSION_PHOTOS } from "@/lib/session-media";
+import { advanceProgramPosition } from "@/lib/program-position";
 
 export type ResultKind = "strength" | "bodyweight" | "hold" | "carry" | "wod" | "warmup";
 
@@ -36,6 +37,8 @@ export type SessionBlocResult = {
 export type SessionResultPayload = {
   date: string;
   variant: "A" | "B";
+  programSlug?: string;
+  programDay?: number;
   blocs: SessionBlocResult[];
   summary?: BlocSummary[];
   /** Durée totale de la séance (secondes) — sert au message de félicitations. */
@@ -90,6 +93,16 @@ export async function saveSessionResult(
   } catch (err) {
     console.error("saveSessionResult: échec de l'enregistrement de la séance:", err);
     return { ok: false };
+  }
+
+  // Suite ordonnée de séances (1.4) — best effort, ne bloque jamais la fin de séance.
+  if (payload.programSlug && payload.programDay) {
+    try {
+      const profile = await prisma.profile.findUnique({ where: { userId }, select: { weekCycle: true } });
+      await advanceProgramPosition({ userId, slug: payload.programSlug, doneDay: payload.programDay, weekCycle: profile?.weekCycle });
+    } catch (err) {
+      console.error("saveSessionResult: position dans la suite non avancée:", err);
+    }
   }
 
   // Message de félicitations — best effort, une erreur ici ne doit jamais

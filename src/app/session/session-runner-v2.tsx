@@ -299,6 +299,8 @@ export function SessionRunnerV2({
   initial,
   date,
   variant,
+  programSlug,
+  programDay,
   lastResults = {},
   initialPhotos = [],
   photosEnabled = false,
@@ -315,6 +317,9 @@ export function SessionRunnerV2({
   initial: { format: RuntimeFormat; durationMin: number; tabataRounds: number }[];
   date: string;
   variant: "A" | "B";
+  /** Suite ordonnée (1.4) : programme et séance du modèle faite, pour avancer la position. */
+  programSlug?: string;
+  programDay?: number;
   /** Dernier résultat connu par mouvement — rappel et charge suggérée. */
   lastResults?: Record<string, LastResult>;
   /** Photos déjà enregistrées pour la séance du jour. */
@@ -1036,7 +1041,7 @@ export function SessionRunnerV2({
     });
 
     releaseAudio();
-    onSaveResult({ date, variant, blocs, summary, durationSec: globalSec, completionRate })
+    onSaveResult({ date, variant, programSlug, programDay, blocs, summary, durationSec: globalSec, completionRate })
       .catch(() => {})
       .finally(() => router.replace(doneRedirect));
     try {

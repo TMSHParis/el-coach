@@ -6,6 +6,7 @@ import { todayKey } from "@/lib/date-key";
 import type { Day } from "@/lib/programming";
 import { adaptDayForInjuries, detectInjuryAreas, reduceVolume } from "@/lib/session-adapt";
 import { parseVariant, resolveModularDay } from "@/lib/session-modular";
+import { resolveSequenceToday } from "@/lib/program-position";
 import { toDisplayBlocks, defaultRuntimeFormat, defaultDurationMinutes } from "@/lib/session-format";
 import { minutesToHM } from "../dashboard/dashboard-helpers";
 import { buildAdviceSession, type StoredAdvice } from "@/lib/advice-session";
@@ -21,9 +22,9 @@ export const metadata = { title: "Séance en cours — EL COACH METHOD" };
 export default async function SessionPage({
   searchParams,
 }: {
-  searchParams: Promise<{ variant?: string; v?: string }>;
+  searchParams: Promise<{ variant?: string; v?: string; d?: string }>;
 }) {
-  const { variant: variantParam, v: modularParam } = await searchParams;
+  const { variant: variantParam, v: modularParam, d: dayParam } = await searchParams;
   const variant = variantParam === "b" ? "b" : "a";
 
   const userId = await getUserId();
@@ -100,8 +101,19 @@ export default async function SessionPage({
   const demo = await getDemoState();
   if (!demo.programSlug) redirect("/onboarding");
 
-  const today = resolveTodaySession(demo.programSlug, demo.fatigueScore);
-  if (!today) redirect("/dashboard");
+  const weekdayToday = resolveTodaySession(demo.programSlug, demo.fatigueScore);
+  if (!weekdayToday) redirect("/dashboard");
+  // Suite ordonnée (1.4) : la séance suivante de la suite, sinon le jour de la semaine.
+  const seq = userId
+    ? await resolveSequenceToday({
+        userId,
+        slug: demo.programSlug,
+        weekCycle: profile?.weekCycle,
+        fatigueScore: demo.fatigueScore,
+        manualDay: dayParam ? Number(dayParam) : null,
+      })
+    : null;
+  const today = seq ? { ...weekdayToday, day: seq.day, dayNumber: seq.dayNumber, needsFatigueInput: false } : weekdayToday;
 
   const generatedDay = output?.generatedDay;
 
@@ -153,6 +165,8 @@ export default async function SessionPage({
         initialPhotos={todaySession?.photos ?? []}
         photosEnabled={blobEnabled}
         analysisContext={{ sport, prenom, poidsJour, historiqueRecent }}
+        programSlug={demo.programSlug}
+        programDay={generatedDay ? undefined : today.dayNumber}
       />
     </div>
   );
