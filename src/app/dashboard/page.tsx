@@ -79,7 +79,8 @@ import { applyBlockToDay, themeLabel } from "@/lib/training-themes";
 import { effectiveWeekCycle } from "@/lib/week-overrides";
 import { VARIANT_HINT, VARIANT_LABEL, parseVariant, resolveModularDay, type ModularVariant } from "@/lib/session-modular";
 import { SessionPreviewToggle } from "./session-preview-toggle";
-import { ApercuCards, blocksToApercuCards } from "./apercu-panel";
+import { ApercuCards } from "./apercu-panel";
+import { blocksToApercuCards } from "./apercu-cards";
 import styles from "./dashboard.module.css";
 
 export const metadata = { title: "Dashboard — EL COACH METHOD" };
