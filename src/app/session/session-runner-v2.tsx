@@ -7,6 +7,8 @@ import type { DisplayBlock } from "@/lib/session-format";
 import type { BlockType, WodFormat } from "@/lib/programming";
 import styles from "./session.module.css";
 import { SessionItemRow } from "../dashboard/session-item-row";
+import { VideoModal } from "../dashboard/session/video-modal";
+import { REPLACE_REASONS, type EquivalentOption } from "@/lib/movement-equivalents";
 import { CARDIO_ZONES, cardioLine, paceText } from "@/lib/cardio";
 import { saveSessionResult, updateSessionRecap, type BlocSummary, type ResultKind, type SessionBlocResult } from "./actions";
 import { SessionPhotos, type PhotoAnalysisContext } from "@/components/session-photos";
@@ -191,6 +193,12 @@ type ExerciseSerie = { charge: string; reps: string; rpe?: string; time?: string
 /** Chrono de repos actif (doc H.10) — null quand aucun repos n'est en cours. */
 type RestTimerState = { blocIdx: number; exIdx: number; endsAt: number; totalSec: number; label: string } | null;
 
+/** Mouvement remplacé pendant la séance (mission 11) — pour cette séance seulement. */
+type Replacement = { id: string; name: string; videoUrl?: string; reason: string; equipmentLabel: string };
+
+/** Séries déjà saisies sous un mouvement qui a été remplacé ou rétabli : elles restent enregistrées pour lui. */
+type ArchivedSeries = { exIdx: number; name: string; replacedFrom?: string; series: ExerciseSerie[] };
+
 type BlocState = {
   /** Instant du dernier démarrage (ms epoch) — le chrono se recalcule depuis l'horloge,
    * il continue donc à tourner quand l'app passe en arrière-plan. */
@@ -224,6 +232,9 @@ type BlocState = {
   /** Préréglage de repos par mouvement (secondes) — null = valeur par défaut
    * (`parseRestSeconds`). Modifiable avant de lancer la série (doc B.3.a). */
   restOverrides: (number | null)[];
+  /** Mouvement de remplacement par mouvement du bloc (null = mouvement prévu). */
+  replaced?: (Replacement | null)[];
+  archived?: ArchivedSeries[];
   temps: string;
   rounds: string;
   score: string;
@@ -296,15 +307,22 @@ const SESSION_KIND_ICON: Record<SessionKind, string> = {
   recuperationActive: "💤",
 };
 
+/** Met de côté les séries saisies d'un mouvement avant qu'il soit remplacé ou rétabli. */
+function archiveSeries(x: BlocState, exIdx: number, name: string, replacedFrom?: string): ArchivedSeries[] {
+  const series = (x.exerciseSeries[exIdx] ?? []).filter((s) => s.charge.trim() || s.reps.trim() || s.time?.trim());
+  return series.length > 0 ? [...(x.archived ?? []), { exIdx, name, replacedFrom, series }] : (x.archived ?? []);
+}
+
 export function SessionRunnerV2({
   sessionName,
   sessionMeta,
-  blocks: blockData,
+  blocks: baseBlocks,
   initial,
   date,
   variant,
   programSlug,
   programDay,
+  equivalents = {},
   lastResults = {},
   initialPhotos = [],
   photosEnabled = false,
@@ -324,6 +342,8 @@ export function SessionRunnerV2({
   /** Suite ordonnée (1.4) : programme et séance du modèle faite, pour avancer la position. */
   programSlug?: string;
   programDay?: number;
+  /** Équivalents proposés par id de mouvement prévu (mission 11) — absent = pas de bouton « Remplacer ». */
+  equivalents?: Record<string, EquivalentOption[]>;
   /** Dernier résultat connu par mouvement — rappel et charge suggérée. */
   lastResults?: Record<string, LastResult>;
   /** Photos déjà enregistrées pour la séance du jour. */
@@ -353,8 +373,8 @@ export function SessionRunnerV2({
   const makeInitial = useCallback(
     (): BlocState[] =>
       initial.map((cfg, i) => {
-        const type = blockData[i]?.type;
-        const items = blockData[i]?.items ?? [];
+        const type = baseBlocks[i]?.type;
+        const items = baseBlocks[i]?.items ?? [];
         return {
           startedAt: null,
           accumulatedMs: 0,
@@ -371,7 +391,7 @@ export function SessionRunnerV2({
           checked: items.map(() => false),
           amrapRounds: 0,
           exerciseSeries:
-            type && (SERIES_RESULT_TYPES.includes(type) || looksLikeMisplacedStrengthBlock(blockData[i]))
+            type && (SERIES_RESULT_TYPES.includes(type) || looksLikeMisplacedStrengthBlock(baseBlocks[i]))
               ? items.map((it) => {
                   // Une ligne par série prévue (doc H.13, Étape 0 point 2) — 5 lignes
                   // pour un 5×5, pas seulement 1. Repli à 1 ligne si `sets` est inconnu.
@@ -383,16 +403,34 @@ export function SessionRunnerV2({
           exerciseTimes: items.map(() => ""),
           exerciseCardio: items.map(() => ({ distance: "", zone: "" })),
           restOverrides: items.map(() => null),
+          replaced: items.map(() => null),
+          archived: [],
           temps: "",
           rounds: "",
           score: "",
           rxScaled: "rx",
         };
       }),
-    [blockData, initial],
+    [baseBlocks, initial],
   );
 
   const [blocks, setBlocks] = useState<BlocState[]>(makeInitial);
+  // Blocs tels que vus par l'athlète : les mouvements remplacés prennent le nom du remplaçant (mission 11).
+  const blockData = useMemo(
+    () =>
+      baseBlocks.map((b, i) => ({
+        ...b,
+        items: b.items.map((it, j) => {
+          const rep = blocks[i]?.replaced?.[j];
+          return rep
+            ? { ...it, name: rep.name, movementName: rep.name, movementId: rep.id, videoUrl: rep.videoUrl, replacedFrom: it.name, replacedReason: rep.reason, plannedMovementId: it.movementId }
+            : { ...it, plannedMovementId: it.movementId };
+        }),
+      })),
+    [baseBlocks, blocks],
+  );
+  const [replaceSheet, setReplaceSheet] = useState<{ blocIdx: number; exIdx: number } | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
   const [sessionStartedAt, setSessionStartedAt] = useState<number>(() => Date.now());
   // Récupération active seulement : objectif de durée du chrono général,
   // ajustable par [−]/[+] avant/pendant la séance — purement indicatif, ne
@@ -457,6 +495,8 @@ export function SessionRunnerV2({
               ...b,
               restOverrides: b.restOverrides ?? b.exerciseTimes.map(() => null),
               expanded: b.expanded ?? b.checked,
+              replaced: b.replaced ?? b.exerciseTimes.map(() => null),
+              archived: b.archived ?? [],
             })),
           );
           setSessionStartedAt(saved.sessionStartedAt);
@@ -912,6 +952,62 @@ export function SessionRunnerV2({
     );
   }
 
+  /** Remplace un mouvement pour cette séance (mission 11) : séries et répétitions prévues conservées,
+   * charges préremplies avec l'historique du nouveau mouvement s'il en a un. */
+  function replaceMovement(blocIdx: number, exIdx: number, option: EquivalentOption, reason: string) {
+    const planned = baseBlocks[blocIdx]?.items[exIdx];
+    const current = blockData[blocIdx]?.items[exIdx];
+    if (!planned || !current) return;
+    const history = lastResults[option.name];
+    const n = Math.max(1, planned.sets ?? 1);
+    setBlocks((prev) =>
+      prev.map((x, i) =>
+        i !== blocIdx
+          ? x
+          : {
+              ...x,
+              archived: archiveSeries(x, exIdx, current.name, current.replacedFrom),
+              replaced: (x.replaced ?? x.checked.map(() => null)).map((r, j) =>
+                j === exIdx ? { id: option.id, name: option.name, videoUrl: option.videoUrl, reason, equipmentLabel: option.equipmentLabel } : r,
+              ),
+              exerciseSeries: x.exerciseSeries.map((row, j) =>
+                j === exIdx ? Array.from({ length: n }, () => ({ charge: history ? String(history.suggestion) : "", reps: "", done: false })) : row,
+              ),
+              checked: x.checked.map((c, j) => (j === exIdx ? false : c)),
+              expanded: x.expanded.map((e, j) => (j === exIdx ? true : e)),
+            },
+      ),
+    );
+    if (restTimer && restTimer.blocIdx === blocIdx && restTimer.exIdx === exIdx) cancelRestTimer();
+    setReplaceSheet(null);
+    setToast(`Remplacé par ${option.name}`);
+    setTimeout(() => setToast(null), 1800);
+  }
+
+  /** « Rétablir le mouvement prévu » : les séries saisies sous le remplaçant restent enregistrées pour lui. */
+  function revertMovement(blocIdx: number, exIdx: number) {
+    const planned = baseBlocks[blocIdx]?.items[exIdx];
+    const current = blockData[blocIdx]?.items[exIdx];
+    if (!planned || !current) return;
+    const n = Math.max(1, planned.sets ?? 1);
+    setBlocks((prev) =>
+      prev.map((x, i) =>
+        i !== blocIdx
+          ? x
+          : {
+              ...x,
+              archived: archiveSeries(x, exIdx, current.name, current.replacedFrom),
+              replaced: (x.replaced ?? x.checked.map(() => null)).map((r, j) => (j === exIdx ? null : r)),
+              exerciseSeries: x.exerciseSeries.map((row, j) =>
+                j === exIdx ? Array.from({ length: n }, () => ({ charge: "", reps: "", done: false })) : row,
+              ),
+              checked: x.checked.map((c, j) => (j === exIdx ? false : c)),
+            },
+      ),
+    );
+    if (restTimer && restTimer.blocIdx === blocIdx && restTimer.exIdx === exIdx) cancelRestTimer();
+  }
+
   /** Chrono de repos entre deux séries — indépendant du chrono du bloc en cours. */
   function startRestTimer(blocIdx: number, exIdx: number) {
     unlockAudio();
@@ -1041,13 +1137,18 @@ export function SessionRunnerV2({
         const series = (state.exerciseSeries[j] ?? []).filter((x) => x.charge.trim() || x.reps.trim() || x.time?.trim());
         const temps = state.exerciseTimes[j]?.trim();
         const kind = resultKindFor(b, it);
-        if (series.length > 0) blocs.push({ bloc: i + 1, nom: it.name, series, kind });
+        if (series.length > 0) blocs.push({ bloc: i + 1, nom: it.name, series, kind, remplaceDe: it.replacedFrom, remplaceRaison: it.replacedReason });
         else if (temps) {
           const cardio = state.exerciseCardio?.[j];
           const detail = cardioLine(cardio?.distance ?? "", temps, cardio?.zone ?? "");
           blocs.push({ bloc: i + 1, nom: it.name, temps, kind: "endurance", detail: detail ?? undefined });
         }
       });
+      // Séries saisies sous un mouvement remplacé puis changé ou rétabli : enregistrées pour lui.
+      for (const a of state.archived ?? []) {
+        const base = b.items[a.exIdx];
+        blocs.push({ bloc: i + 1, nom: a.name, series: a.series, kind: base ? resultKindFor(b, base) : "strength", remplaceDe: a.replacedFrom });
+      }
       if (state.temps || state.rounds || state.score) {
         blocs.push({
           bloc: i + 1,
@@ -1068,7 +1169,7 @@ export function SessionRunnerV2({
         type: b.type,
         format: b.format,
         done: state.done || (b.items.length > 0 && state.checked.every(Boolean)),
-        items: b.items.map((it, j) => ({ name: it.name, done: !!state.checked[j], kind: resultKindFor(b, it) })),
+        items: b.items.map((it, j) => ({ name: it.name, done: !!state.checked[j], kind: resultKindFor(b, it), replacedFrom: it.replacedFrom })),
       };
     });
 
@@ -1125,6 +1226,21 @@ export function SessionRunnerV2({
           onClose={() => setFullscreen(null)}
         />
       )}
+      {toast && <div className={styles.toast}>{toast}</div>}
+      {replaceSheet &&
+        (() => {
+          const cur = blockData[replaceSheet.blocIdx]?.items[replaceSheet.exIdx];
+          const options = (cur?.plannedMovementId ? equivalents[cur.plannedMovementId] ?? [] : []).filter((o) => o.id !== cur?.movementId);
+          if (!cur || options.length === 0) return null;
+          return (
+            <ReplaceSheet
+              movementName={cur.name}
+              options={options}
+              onConfirm={(option, reason) => replaceMovement(replaceSheet.blocIdx, replaceSheet.exIdx, option, reason)}
+              onClose={() => setReplaceSheet(null)}
+            />
+          );
+        })()}
       {/* Le chrono de repos n'est plus un overlay global (doc H.10) — il est
           rendu in situ dans BlocCard, à l'emplacement du réglage "Repos entre
           séries" du mouvement concerné. */}
@@ -1256,6 +1372,9 @@ export function SessionRunnerV2({
               restTimer={restTimer}
               restJustEnded={restJustEnded}
               lastResults={lastResults}
+              equivalents={equivalents}
+              onOpenReplace={(exIdx) => setReplaceSheet({ blocIdx: i, exIdx })}
+              onRevert={(exIdx) => revertMovement(i, exIdx)}
               sessionKind={sessionKind}
               onToggle={() => toggleOpen(i)}
               onChangeFormat={(fmt) => changeFormat(i, fmt)}
@@ -1337,6 +1456,9 @@ function BlocCard({
   restTimer,
   restJustEnded,
   lastResults,
+  equivalents,
+  onOpenReplace,
+  onRevert,
   sessionKind,
   onToggle,
   onChangeFormat,
@@ -1369,6 +1491,9 @@ function BlocCard({
   restTimer: RestTimerState;
   restJustEnded: { blocIdx: number; exIdx: number } | null;
   lastResults: Record<string, LastResult>;
+  equivalents: Record<string, EquivalentOption[]>;
+  onOpenReplace: (exIdx: number) => void;
+  onRevert: (exIdx: number) => void;
   sessionKind: SessionKind;
   onToggle: () => void;
   onChangeFormat: (fmt: RuntimeFormat) => void;
@@ -1467,8 +1592,10 @@ function BlocCard({
             // jamais pour cocher à la main. Les autres items gardent l'ancien comportement.
             const hasSeries = (state.exerciseSeries[j]?.length ?? 0) > 0;
             const expanded = hasSeries ? state.expanded[j] ?? false : checked;
+            // « Remplacer » : mouvements à séries dont le coach a défini des équivalents (mission 11).
+            const canReplace = hasSeries && !it.noVideo && !!it.plannedMovementId && (equivalents[it.plannedMovementId]?.length ?? 0) > 0;
             return (
-              <div key={`${it.movementName}-${j}`} className={cx(checked && styles.itemChecked)}>
+              <div key={`${it.movementName}-${j}`} className={cx(checked && styles.itemChecked, it.replacedFrom && styles.itemReplaced)}>
                 <div className={styles.itemRow}>
                   <button
                     type="button"
@@ -1488,6 +1615,7 @@ function BlocCard({
                     {checked ? "✓" : ""}
                   </button>
                   <div style={{ flex: 1 }}>
+                    {it.replacedFrom && <div className={styles.replacedTag}>REMPLACÉ</div>}
                     <SessionItemRow
                       name={it.name}
                       qty={it.qty}
@@ -1495,7 +1623,22 @@ function BlocCard({
                       movementName={it.movementName}
                       videoUrl={it.videoUrl}
                       noVideo={it.noVideo}
+                      hideVideo={canReplace}
                     />
+                    {it.replacedFrom && <div className={styles.replacedFrom}>à la place de : {it.replacedFrom}</div>}
+                    {canReplace && (
+                      <MovementActions
+                        movementName={it.movementName}
+                        videoUrl={it.videoUrl}
+                        replaced={!!it.replacedFrom}
+                        onOpen={() => onOpenReplace(j)}
+                      />
+                    )}
+                    {it.replacedFrom && (
+                      <button type="button" className={styles.revertLink} onClick={() => onRevert(j)}>
+                        Rétablir le mouvement prévu
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -2387,6 +2530,111 @@ function FullscreenTimer({
  * du mouvement concerné (doc H.10) — remplace l'ancien overlay plein écran +
  * mini-barre flottante, qui chevauchait la barre de stats en bas d'écran.
  */
+
+/** Ligne d'actions d'un mouvement de musculation : « ⇄ Remplacer » (ou « ⇄ Changer ») et la vidéo (mission 11). */
+function MovementActions({
+  movementName,
+  videoUrl,
+  replaced,
+  onOpen,
+}: {
+  movementName: string;
+  videoUrl?: string;
+  replaced: boolean;
+  onOpen: () => void;
+}) {
+  const [video, setVideo] = useState(false);
+  return (
+    <div className={styles.moveActions}>
+      <button type="button" className={styles.replaceBtn} onClick={onOpen}>
+        ⇄ {replaced ? "Changer" : "Remplacer"}
+      </button>
+      <button type="button" className={styles.moveVideoBtn} onClick={() => setVideo(true)} aria-label={`Vidéo ${movementName}`}>
+        ▶
+      </button>
+      <VideoModal open={video} onClose={() => setVideo(false)} title={movementName} searchQuery={movementName} videoUrl={videoUrl} />
+    </div>
+  );
+}
+
+/** Feuille « Remplacer [mouvement] » : raison, équivalents, confirmation (mission 11). */
+function ReplaceSheet({
+  movementName,
+  options,
+  onConfirm,
+  onClose,
+}: {
+  movementName: string;
+  options: EquivalentOption[];
+  onConfirm: (option: EquivalentOption, reason: string) => void;
+  onClose: () => void;
+}) {
+  const [reason, setReason] = useState<string>(REPLACE_REASONS[0]);
+  const [picked, setPicked] = useState(options[0]?.id ?? "");
+  const [video, setVideo] = useState<EquivalentOption | null>(null);
+  const chosen = options.find((o) => o.id === picked) ?? options[0];
+
+  return (
+    <div className={styles.sheetOverlay} onClick={onClose}>
+      <div className={styles.sheet} role="dialog" aria-label={`Remplacer ${movementName}`} onClick={(e) => e.stopPropagation()}>
+        <div className={styles.sheetTitle}>Remplacer {movementName}</div>
+        <div className={styles.sheetHelp}>Pour cette séance seulement. Les séries et répétitions prévues sont gardées.</div>
+
+        <div className={styles.sheetLabel}>POURQUOI ?</div>
+        <div className={styles.reasonRow}>
+          {REPLACE_REASONS.map((r) => (
+            <button key={r} type="button" className={reason === r ? styles.reasonOn : styles.reason} onClick={() => setReason(r)}>
+              {r}
+            </button>
+          ))}
+        </div>
+
+        <div className={styles.sheetLabel}>ÉQUIVALENTS</div>
+        <div className={styles.equivList}>
+          {options.map((o) => (
+            <div
+              key={o.id}
+              role="radio"
+              aria-checked={picked === o.id}
+              tabIndex={0}
+              className={picked === o.id ? styles.equivOn : styles.equiv}
+              onClick={() => setPicked(o.id)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") setPicked(o.id);
+              }}
+            >
+              <span className={picked === o.id ? styles.equivRadioOn : styles.equivRadio} />
+              <span className={styles.equivText}>
+                <span className={styles.equivName}>{o.name}</span>
+                <span className={styles.equivEquip}>{o.equipmentLabel}</span>
+              </span>
+              <button
+                type="button"
+                className={styles.equivVideo}
+                aria-label={`Vidéo ${o.name}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setVideo(o);
+                }}
+              >
+                ▶
+              </button>
+            </div>
+          ))}
+        </div>
+
+        <button type="button" className={styles.sheetConfirm} onClick={() => chosen && onConfirm(chosen, reason)}>
+          Remplacer
+        </button>
+        <button type="button" className={styles.sheetCancel} onClick={onClose}>
+          Annuler
+        </button>
+        {video && <VideoModal open onClose={() => setVideo(null)} title={video.name} searchQuery={video.name} videoUrl={video.videoUrl} />}
+      </div>
+    </div>
+  );
+}
+
 function InlineRestTimer({
   endsAt,
   totalSec,

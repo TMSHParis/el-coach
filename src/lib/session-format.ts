@@ -72,7 +72,19 @@ export type DisplayBlock = {
   badgeCls: BadgeCls;
   /** Type brut du bloc (programming.ts) — pilote la saisie de résultats sur /session (charge/reps vs temps/rounds/score). */
   type: BlockType;
-  items: (ExerciseDisplay & { movementName: string; videoUrl?: string; /** Conseil/message, pas un mouvement : pas de bouton vidéo. */ noVideo?: boolean })[];
+  items: (ExerciseDisplay & {
+    movementName: string;
+    /** Id du catalogue — sert à proposer des équivalents (mission 11). */
+    movementId?: string;
+    videoUrl?: string;
+    /** Conseil/message, pas un mouvement : pas de bouton vidéo. */
+    noVideo?: boolean;
+    /** Mouvement remplacé pendant la séance : nom du mouvement prévu et raison (mission 11). */
+    replacedFrom?: string;
+    replacedReason?: string;
+    /** Id du mouvement prévu (avant remplacement) : clé de la table d'équivalents. */
+    plannedMovementId?: string;
+  })[];
   note?: string;
   /** Format CrossFit du bloc (doc H.11 — fiche WOD écrite) — uniquement pertinent pour type "wod"/"conditioning". */
   format?: WodFormat;
@@ -93,7 +105,7 @@ export function toDisplayBlocks(blocks: Block[]): DisplayBlock[] {
       items: block.exercises.map((ex) => {
         const movement = resolveExerciseMovement(ex);
         const movementName = movement?.name ?? ex.movementId;
-        return { ...exerciseDisplay(ex, movementName), movementName, videoUrl: movement?.videoUrl };
+        return { ...exerciseDisplay(ex, movementName), movementName, movementId: movement?.id ?? ex.movementId, videoUrl: movement?.videoUrl };
       }),
       note: block.notes,
       format: block.format,

@@ -273,6 +273,7 @@ export function RecapView({
                             <Link href={`/progress?movement=${encodeURIComponent(it.name)}`} className={styles.resultName}>
                               {it.name}
                             </Link>
+                            {it.replacedFrom && <span className={styles.replacedNote}>remplacé · à la place de {it.replacedFrom}</span>}
                             <div className={styles.pillRow}>
                               {it.series.map((s, k) => {
                                 const text = fmtSerie(s, it.kind);

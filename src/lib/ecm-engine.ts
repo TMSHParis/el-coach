@@ -265,7 +265,7 @@ const STACK_TOOL = {
 // Sélection des candidats (mouvements + WODs) — déterministe, avant l'appel Claude.
 // ============================================================================
 
-function equipmentTierFor(equipementLabel: string): Movement["equipment"] | null {
+export function equipmentTierFor(equipementLabel: string): Movement["equipment"] | null {
   const e = normalizeAccents(equipementLabel);
   // Libellés du check-in "demande du jour" (partie 2) : niveaux de matériel At Home et ECM.
   if (e.includes("etendu")) return null;

@@ -16,6 +16,8 @@ import { getChainLevels } from "@/lib/chain-progress";
 import { homeLevelForToday } from "@/lib/home-equipment";
 import { applyBlockToDay } from "@/lib/training-themes";
 import { applyCompetition } from "@/lib/competition-day";
+import { equipmentTierFor } from "@/lib/ecm-engine";
+import { equivalentsFor, type EquivalentOption } from "@/lib/movement-equivalents";
 import { effectiveTheme } from "@/lib/competition";
 import { effectiveWeekCycle } from "@/lib/week-overrides";
 import { toDisplayBlocks, defaultRuntimeFormat, defaultDurationMinutes } from "@/lib/session-format";
@@ -184,6 +186,16 @@ export default async function SessionPage({
   const day = variant === "b" ? reduceVolume(safeDay) : safeDay;
 
   const displayBlocks = toDisplayBlocks(day.blocks);
+  // Équivalents proposés pour « Remplacer » (mission 11) : filtrés par le matériel du jour du check-in.
+  const dayEquipment = equipmentTierFor(todayCheckin?.seanceEquipement || profile?.equipement || "");
+  const equivalents: Record<string, EquivalentOption[]> = {};
+  for (const b of displayBlocks) {
+    for (const it of b.items) {
+      if (!it.movementId || it.noVideo || equivalents[it.movementId]) continue;
+      const list = equivalentsFor(it.movementId, dayEquipment);
+      if (list.length > 0) equivalents[it.movementId] = list;
+    }
+  }
   const initial = day.blocks.map((b) => ({
     format: defaultRuntimeFormat(b),
     durationMin: defaultDurationMinutes(b),
@@ -205,6 +217,7 @@ export default async function SessionPage({
         analysisContext={{ sport, prenom, poidsJour, historiqueRecent }}
         programSlug={demo.programSlug}
         programDay={generatedDay ? undefined : today.dayNumber}
+        equivalents={equivalents}
       />
     </div>
   );

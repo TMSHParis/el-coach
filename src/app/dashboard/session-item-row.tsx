@@ -11,6 +11,7 @@ export function SessionItemRow({
   movementName,
   videoUrl,
   noVideo,
+  hideVideo,
 }: {
   name: string;
   qty: string;
@@ -18,6 +19,8 @@ export function SessionItemRow({
   movementName: string;
   videoUrl?: string;
   noVideo?: boolean;
+  /** La vidéo est affichée ailleurs (ligne d'actions « Remplacer »). */
+  hideVideo?: boolean;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -29,7 +32,7 @@ export function SessionItemRow({
         {detail && <em>{detail}</em>}
       </div>
       <div className={styles.idetail}>{qty}</div>
-      {!noVideo && (
+      {!noVideo && !hideVideo && (
         <>
           <button
             type="button"

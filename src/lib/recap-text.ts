@@ -66,7 +66,7 @@ export type RecapBloc = {
   done: boolean;
   /** Résultat global du bloc (WOD : temps, rounds, score). */
   wodLine: string | null;
-  items: { name: string; done: boolean; kind: string; series: SerieLike[] }[];
+  items: { name: string; done: boolean; kind: string; series: SerieLike[]; /** Mouvement prévu quand celui-ci l'a remplacé (mission 11). */ replacedFrom?: string }[];
 };
 
 const WARMUP_TYPES = ["warmup", "cooldown"];
@@ -86,6 +86,22 @@ export function buildRecapBlocs(summary: BlocSummary[] | undefined, results: Ses
   if (summary && summary.length > 0) {
     return summary.map((b) => {
       const wod = results.find((r) => r.bloc === b.bloc && r.nom === b.titre && !r.series);
+      const items = b.items.map((it) => {
+        const r = results.find((x) => x.bloc === b.bloc && x.nom === it.name && x.series);
+        const times = results.find((x) => x.bloc === b.bloc && x.nom === it.name && !x.series && x.temps);
+        return {
+          name: it.name,
+          done: it.done,
+          kind: it.kind,
+          replacedFrom: it.replacedFrom,
+          series: r?.series ?? (times?.temps ? [{ charge: "", reps: "", time: times.detail ?? times.temps }] : []),
+        };
+      });
+      // Séries saisies sous un mouvement remplacé puis changé ou rétabli : listées avec leur mouvement.
+      for (const r of results) {
+        if (r.bloc !== b.bloc || !r.series || items.some((x) => x.name === r.nom)) continue;
+        items.push({ name: r.nom, done: true, kind: r.kind ?? "strength", replacedFrom: r.remplaceDe, series: r.series });
+      }
       return {
         bloc: b.bloc,
         titre: b.titre,
@@ -93,16 +109,7 @@ export function buildRecapBlocs(summary: BlocSummary[] | undefined, results: Ses
         format: b.format,
         done: b.done,
         wodLine: wodLineFor(wod),
-        items: b.items.map((it) => {
-          const r = results.find((x) => x.bloc === b.bloc && x.nom === it.name && x.series);
-          const times = results.find((x) => x.bloc === b.bloc && x.nom === it.name && !x.series && x.temps);
-          return {
-            name: it.name,
-            done: it.done,
-            kind: it.kind,
-            series: r?.series ?? (times?.temps ? [{ charge: "", reps: "", time: times.detail ?? times.temps }] : []),
-          };
-        }),
+        items,
       };
     });
   }
@@ -121,7 +128,7 @@ export function buildRecapBlocs(summary: BlocSummary[] | undefined, results: Ses
         wodLine: wodLineFor(wod),
         items: rs
           .filter((r) => r.series)
-          .map((r) => ({ name: r.nom, done: true, kind: r.kind ?? "strength", series: r.series ?? [] })),
+          .map((r) => ({ name: r.nom, done: true, kind: r.kind ?? "strength", series: r.series ?? [], replacedFrom: r.remplaceDe })),
       };
     });
 }

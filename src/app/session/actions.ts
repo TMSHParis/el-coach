@@ -19,7 +19,7 @@ export type BlocSummary = {
   format?: string;
   /** Tous les mouvements cochés (ou bloc terminé). */
   done: boolean;
-  items: { name: string; done: boolean; kind: ResultKind }[];
+  items: { name: string; done: boolean; kind: ResultKind; /** Mouvement prévu quand celui-ci l'a remplacé (mission 11). */ replacedFrom?: string }[];
 };
 
 export type SessionBlocResult = {
@@ -35,6 +35,9 @@ export type SessionBlocResult = {
   score?: string;
   /** Version réellement réalisée d'un Metcon/Finisher (doc H.11). */
   rxScaled?: "rx" | "scaled";
+  /** Mouvement prévu quand celui-ci l'a remplacé pendant la séance, et la raison (mission 11). */
+  remplaceDe?: string;
+  remplaceRaison?: string;
 };
 
 export type SessionResultPayload = {
