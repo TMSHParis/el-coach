@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import type { ReactNode } from "react";
-import type { DisplayBlock } from "@/lib/session-format";
 import styles from "./dashboard.module.css";
 import { VideoModal } from "./session/video-modal";
 import type { ApercuCardData } from "./apercu-cards";

@@ -3,7 +3,9 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { auth } from "@clerk/nextjs/server";
-import type { Profile } from "@prisma/client";
+import { Prisma, type Profile } from "@prisma/client";
+import { legacyDeadlineToDate } from "@/lib/competition-params";
+import { todayKey } from "@/lib/date-key";
 import { COOKIE_KEYS } from "@/lib/demo-session";
 import { getTemplate } from "@/lib/programming";
 import { prisma } from "@/lib/prisma";
@@ -232,6 +234,10 @@ export type EcmObjectifDetail = {
   /** Hyrox : date exacte de la course (YYYY-MM-DD) et catégorie (ex. « Open · Solo »). */
   dateExacte?: string;
   categorie?: string;
+  /** Axes de progression ordonnés (3 max) — « Améliorer mes performances sportives ». Le 1er est l'axe principal. */
+  axes?: string[];
+  /** Champs propres au sport de l'événement (objectif de temps, distance, format, ceinture…). */
+  fiche?: Record<string, string>;
 };
 
 export type EcmProfileCookie = {
@@ -327,6 +333,15 @@ function parseDateNaissance(value: string): Date | null {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
+/** Partie 3 : axes ordonnés et fiche d'événement stockés dans la colonne JSON `objectif_N_details`. */
+function detailsJson(o: EcmObjectifDetail | undefined): Prisma.InputJsonValue | typeof Prisma.DbNull {
+  if (!o) return Prisma.DbNull;
+  const fiche = o.fiche && Object.keys(o.fiche).length > 0 ? o.fiche : undefined;
+  const axes = o.axes && o.axes.length > 0 ? o.axes : undefined;
+  if (!fiche && !axes) return Prisma.DbNull;
+  return { ...(axes ? { axes } : {}), ...(fiche ? { fiche } : {}) };
+}
+
 async function persistEcmProfile(profile: EcmProfileCookie): Promise<void> {
   const userId = await ensureUserId();
 
@@ -344,6 +359,7 @@ async function persistEcmProfile(profile: EcmProfileCookie): Promise<void> {
     objectif1Event: profile.objectifs[0]?.event || null,
     objectif1DateExacte: profile.objectifs[0]?.dateExacte || null,
     objectif1Categorie: profile.objectifs[0]?.categorie || null,
+    objectif1Details: detailsJson(profile.objectifs[0]),
     objectif2Type: profile.objectifs[1]?.type || null,
     objectif2SousCat: profile.objectifs[1]?.sousCat || null,
     objectif2Deadline: profile.objectifs[1]?.deadline || null,
@@ -351,6 +367,7 @@ async function persistEcmProfile(profile: EcmProfileCookie): Promise<void> {
     objectif2Event: profile.objectifs[1]?.event || null,
     objectif2DateExacte: profile.objectifs[1]?.dateExacte || null,
     objectif2Categorie: profile.objectifs[1]?.categorie || null,
+    objectif2Details: detailsJson(profile.objectifs[1]),
     programme: profile.programmePrincipal,
     // Pas de niveau global dédié dans le nouveau modèle — repris du 1er créneau
     // configuré sur la semaine type, sinon vide.
@@ -408,17 +425,34 @@ function objectifFromRow(
   legacyType: string | null,
   dateExacte?: string | null,
   categorie?: string | null,
+  details?: unknown,
 ): EcmObjectifDetail | null {
   const resolvedType = type ?? legacyType;
   if (!resolvedType) return null;
+  const d = (details && typeof details === "object" ? details : {}) as { axes?: string[]; fiche?: Record<string, string> };
+  // Profils existants avec un seul axe : migrés en liste d'un élément.
+  const axes = Array.isArray(d.axes) && d.axes.length > 0 ? d.axes : sousCat && resolvedType.includes("performances") ? [sousCat] : undefined;
+  const fiche = { ...(d.fiche ?? {}) };
+  let date = dateExacte ?? "";
+  // « Dans 3 mois » déjà enregistré : converti en date exacte approximative, à confirmer.
+  if (event && !date && deadline) {
+    const approx = legacyDeadlineToDate(deadline, todayKey());
+    if (approx) {
+      date = approx;
+      fiche._approx = "1";
+      fiche._saisie = todayKey();
+    }
+  }
   return {
     type: resolvedType,
     sousCat: sousCat ?? "",
     deadline: deadline ?? "",
     priorite: priorite ?? "",
     event: event ?? "",
-    dateExacte: dateExacte ?? "",
+    dateExacte: date,
     categorie: categorie ?? "",
+    ...(axes ? { axes } : {}),
+    ...(Object.keys(fiche).length > 0 ? { fiche } : {}),
   };
 }
 
@@ -435,8 +469,8 @@ function profileRowToCookie(row: Profile): EcmProfileCookie {
     taille: String(row.taille),
     poids: String(row.poids),
     objectifs: [
-      objectifFromRow(row.objectif1Type, row.objectif1SousCat, row.objectif1Deadline, row.objectif1Priorite, row.objectif1Event, row.objectif, row.objectif1DateExacte, row.objectif1Categorie),
-      objectifFromRow(row.objectif2Type, row.objectif2SousCat, row.objectif2Deadline, row.objectif2Priorite, row.objectif2Event, row.objectif2, row.objectif2DateExacte, row.objectif2Categorie),
+      objectifFromRow(row.objectif1Type, row.objectif1SousCat, row.objectif1Deadline, row.objectif1Priorite, row.objectif1Event, row.objectif, row.objectif1DateExacte, row.objectif1Categorie, row.objectif1Details),
+      objectifFromRow(row.objectif2Type, row.objectif2SousCat, row.objectif2Deadline, row.objectif2Priorite, row.objectif2Event, row.objectif2, row.objectif2DateExacte, row.objectif2Categorie, row.objectif2Details),
     ].filter((v): v is EcmObjectifDetail => v !== null),
     programmePrincipal: row.programme,
     weekCycle: (row.weekCycle as unknown as WeekCycle | null) ?? emptyWeekCycleRow(),

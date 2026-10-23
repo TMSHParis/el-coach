@@ -11,6 +11,8 @@ import type { EcmProfileCookie, EcmObjectifDetail, WeekCycle, WeekCycleDay, Week
 import { BackHomeButton } from "@/components/back-home-button";
 import { getTemplate } from "@/lib/programming";
 import styles from "./ecm-signup.module.css";
+import fx from "./event-fiche.module.css";
+import { EventSection } from "./event-fiche";
 
 function emptyWeekCycle(): WeekCycle {
   const empty = (): WeekCycleDay => ({ repos: false, slots: [] });
@@ -138,7 +140,9 @@ export const OBJECTIF_CARDS: ObjectifCardConfig[] = [
   },
 ];
 
-const HYROX_CATEGORIES = ["Open · Solo", "Open · Doubles", "Pro · Solo", "Pro · Doubles"];
+const MAX_AXES = 3;
+const AXIS_TOUT = "🌟 Tout";
+const isPerfCard = (card: ObjectifCardConfig) => card.title === "Améliorer mes performances sportives";
 
 function emptyObjectifDetail(card: ObjectifCardConfig): EcmObjectifDetail {
   return { type: `${card.icon} ${card.title}`, sousCat: "", deadline: "", priorite: "", event: "" };
@@ -149,11 +153,20 @@ export function ObjectifsPicker({
   values,
   onChange,
   onExceed,
+  programme,
+  onProgramme,
+  onPickOtherProgramme,
 }: {
   values: EcmObjectifDetail[];
   onChange: (next: EcmObjectifDetail[]) => void;
   onExceed: () => void;
+  /** Programme principal actuel et réglage : la carte « Programme conseillé » propose, l'utilisateur confirme. */
+  programme?: string;
+  onProgramme?: (label: string) => void;
+  onPickOtherProgramme?: () => void;
 }) {
+  const [axisMsg, setAxisMsg] = useState<string | null>(null);
+
   function patch(cardType: string, fields: Partial<EcmObjectifDetail>) {
     onChange(values.map((v) => (v.type === cardType ? { ...v, ...fields } : v)));
   }
@@ -171,6 +184,26 @@ export function ObjectifsPicker({
     onChange([...values, emptyObjectifDetail(card)]);
   }
 
+  /** Axes de progression : 3 maximum, « Tout » exclusif, l'ordre de sélection est conservé. */
+  function toggleAxis(type: string, entry: EcmObjectifDetail, axis: string) {
+    const current = entry.axes ?? (entry.sousCat ? [entry.sousCat] : []);
+    let next: string[];
+    if (current.includes(axis)) {
+      next = current.filter((a) => a !== axis);
+    } else if (axis === AXIS_TOUT) {
+      next = [AXIS_TOUT];
+    } else {
+      const base = current.filter((a) => a !== AXIS_TOUT);
+      if (base.length >= MAX_AXES) {
+        setAxisMsg("3 axes maximum. Retire-en un, ou choisis Tout.");
+        return;
+      }
+      next = [...base, axis];
+    }
+    setAxisMsg(null);
+    patch(type, { axes: next, sousCat: next[0] ?? "" });
+  }
+
   return (
     <div className={cx(styles.qc, styles.on)}>
       <div className={styles.ql}>
@@ -185,6 +218,10 @@ export function ObjectifsPicker({
         const type = `${card.icon} ${card.title}`;
         const entry = values.find((v) => v.type === type);
         const selected = Boolean(entry);
+        const perf = isPerfCard(card);
+        const competition = perf && entry?.priorite === "Compétition";
+        const axes = entry ? entry.axes ?? (entry.sousCat ? [entry.sousCat] : []) : [];
+        const full = axes.length >= MAX_AXES;
         return (
           <div key={type} className={cx(styles.objCard, selected && styles.sel)}>
             <div className={styles.objCardHeader} onClick={() => toggleCard(card, type)}>
@@ -194,113 +231,119 @@ export function ObjectifsPicker({
             </div>
             {entry && (
               <div className={styles.objBody}>
-                <span className={styles.subLabel}>{card.subLabel}</span>
                 {card.isEvent ? (
+                  <EventSection
+                    entry={entry}
+                    patch={(fields) => patch(type, fields)}
+                    heading="Quel événement ?"
+                    programme={programme}
+                    onProgramme={onProgramme}
+                    onPickOtherProgramme={onPickOtherProgramme}
+                  />
+                ) : perf ? (
                   <>
-                    <div className={styles.prepGrid}>
+                    <div className={fx.axisHead}>
+                      <span className={styles.subLabel}>{card.subLabel}</span>
+                      <span className={fx.axisCount}>
+                        {axes.length} sur {MAX_AXES}
+                      </span>
+                    </div>
+                    <div className={fx.axisHelp}>Choisis jusqu&apos;à 3 axes, ou Tout.</div>
+                    <div className={fx.axisGrid}>
+                      {card.subcats.map((s) => {
+                        const on = axes.includes(s);
+                        const dim = !on && full && s !== AXIS_TOUT;
+                        return (
+                          <button
+                            key={s}
+                            type="button"
+                            className={cx(fx.axis, on && fx.axisOn, dim && fx.axisDim)}
+                            aria-pressed={on}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleAxis(type, entry, s);
+                            }}
+                          >
+                            <span>{s}</span>
+                            {on && <span className={fx.axisCheck}>✓</span>}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {axisMsg && <div className={fx.axisMsg}>{axisMsg}</div>}
+                  </>
+                ) : (
+                  <>
+                    <span className={styles.subLabel}>{card.subLabel}</span>
+                    <div className={styles.subcats}>
                       {card.subcats.map((s) => (
                         <div
                           key={s}
-                          className={cx(styles.prepItem, entry.sousCat === s && styles.sel)}
+                          className={cx(styles.subcat, entry.sousCat === s && styles.sel)}
                           onClick={(e) => {
                             e.stopPropagation();
-                            patch(type, { sousCat: s, event: s === "Autre" ? "" : s });
+                            patch(type, { sousCat: s });
                           }}
                         >
-                          <span className={styles.prepIcon}>{card.subcatIcons?.[s] ?? "•"}</span>
                           {s}
                         </div>
                       ))}
                     </div>
-                    {entry.event === "Hyrox" && (
-                      <div className={styles.prepAutre} onClick={(e) => e.stopPropagation()}>
-                        <label className={styles.subLabel}>Date de la course</label>
-                        <input
-                          type="date"
-                          value={entry.dateExacte ?? ""}
-                          onChange={(e) => patch(type, { dateExacte: e.target.value })}
-                        />
-                        <label className={styles.subLabel}>Catégorie</label>
-                        <div className={styles.deadlineOpts}>
-                          {HYROX_CATEGORIES.map((c) => (
-                            <div
-                              key={c}
-                              className={cx(styles.dlBtn, entry.categorie === c && styles.sel)}
-                              onClick={() => patch(type, { categorie: c })}
+                  </>
+                )}
+                {!card.isEvent && (
+                  <div className={fx.metaStack}>
+                    {!competition && (
+                      <div className={fx.metaGroup}>
+                        <label>{card.deadlineLabel}</label>
+                        <div className={fx.pills}>
+                          {card.deadlineOptions.map((d) => (
+                            <button
+                              key={d}
+                              type="button"
+                              className={entry.deadline === d ? fx.pillOn : fx.pill}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                patch(type, { deadline: d });
+                              }}
                             >
-                              <div className={styles.dlDot} />
-                              {c}
-                            </div>
+                              {d}
+                            </button>
                           ))}
                         </div>
                       </div>
                     )}
-                    {entry.sousCat === "Autre" && (
-                      <div className={styles.prepAutre}>
-                        <input
-                          type="text"
-                          placeholder="Décris ton événement..."
-                          value={entry.event}
-                          onClick={(e) => e.stopPropagation()}
-                          onChange={(e) => patch(type, { event: e.target.value })}
-                        />
+                    <div className={fx.metaGroup}>
+                      <label>{card.prioLabel}</label>
+                      <div className={fx.pills}>
+                        {card.prioOptions.map((p) => (
+                          <button
+                            key={p}
+                            type="button"
+                            className={entry.priorite === p ? fx.pillOn : fx.pill}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              // Quitter « Compétition » efface l'événement de la fiche.
+                              patch(type, p === "Compétition" ? { priorite: p } : { priorite: p, event: "", dateExacte: "", categorie: "", fiche: {} });
+                            }}
+                          >
+                            {p}
+                          </button>
+                        ))}
                       </div>
-                    )}
-                  </>
-                ) : (
-                  <div className={styles.subcats}>
-                    {card.subcats.map((s) => (
-                      <div
-                        key={s}
-                        className={cx(styles.subcat, entry.sousCat === s && styles.sel)}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          patch(type, { sousCat: s });
-                        }}
-                      >
-                        {s}
-                      </div>
-                    ))}
+                    </div>
                   </div>
                 )}
-                <div className={styles.objMeta}>
-                  <div className={styles.objMetaGroup}>
-                    <label>{card.deadlineLabel}</label>
-                    <div className={styles.deadlineOpts}>
-                      {card.deadlineOptions.map((d) => (
-                        <div
-                          key={d}
-                          className={cx(styles.dlBtn, entry.deadline === d && styles.sel)}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            patch(type, { deadline: d });
-                          }}
-                        >
-                          <div className={styles.dlDot} />
-                          {d}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  <div className={styles.objMetaGroup}>
-                    <label>{card.prioLabel}</label>
-                    <div className={styles.prioOpts}>
-                      {card.prioOptions.map((p) => (
-                        <div
-                          key={p}
-                          className={cx(styles.prBtn, entry.priorite === p && styles.sel)}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            patch(type, { priorite: p });
-                          }}
-                        >
-                          <div className={styles.prDot} />
-                          {p}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
+                {competition && (
+                  <EventSection
+                    entry={entry}
+                    patch={(fields) => patch(type, { ...fields, priorite: "Compétition" })}
+                    heading="Quelle compétition ?"
+                    programme={programme}
+                    onProgramme={onProgramme}
+                    onPickOtherProgramme={onPickOtherProgramme}
+                  />
+                )}
               </div>
             )}
           </div>
@@ -533,7 +576,7 @@ const WEEK_DAY_LABELS: Record<WeekCycleDayKey, string> = {
 /** Programme ECM de référence — un champ dédié, séparé de la semaine type (pilote programSlug/profile.programme). */
 export function ProgrammePrincipalPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   return (
-    <div className={styles.qc}>
+    <div className={styles.qc} id="programme-principal">
       <div className={styles.ql}>
         <i>⚡</i> Programme principal
       </div>

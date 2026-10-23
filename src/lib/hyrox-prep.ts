@@ -3,7 +3,7 @@
 // Spécifique → Affûtage → Course. Durées et volumes viennent de coach-params.ts.
 
 import type { Block, Day } from "./programming";
-import { COACH_PARAMS } from "./coach-params";
+import { planFor } from "./competition-plan";
 
 export type HyroxPhase = "construction" | "specifique" | "affutage" | "course";
 
@@ -28,54 +28,31 @@ export type HyroxPrep = {
   niveauVise: string | null;
 };
 
-const DAY_MS = 86_400_000;
-const parse = (k: string) => {
-  const [y, m, d] = k.split("-").map(Number);
-  return new Date(y, m - 1, d).getTime();
-};
-
-/** Volume selon le niveau visé : « Finir » = moins de volume ; « Performer » / « Podium » = volume complet. */
-export const HYROX_LEVEL_FACTOR: Record<string, number> = { Finir: 0.9, Performer: 1, Podium: 1 };
-
-/** Objectif Hyrox exploitable : événement Hyrox + date exacte à venir. */
+/** Objectif Hyrox exploitable : événement Hyrox + date exacte à venir. Les phases viennent du plan générique (competition-plan). */
 export function hyroxPrepFor(
-  objectifs: { event?: string | null; dateExacte?: string | null; categorie?: string | null; priorite?: string | null }[],
+  objectifs: { event?: string | null; dateExacte?: string | null; categorie?: string | null; priorite?: string | null; fiche?: Record<string, string> }[],
   todayKey: string,
 ): HyroxPrep | null {
   const obj = objectifs.find((o) => o.event === "Hyrox" && o.dateExacte);
   if (!obj?.dateExacte) return null;
-  const daysToRace = Math.round((parse(obj.dateExacte) - parse(todayKey)) / DAY_MS);
-  if (daysToRace < 0) return null;
-  const weeksOut = Math.floor(daysToRace / 7);
-  const { hyroxSpecificWeeks: spec, hyroxTaperWeeks: taper } = COACH_PARAMS;
-
-  let phase: HyroxPhase;
-  let weekInPhase: number | null = null;
-  let phaseWeeks: number | null = null;
-  let volume = 1;
-  if (weeksOut === 0) {
-    phase = "course";
-  } else if (weeksOut <= taper) {
-    phase = "affutage";
-    phaseWeeks = taper;
-    weekInPhase = taper - weeksOut + 1;
-    volume = COACH_PARAMS.hyroxTaperVolume[`w${weeksOut}`] ?? 1;
-  } else if (weeksOut <= taper + spec) {
-    phase = "specifique";
-    phaseWeeks = spec;
-    weekInPhase = taper + spec - weeksOut + 1;
-  } else {
-    phase = "construction";
-  }
-  const levelFactor = HYROX_LEVEL_FACTOR[obj.priorite ?? ""] ?? 1;
+  const plan = planFor({
+    event: "Hyrox",
+    dateExacte: obj.dateExacte,
+    todayKey,
+    fiche: obj.fiche,
+    niveau: obj.priorite,
+    savedKey: obj.fiche?._saisie,
+  });
+  if (!plan) return null;
+  const PHASE_OF = { base: "construction", specifique: "specifique", affutage: "affutage", evenement: "course" } as const;
   return {
     raceDate: obj.dateExacte,
-    daysToRace,
-    weeksOut,
-    phase,
-    weekInPhase,
-    phaseWeeks,
-    volumeFactor: Math.round(volume * levelFactor * 100) / 100,
+    daysToRace: plan.daysToEvent,
+    weeksOut: plan.weeksOut,
+    phase: PHASE_OF[plan.current],
+    weekInPhase: plan.weekInPhase,
+    phaseWeeks: plan.currentPhaseWeeks,
+    volumeFactor: plan.volumeFactor,
     categorie: obj.categorie ?? null,
     niveauVise: obj.priorite ?? null,
   };
@@ -94,7 +71,7 @@ export function phaseSentence(prep: HyroxPrep): string {
   }
 }
 
-function scaleVolume(day: Day, factor: number): Day {
+export function scaleVolume(day: Day, factor: number): Day {
   if (factor >= 1) return day;
   const blocks: Block[] = day.blocks.map((b) => ({
     ...b,

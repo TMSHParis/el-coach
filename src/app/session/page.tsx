@@ -15,6 +15,8 @@ import { applyDaySubstitutions, NO_IMPACT_COOKIE, ZONE_COOKIE } from "@/lib/subs
 import { getChainLevels } from "@/lib/chain-progress";
 import { homeLevelForToday } from "@/lib/home-equipment";
 import { applyBlockToDay } from "@/lib/training-themes";
+import { applyCompetition } from "@/lib/competition-day";
+import { effectiveTheme } from "@/lib/competition";
 import { effectiveWeekCycle } from "@/lib/week-overrides";
 import { toDisplayBlocks, defaultRuntimeFormat, defaultDurationMinutes } from "@/lib/session-format";
 import { minutesToHM } from "../dashboard/dashboard-helpers";
@@ -144,13 +146,13 @@ export default async function SessionPage({
   const themedBase = activeBlock
     ? applyBlockToDay(baseDay, {
         slug: demo.programSlug,
-        theme: activeBlock.theme,
+        theme: effectiveTheme(activeBlock.theme, profile?.programme, profile, todayKey()),
         week: activeBlock.info,
         weakPoints: activeBlock.weakPoints,
         dayNumber: today.dayNumber,
       })
     : baseDay;
-  const leveledBase = applyLevel(themedBase, levelForToday(effCycle as Parameters<typeof levelForToday>[0], demo.programSlug, profile?.niveau, today.dayNumber));
+  const leveledBase = applyLevel(applyCompetition(themedBase, profile, demo.programSlug, todayKey()).day, levelForToday(effCycle as Parameters<typeof levelForToday>[0], demo.programSlug, profile?.niveau, today.dayNumber));
   // At Home : cran actuel des chaînes de progression et niveau de matériel du jour (2.7).
   const homeBase =
     userId && demo.programSlug === "at-home"

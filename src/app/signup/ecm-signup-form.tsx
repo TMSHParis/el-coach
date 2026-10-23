@@ -335,6 +335,9 @@ export function EcmSignupForm({ defaultProgramSlug }: { defaultProgramSlug: stri
               values={profile.objectifs}
               onChange={(next) => setProfile({ objectifs: next })}
               onExceed={onObjectifExceed}
+              programme={profile.programmePrincipal}
+              onProgramme={(v) => setProfile({ programmePrincipal: v })}
+              onPickOtherProgramme={() => ecmGo(1)}
             />
             {objError && (
               <div style={{ marginTop: 6, fontSize: "0.8rem", color: "var(--error)" }}>2 objectifs maximum</div>

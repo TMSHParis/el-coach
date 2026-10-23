@@ -73,7 +73,9 @@ import { applyChains } from "@/lib/chains";
 import { applyDaySubstitutions, NO_IMPACT_COOKIE, ZONE_COOKIE } from "@/lib/substitutions";
 import { getChainLevels } from "@/lib/chain-progress";
 import { homeLevelForToday } from "@/lib/home-equipment";
-import { PHASE_LABEL, applyPrepToDay, hyroxPrepFor, phaseSentence, type HyroxPhase } from "@/lib/hyrox-prep";
+import { applyCompetition } from "@/lib/competition-day";
+import { competitionPlanFor, effectiveTheme, objectifsOf } from "@/lib/competition";
+import { CompetitionCard } from "./competition-card";
 import { loadsLine } from "@/lib/hyrox-reference";
 import { applyBlockToDay, themeLabel } from "@/lib/training-themes";
 import { effectiveWeekCycle } from "@/lib/week-overrides";
@@ -190,24 +192,21 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const themedBase = activeBlock
     ? applyBlockToDay(baseDay, {
         slug: programSlug,
-        theme: activeBlock.theme,
+        theme: effectiveTheme(activeBlock.theme, profile?.programme, profile, todayKey()),
         week: activeBlock.info,
         weakPoints: activeBlock.weakPoints,
         dayNumber: today.dayNumber,
       })
     : baseDay;
-  // Mode préparation de compétition Hyrox (1.9) : automatique d'après la date de course.
-  const hyroxPrep =
-    profile && programSlug === "hyrox-pure"
-      ? hyroxPrepFor(
-          [
-            { event: profile.objectif1Event, dateExacte: profile.objectif1DateExacte, categorie: profile.objectif1Categorie, priorite: profile.objectif1Priorite },
-            { event: profile.objectif2Event, dateExacte: profile.objectif2DateExacte, categorie: profile.objectif2Categorie, priorite: profile.objectif2Priorite },
-          ],
-          todayKey(),
-        )
-      : null;
-  const prepBase = hyroxPrep ? applyPrepToDay(themedBase, hyroxPrep) : themedBase;
+  // Mode compétition (partie 3) : préparation de l'événement d'après la date (Hyrox : phases dédiées).
+  const competition = applyCompetition(themedBase, profile, programSlug, todayKey());
+  const hyroxPrep = competition.hyroxPrep;
+  const prepBase = competition.day;
+  const competitionPlan = competitionPlanFor(profile, todayKey());
+  const weekDaysForCard = today.template.weeks[0].days
+    .slice()
+    .sort((x, y) => x.day - y.day)
+    .map((d) => ({ jour: ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"][d.day - 1] ?? `Jour ${d.day}`, titre: d.blocks.length > 0 ? d.focus : "Repos" }));
   const leveledBase = applyLevel(prepBase, levelForToday(effCycle as Parameters<typeof levelForToday>[0], programSlug, profile?.niveau, today.dayNumber));
   // At Home : cran actuel des chaînes de progression et niveau de matériel du jour (2.7).
   const homeBase =
@@ -532,54 +531,16 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           ))}
 
           {/* ACTIVITÉ DU JOUR — titre de section (doc H.2), bloc "Prévu aujourd'hui" inchangé */}
-          {hyroxPrep && (
-            <div className={styles.upcomingCard}>
-              <div className={styles.upcomingHead}>
-                <div className={styles.l}>
-                  <span>🏁</span>
-                  <span className={styles.txt}>{hyroxPrep.phase === "course" ? "SEMAINE DE COURSE" : "PRÉPARATION HYROX"}</span>
-                </div>
-                <span className={styles.name}>
-                  {hyroxPrep.phase === "course"
-                    ? hyroxPrep.daysToRace === 0
-                      ? "Jour J"
-                      : `J−${hyroxPrep.daysToRace}`
-                    : `Dans ${hyroxPrep.weeksOut} semaine${hyroxPrep.weeksOut > 1 ? "s" : ""}`}
-                </span>
-              </div>
-              <div className={styles.upcomingSub}>
-                <span className={styles.name}>
-                  Hyrox{hyroxPrep.categorie ? ` · ${hyroxPrep.categorie}` : ""} ·{" "}
-                  {new Date(hyroxPrep.raceDate).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}
-                  {hyroxPrep.niveauVise ? ` · Objectif : ${hyroxPrep.niveauVise}` : ""}
-                </span>
-              </div>
-              <div style={{ display: "flex", gap: 4, margin: "10px 0" }}>
-                {([["construction", 4], ["specifique", 4], ["affutage", 4], ["course", 1]] as [HyroxPhase, number][]).map(([ph, w]) => {
-                  const order: HyroxPhase[] = ["construction", "specifique", "affutage", "course"];
-                  const past = order.indexOf(ph) < order.indexOf(hyroxPrep.phase);
-                  const current = ph === hyroxPrep.phase;
-                  return (
-                    <div key={ph} style={{ flex: w }}>
-                      <div style={{ height: 6, borderRadius: 3, background: current ? "var(--yellow)" : past ? "#666" : "#2a2a2a" }} />
-                      <div style={{ fontSize: 9, letterSpacing: 1, marginTop: 4, color: current ? "#fff" : "var(--m)", fontWeight: current ? 700 : 400 }}>
-                        {PHASE_LABEL[ph]}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-              {hyroxPrep.phase !== "course" && hyroxPrep.weekInPhase && hyroxPrep.phaseWeeks && (
-                <div className={styles.upcomingNote}>
-                  {PHASE_LABEL[hyroxPrep.phase]} · semaine {hyroxPrep.weekInPhase} sur {hyroxPrep.phaseWeeks}
-                  {hyroxPrep.phase === "affutage" ? ` · volume −${Math.round((1 - hyroxPrep.volumeFactor) * 100)} %` : ""}
-                </div>
-              )}
-              <div className={styles.upcomingNote}>{phaseSentence(hyroxPrep)}</div>
-              {hyroxPrep.phase === "course" && hyroxPrep.daysToRace === 0 && (
-                <div className={styles.upcomingNote}>JOUR J · {loadsLine(profile?.genre, hyroxPrep.categorie)}</div>
-              )}
-            </div>
+          {competitionPlan && (
+            <CompetitionCard
+              plan={competitionPlan}
+              hyroxPrep={hyroxPrep}
+              categorie={competitionPlan.categorie}
+              niveauVise={competitionPlan.niveauVise}
+              objectifTemps={objectifsOf(profile).find((o) => o.event === competitionPlan.event)?.fiche.objectifTemps}
+              weekDays={weekDaysForCard}
+              loads={competitionPlan.event === "Hyrox" ? loadsLine(profile?.genre, competitionPlan.categorie) : undefined}
+            />
           )}
           <div className={styles.sl}>Activité du jour</div>
 

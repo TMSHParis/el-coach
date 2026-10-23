@@ -34,6 +34,11 @@ model Profile {
   objectif1Categorie  String? @map("objectif_1_categorie")
   objectif2DateExacte String? @map("objectif_2_date_exacte")
   objectif2Categorie  String? @map("objectif_2_categorie")
+  // Partie 3 : axes de progression ordonnés (3 max) et fiche de l'événement (champs propres à chaque sport).
+  objectif1Details    Json?   @map("objectif_1_details")
+  objectif2Details    Json?   @map("objectif_2_details")
+  // Partie 3 (mission 7) : alternance de deux semaines A / B — { a, b, anchor (lundi de la semaine A) }.
+  weekAlternance      Json?   @map("week_alternance")
   // Programme "principal" (compat : lu partout où un seul programme est attendu).
   programme         String
   // Programmes actifs simultanés (page /settings · "Choix de programme"). Vide

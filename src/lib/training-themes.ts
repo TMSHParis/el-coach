@@ -77,18 +77,54 @@ export function themeLabel(slug: string, id: string): string {
   return themesFor(slug).find((t) => t.id === id)?.label ?? id;
 }
 
-/** 1.7 — thème conseillé pour Volume Block d'après le premier objectif. */
-export function suggestVolumeBlockTheme(obj: { type?: string | null; sousCat?: string | null; priorite?: string | null } | null): string {
+/**
+ * Table « axe -> thème » par programme (partie 3, 8). Paramètre configuré par le coach :
+ * seul Volume Block a des valeurs de départ ; les autres programmes restent vides tant
+ * qu'un coach ne les a pas renseignées. Clés : fragment du libellé de l'axe, en minuscules.
+ */
+export const AXIS_THEME: Record<string, Record<string, string>> = {
+  "volume-block-hypertrophy": {
+    force: "force",
+    explosivit: "force",
+    endurance: "endurance_musculaire",
+    cardio: "hypertrophie",
+    mobilit: "hypertrophie",
+    tout: "hypertrophie",
+  },
+};
+
+export type ObjectifForTheme = { type?: string | null; sousCat?: string | null; priorite?: string | null; axes?: string[] } | null;
+
+/** Thème d'un axe pour un programme ; « Tout » donne le thème par défaut du programme. */
+export function themeForAxis(slug: string, axis: string): string | null {
+  const a = axis.toLowerCase();
+  if (a.includes("tout")) return defaultThemeFor(slug);
+  const table = AXIS_THEME[slug];
+  if (!table) return null;
+  const key = Object.keys(table).find((k) => a.includes(k));
+  return key ? table[key] : null;
+}
+
+/**
+ * Thème conseillé d'après le premier objectif (1.7) puis, avec plusieurs axes, d'après
+ * l'axe du bloc suivant : le 1er axe pour le 1er bloc, le 2e au bloc d'après, le 3e ensuite.
+ */
+export function suggestThemeForBlock(slug: string, obj: ObjectifForTheme, blockIndex = 0): string | null {
   const type = (obj?.type ?? "").toLowerCase();
-  const sub = (obj?.sousCat ?? "").toLowerCase();
   const prio = (obj?.priorite ?? "").toLowerCase();
-  if (type.includes("masse")) return prio.includes("force") ? "force" : "hypertrophie";
-  if (type.includes("recomposition")) return "hypertrophie";
   if (type.includes("performances")) {
-    if (sub.includes("endurance")) return "endurance_musculaire";
-    if (sub.includes("force") || sub.includes("explosivit")) return "force";
+    const axes = obj?.axes && obj.axes.length > 0 ? obj.axes : obj?.sousCat ? [obj.sousCat] : [];
+    if (axes.length > 0) return themeForAxis(slug, axes[((blockIndex % axes.length) + axes.length) % axes.length]);
+    return null;
   }
+  if (slug !== "volume-block-hypertrophy") return null;
+  if (type.includes("masse")) return prio.includes("force") ? "force" : "hypertrophie";
   return "hypertrophie";
+}
+
+/** 1.7 — thème conseillé pour Volume Block d'après le premier objectif. */
+export function suggestVolumeBlockTheme(obj: ObjectifForTheme, blockIndex = 0): string {
+  return suggestThemeForBlock("volume-block-hypertrophy", obj, blockIndex) ?? "hypertrophie";
 }
 
 /** Mouvements proposés pour « Points faibles » (max 2) : libellé affiché → id du catalogue. */

@@ -2,13 +2,28 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { cx } from "@/app/signup/ecm-shared";
 import { COACH_PARAMS } from "@/lib/coach-params";
+import { COMPETITION_BLOCKED_THEMES } from "@/lib/competition-params";
 import { MAX_WEAK_POINTS, VOLUME_BLOCK_MARKS, WEAK_POINT_OPTIONS, themeLabel } from "@/lib/training-themes";
 import { getThemeScreenData, startTrainingBlock, type ThemeScreenData } from "../theme-actions";
-import styles from "@/app/signup/ecm-signup.module.css";
+import styles from "./theme-screen.module.css";
 
-/** « CHOISIS TON THÈME » / « CHOISIS TA FILIÈRE » (Volume Block) — écrans 2.2 et 2.9. */
+const WEEK_OPTIONS = COACH_PARAMS.blockWeeksOptions as readonly number[];
+
+/** Barre de N semaines de même largeur : faites en accent, à venir en gris foncé, décharge en gris plus clair. */
+function WeekBar({ weeks, done }: { weeks: number; done: number }) {
+  return (
+    <div className={styles.bar}>
+      {Array.from({ length: weeks }, (_, i) => {
+        const n = i + 1;
+        const last = n === weeks;
+        return <div key={n} className={`${styles.seg} ${last ? styles.segDeload : n <= done ? styles.segDone : ""}`} />;
+      })}
+    </div>
+  );
+}
+
+/** « Mon bloc d'entraînement » : choix du thème et de la durée du bloc (mission 6) et écran de fin de bloc (mission 5, 8). */
 export function ThemeScreen() {
   const router = useRouter();
   const [data, setData] = useState<ThemeScreenData | null>(null);
@@ -16,14 +31,17 @@ export function ThemeScreen() {
   const [weeks, setWeeks] = useState<number>(COACH_PARAMS.blockWeeksDefault);
   const [weak, setWeak] = useState<string[]>([]);
   const [step, setStep] = useState<"theme" | "weak">("theme");
+  const [choosing, setChoosing] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     void getThemeScreenData().then((d) => {
       setData(d);
       if (d) {
-        setTheme(d.suggested && d.current.theme === d.suggested ? d.current.theme : d.suggested ?? d.current.theme);
-        setWeeks(d.current.weeks);
+        // Bloc terminé : le thème conseillé suivant est présélectionné ; sinon le thème du bloc en cours.
+        setTheme(d.current.finished && d.suggested ? d.suggested : d.current.theme);
+        setWeeks(d.current.finished ? COACH_PARAMS.blockWeeksDefault : d.current.weeks);
         setWeak(d.current.weakPoints);
       }
     });
@@ -31,6 +49,7 @@ export function ThemeScreen() {
 
   if (!data) return <p style={{ padding: 24 }}>Chargement…</p>;
   const volumeBlock = data.slug === "volume-block-hypertrophy";
+  const blocked = (id: string) => data.competition && COMPETITION_BLOCKED_THEMES.some((t) => t.toLowerCase().replace("é", "e") === id);
 
   async function validate(weakPoints: string[]) {
     if (!data) return;
@@ -38,141 +57,173 @@ export function ThemeScreen() {
     const res = await startTrainingBlock({ slug: data.slug, theme, weeks, weakPoints });
     setBusy(false);
     if (res.ok) router.push("/profile/edit");
+    else setError("Impossible d'enregistrer ce bloc.");
   }
+
+  const back = (
+    <button type="button" className={styles.back} onClick={() => (step === "weak" ? setStep("theme") : router.push("/profile/edit"))}>
+      ← Retour
+    </button>
+  );
 
   if (step === "weak") {
     return (
-      <div style={{ padding: 20, display: "flex", flexDirection: "column", gap: 12 }}>
-        <h2 style={{ letterSpacing: 2 }}>QUE VEUX-TU TRAVAILLER ?</h2>
-        <div className={styles.opts}>
+      <div className={styles.root}>
+        {back}
+        <div className={styles.weakTitle}>QUE VEUX-TU TRAVAILLER ?</div>
+        <div className={styles.pills}>
           {WEAK_POINT_OPTIONS.map((o) => {
             const on = weak.includes(o.movementId);
             return (
               <button
                 key={o.movementId}
                 type="button"
-                className={cx(styles.opt, on && styles.sel)}
-                onClick={() =>
-                  setWeak((w) => (on ? w.filter((x) => x !== o.movementId) : w.length < MAX_WEAK_POINTS ? [...w, o.movementId] : w))
-                }
+                className={on ? styles.wpOn : styles.wp}
+                aria-pressed={on}
+                onClick={() => setWeak((w) => (on ? w.filter((x) => x !== o.movementId) : w.length < MAX_WEAK_POINTS ? [...w, o.movementId] : w))}
               >
                 {o.label}
               </button>
             );
           })}
         </div>
-        <div className={styles.weekHint}>
+        <div className={styles.counter}>
           {weak.length} sélectionné{weak.length > 1 ? "s" : ""} sur {MAX_WEAK_POINTS} maximum
         </div>
-        <button type="button" className={styles.btnAddSport} disabled={busy || weak.length === 0} onClick={() => validate(weak)}>
-          VALIDER
-        </button>
+        {error && <div className={styles.error}>{error}</div>}
+        <div className={styles.footer}>
+          <button
+            type="button"
+            className={styles.validate}
+            disabled={busy}
+            onClick={() => (weak.length === 0 ? setError("Choisis au moins un mouvement.") : validate(weak))}
+          >
+            <span className={styles.validateLabel}>Valider</span>
+            <span className={styles.validateSub}>Thème {themeLabel(data.slug, theme)} · {weeks} semaines</span>
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Bloc terminé : écran de fin de bloc avant le choix du thème (le bouton ouvre l'écran de choix).
+  if (data.current.finished && !choosing) {
+    const label = themeLabel(data.slug, data.current.theme).toUpperCase();
+    const next = data.suggested ? themeLabel(data.slug, data.suggested) : null;
+    return (
+      <div className={styles.root}>
+        {back}
+        <h1 className={styles.title}>Mon bloc d&apos;entraînement</h1>
+        <div className={styles.card}>
+          <div className={styles.cardTop}>
+            <span className={styles.cardTitle}>BLOC TERMINÉ : {label}</span>
+            <span className={styles.cardWeek}>{data.current.weeks} semaines</span>
+          </div>
+          <WeekBar weeks={data.current.weeks} done={data.current.weeks - 1} />
+          <div className={styles.endText}>
+            {data.current.weeks - 1} semaines de progression, 1 semaine de décharge. Que veux-tu travailler ensuite ?
+            {next ? ` Thème conseillé : ${next}.` : ""}
+          </div>
+          <button type="button" className={styles.cta} onClick={() => setChoosing(true)}>
+            CHOISIR LE BLOC SUIVANT
+          </button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div style={{ padding: 20, display: "flex", flexDirection: "column", gap: 14 }}>
-      {/* 2.1 — carte « Bloc en cours » */}
-      <div className={cx(styles.qc, styles.on)}>
-        <div className={styles.ql}>
-          BLOC EN COURS : {themeLabel(data.slug, data.current.theme).toUpperCase()}
-          <span style={{ marginLeft: "auto", fontSize: 12 }}>
-            Semaine {data.current.week} sur {data.current.weeks}
+    <div className={styles.root}>
+      {back}
+      {/* Carte « Bloc en cours » */}
+      <div className={styles.card}>
+        <div className={styles.cardTop}>
+          <span className={styles.cardTitle}>BLOC EN COURS : {themeLabel(data.slug, data.current.theme).toUpperCase()}</span>
+          <span className={styles.cardWeek}>
+            SEMAINE {data.current.week} SUR {data.current.weeks}
           </span>
         </div>
-        <div style={{ display: "flex", gap: 4, margin: "8px 0" }}>
-          {Array.from({ length: data.current.weeks }, (_, i) => {
-            const n = i + 1;
-            const last = n === data.current.weeks;
-            return (
-              <div
-                key={n}
-                style={{
-                  flex: 1,
-                  height: 8,
-                  borderRadius: 4,
-                  background: last ? "#555" : n <= data.current.week ? "var(--accent, #C9A84C)" : "#222",
-                  opacity: last ? 0.7 : 1,
-                }}
-              />
-            );
-          })}
-        </div>
-        <div className={styles.weekHint}>
+        <WeekBar weeks={data.current.weeks} done={data.current.week} />
+        <div className={styles.legend}>
           Semaines 1 à {data.current.weeks - 1} de progression, semaine {data.current.weeks} de décharge
         </div>
-        {data.current.finished && (
-          <div style={{ marginTop: 8 }}>
-            <strong>BLOC TERMINÉ : {themeLabel(data.slug, data.current.theme).toUpperCase()}</strong>
-            <div className={styles.weekHint}>
-              {data.current.weeks - 1} semaines de progression, 1 semaine de décharge. Que veux-tu travailler ensuite ?
-            </div>
-          </div>
-        )}
       </div>
 
-      <h2 style={{ letterSpacing: 2 }}>{volumeBlock ? "CHOISIS TA FILIÈRE" : "CHOISIS TON THÈME"}</h2>
+      <h1 className={styles.title}>Mon bloc d&apos;entraînement</h1>
 
-      {volumeBlock && data.suggested && (
-        <div className={styles.weekHint}>
-          Thème conseillé : <strong>{themeLabel(data.slug, data.suggested).toUpperCase()}</strong>. Conseillé d&apos;après ton premier objectif
-          {data.objectifLabel ? ` (${data.objectifLabel.toLowerCase()})` : ""}. Tu pourras le changer à tout moment.
-        </div>
-      )}
-
+      <div className={styles.section} style={{ marginTop: 0 }}>
+        Choisis ton thème
+      </div>
       {data.competition && (
-        <div className={styles.weekHint}>
-          Mode Compétition activé d&apos;après ta date de course : les thèmes Force et Endurance ne s&apos;appliquent plus.
-        </div>
+        <p className={styles.notice}>
+          Mode compétition activé d&apos;après ta date : les thèmes Force, Endurance, Capacité et Haltérophilie ne s&apos;appliquent plus pendant la préparation.
+        </p>
       )}
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        {data.themes.map((t) => (
-          <div
-            key={t.id}
-            className={cx(styles.mo, theme === t.id && styles.sel)}
-            onClick={() => !t.auto && !data.competition && setTheme(t.id)}
-            style={t.auto || data.competition ? { opacity: 0.6 } : undefined}
-          >
-            <div className={styles.mc}>{theme === t.id ? "✓" : ""}</div>
-            <div>
-              <div>
-                <strong>{t.label}</strong>
-                {t.isDefault && !volumeBlock && <em> · par défaut</em>}
-                {volumeBlock && data.suggested === t.id && <em> · conseillé</em>}
-              </div>
-              <div className={styles.weekHint}>{t.description}</div>
-              {volumeBlock && (
-                <div className={styles.weekHint}>
-                  {VOLUME_BLOCK_MARKS[t.id]?.map((m) => `${m.label} : ${m.value}`).join(" · ")}
-                </div>
-              )}
+      <div className={styles.list}>
+        {data.themes.map((t) => {
+          const off = !!t.auto || blocked(t.id);
+          const on = theme === t.id;
+          return (
+            <div
+              key={t.id}
+              role="radio"
+              aria-checked={on}
+              aria-disabled={off}
+              tabIndex={0}
+              className={`${on ? styles.optOn : styles.opt} ${off ? styles.optOff : ""}`}
+              onClick={() => !off && setTheme(t.id)}
+              onKeyDown={(e) => {
+                if (!off && (e.key === "Enter" || e.key === " ")) setTheme(t.id);
+              }}
+            >
+              <span className={on ? styles.radioOn : styles.radio} />
+              <span className={styles.optBody}>
+                <span className={styles.optName}>
+                  {t.label}
+                  {t.isDefault && !volumeBlock && <span className={styles.pill}>par défaut</span>}
+                  {data.suggested === t.id && <span className={styles.pill}>conseillé</span>}
+                </span>
+                <span className={styles.optDesc} style={{ display: "block" }}>
+                  {t.description}
+                </span>
+                {volumeBlock && VOLUME_BLOCK_MARKS[t.id] && (
+                  <span className={styles.marks} style={{ display: "block" }}>
+                    {VOLUME_BLOCK_MARKS[t.id].map((m) => `${m.label} ${m.value}`).join(" · ")}
+                  </span>
+                )}
+              </span>
             </div>
-          </div>
+          );
+        })}
+      </div>
+
+      <div className={styles.section}>
+        Durée du bloc<span className={styles.sectionNote}>décharge comprise</span>
+      </div>
+      <div className={styles.seg3} role="radiogroup" aria-label="Durée du bloc">
+        {WEEK_OPTIONS.map((w) => (
+          <button key={w} type="button" role="radio" aria-checked={weeks === w} className={weeks === w ? styles.seg3On : styles.seg3Btn} onClick={() => setWeeks(w)}>
+            {w} semaines
+          </button>
         ))}
       </div>
 
-      <div>
-        <div className={styles.dl}>Durée du bloc, décharge comprise</div>
-        <div className={styles.opts}>
-          {COACH_PARAMS.blockWeeksOptions.map((w) => (
-            <button key={w} type="button" className={cx(styles.opt, weeks === w && styles.sel)} onClick={() => setWeeks(w)}>
-              {w} semaines
-            </button>
-          ))}
-        </div>
+      <div className={styles.warn}>
+        <span className={styles.warnIcon}>ⓘ</span>
+        <span>Changer de thème en cours de bloc interrompt ta progression actuelle.</span>
       </div>
+      {error && <div className={styles.error}>{error}</div>}
 
-      <button
-        type="button"
-        className={styles.btnAddSport}
-        disabled={busy}
-        onClick={() => (theme === "points_faibles" ? setStep("weak") : validate([]))}
-      >
-        VALIDER
-      </button>
-      <div className={styles.weekHint}>
-        Changer de thème en cours de bloc interrompt ta progression actuelle.
+      <div className={styles.footer}>
+        <button
+          type="button"
+          className={styles.validate}
+          disabled={busy}
+          onClick={() => (theme === "points_faibles" ? setStep("weak") : validate([]))}
+        >
+          <span className={styles.validateLabel}>Valider</span>
+          <span className={styles.validateSub}>Thème {themeLabel(data.slug, theme)} · {weeks} semaines</span>
+        </button>
       </div>
     </div>
   );

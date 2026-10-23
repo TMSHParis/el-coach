@@ -7,19 +7,23 @@ import { todayKey } from "@/lib/date-key";
 import { SPORT_LABEL_TO_SLUG } from "@/lib/ecm-programs";
 import { COACH_PARAMS } from "@/lib/coach-params";
 import { getOrCreateActiveBlock } from "@/lib/training-block";
-import { MAX_WEAK_POINTS, WEAK_POINT_OPTIONS, suggestVolumeBlockTheme, themesFor } from "@/lib/training-themes";
+import { MAX_WEAK_POINTS, WEAK_POINT_OPTIONS, suggestThemeForBlock, themesFor } from "@/lib/training-themes";
+import { axesOf, competitionPlanFor } from "@/lib/competition";
+import { SPORT_PROGRAM } from "@/lib/competition-params";
 import { mondayOf } from "@/lib/week";
-import { hyroxPrepFor } from "@/lib/hyrox-prep";
 
 export type ThemeScreenData = {
   slug: string;
   programName: string;
   themes: { id: string; label: string; description: string; isDefault?: boolean; auto?: boolean }[];
   current: { theme: string; weeks: number; week: number; isDeload: boolean; finished: boolean; weakPoints: string[] };
+  /** Thème conseillé (Volume Block, ou table axe -> thème du coach) pour le bloc courant ou suivant. */
   suggested: string | null;
   objectifLabel: string | null;
-  /** Hyrox : mode Compétition actif (date de course) — les thèmes Force et Endurance ne s'appliquent plus. */
+  /** Mode compétition actif (date d'événement Hyrox ou CrossFit Games) : Force, Endurance, Capacité, Haltérophilie ne s'appliquent plus. */
   competition: boolean;
+  /** Blocs déjà terminés pour ce programme : sert à choisir l'axe suivant. */
+  blocksDone: number;
 };
 
 export async function getThemeScreenData(): Promise<ThemeScreenData | null> {
@@ -29,10 +33,17 @@ export async function getThemeScreenData(): Promise<ThemeScreenData | null> {
   const slug = profile ? SPORT_LABEL_TO_SLUG[profile.programme] : undefined;
   if (!profile || !slug) return null;
   const block = await getOrCreateActiveBlock(userId, slug, todayKey());
-  const suggested =
-    slug === "volume-block-hypertrophy"
-      ? suggestVolumeBlockTheme({ type: profile.objectif1Type ?? profile.objectif, sousCat: profile.objectif1SousCat, priorite: profile.objectif1Priorite })
-      : null;
+  const blocksDone = await prisma.trainingBlock.count({ where: { userId, programme: slug, active: false } });
+  // Bloc en cours : l'axe du bloc ; bloc terminé : l'axe suivant.
+  const blockIndex = block.info.finished ? blocksDone + 1 : blocksDone;
+  const suggested = suggestThemeForBlock(
+    slug,
+    { type: profile.objectif1Type ?? profile.objectif, sousCat: profile.objectif1SousCat, priorite: profile.objectif1Priorite, axes: axesOf(profile.objectif1Details, profile.objectif1SousCat) },
+    blockIndex,
+  );
+  const plan = competitionPlanFor(profile, todayKey());
+  const programForEvent = plan ? SPORT_PROGRAM[plan.event] : null;
+  const competition = !!plan && !!programForEvent?.competitionMode && programForEvent.program !== null && profile.programme.endsWith(programForEvent.program);
   return {
     slug,
     programName: profile.programme.replace(/^\S+\s*/, ""),
@@ -47,15 +58,8 @@ export async function getThemeScreenData(): Promise<ThemeScreenData | null> {
     },
     suggested,
     objectifLabel: profile.objectif1Type ?? profile.objectif ?? null,
-    competition:
-      slug === "hyrox-pure" &&
-      hyroxPrepFor(
-        [
-          { event: profile.objectif1Event, dateExacte: profile.objectif1DateExacte, categorie: profile.objectif1Categorie, priorite: profile.objectif1Priorite },
-          { event: profile.objectif2Event, dateExacte: profile.objectif2DateExacte, categorie: profile.objectif2Categorie, priorite: profile.objectif2Priorite },
-        ],
-        todayKey(),
-      ) !== null,
+    competition,
+    blocksDone,
   };
 }
 

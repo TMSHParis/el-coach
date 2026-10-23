@@ -147,7 +147,14 @@ export function ProfileEditForm() {
             <span className={styles.nu}>kg</span>
           </div>
         </div>
-        <ObjectifsPicker values={profile.objectifs} onChange={(next) => setField({ objectifs: next })} onExceed={onObjectifExceed} />
+        <ObjectifsPicker
+          values={profile.objectifs}
+          onChange={(next) => setField({ objectifs: next })}
+          onExceed={onObjectifExceed}
+          programme={profile.programmePrincipal}
+          onProgramme={(v) => setField({ programmePrincipal: v })}
+          onPickOtherProgramme={() => document.getElementById("programme-principal")?.scrollIntoView({ behavior: "smooth", block: "center" })}
+        />
         {objError && <div style={{ marginTop: 6, fontSize: "0.8rem", color: "var(--error)" }}>2 objectifs maximum</div>}
 
         {/* Sportif */}
