@@ -38,3 +38,24 @@ export function weekTitle(weekStart: string, todayKey: string): string {
     ? `${start.getDate()} - ${end.getDate()} ${month(end)}`
     : `${start.getDate()} ${month(start)} - ${end.getDate()} ${month(end)}`;
 }
+
+const SHORT_MONTH = (d: Date) => d.toLocaleDateString("fr-FR", { month: "short" });
+
+/** « 19 - 25 oct. » ou « 26 oct. - 1 nov. » quand la semaine chevauche deux mois. */
+export function weekRange(weekStart: string): string {
+  const start = parseKey(weekStart);
+  const end = parseKey(weekStart);
+  end.setDate(end.getDate() + 6);
+  return start.getMonth() === end.getMonth()
+    ? `${start.getDate()} - ${end.getDate()} ${SHORT_MONTH(end)}`
+    : `${start.getDate()} ${SHORT_MONTH(start)} - ${end.getDate()} ${SHORT_MONTH(end)}`;
+}
+
+/** Titre long d'une semaine : « Cette semaine », « Semaine prochaine », « Semaine dernière », sinon « Semaine du 2 novembre ». */
+export function weekHeading(weekStart: string, todayKey: string): string {
+  const current = mondayOf(todayKey);
+  if (weekStart === current) return "Cette semaine";
+  if (weekStart === addWeeks(current, 1)) return "Semaine prochaine";
+  if (weekStart === addWeeks(current, -1)) return "Semaine dernière";
+  return `Semaine du ${parseKey(weekStart).toLocaleDateString("fr-FR", { day: "numeric", month: "long" })}`;
+}

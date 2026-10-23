@@ -180,8 +180,10 @@
 .removeSerieBtn { background: none; border: none; color: var(--m); cursor: pointer; font-size: 13px; margin-left: auto; }
 .removeSerieBtn:hover { color: var(--red); }
 /* ✓ par série (doc H.10/H.13, Étape 0 point 1) — à droite du ✕. */
-.serieCheckBtn { flex-shrink: 0; width: 22px; height: 22px; border: 1.5px solid var(--bd); border-radius: 4px; background: var(--s); color: #000; font-size: 12px; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; margin-left: auto; }
-.serieCheckBtnOn { background: var(--g); border-color: var(--g); }
+.serieCheckBtn { position: relative; flex-shrink: 0; width: 44px; height: 44px; margin: -10px -8px -10px auto; padding: 0; border: none; background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.serieCheckBtn::before { content: ""; position: absolute; width: 24px; height: 24px; border: 1.5px solid var(--bd); border-radius: 6px; background: var(--s); }
+.serieCheckMark { position: relative; z-index: 1; color: #000; font-size: 14px; line-height: 1; }
+.serieCheckBtnOn::before { background: var(--g); border-color: var(--g); }
 /* Série validée : grisée, reste modifiable (doc H.13 point 1). */
 .serieRowDone { opacity: .6; }
 .addSerieBtn { background: none; border: 1px dashed var(--bd); color: var(--g); font-size: 11px; letter-spacing: 1px; text-transform: uppercase; padding: 6px 10px; border-radius: 4px; cursor: pointer; margin-top: 2px; }
@@ -366,6 +368,7 @@
 .restInlineLabel { font-family: var(--font-bebas); font-size: 11px; letter-spacing: 3px; text-transform: uppercase; color: var(--g); }
 .restInlineCancel { background: none; border: none; color: var(--m); font-size: 11px; font-family: inherit; cursor: pointer; padding: 4px 6px; }
 .restInlineCancel:hover { color: var(--t); }
+.restInlineSub { text-align: center; font-family: var(--font-bebas); font-size: 11px; letter-spacing: 3px; text-transform: uppercase; color: var(--m); margin-top: 4px; }
 .restInlineTime { font-family: var(--font-bebas); font-size: 2.6rem; line-height: 1; color: var(--w); letter-spacing: 1px; }
 .restBarWrap { width: 100%; height: 5px; border-radius: 3px; background: rgba(255, 255, 255, .12); overflow: hidden; margin-top: 10px; }
 .restBar { height: 100%; background: linear-gradient(90deg, var(--g), var(--gl)); transition: width .2s linear; }

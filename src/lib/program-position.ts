@@ -2,6 +2,7 @@ import "server-only";
 import { prisma } from "./prisma";
 import { getTemplate, resolveAdaptiveDay, type Day } from "./programming";
 import { nextPositionAfter, pickFromSequence, sequenceFor, sessionsPerWeek } from "./program-sequence";
+import { SPORT_LABEL_TO_SLUG } from "./ecm-programs";
 
 export type SequenceInfo = {
   /** Jours des modèles composant la suite de l'utilisateur, dans l'ordre. */
@@ -69,4 +70,23 @@ export async function advanceProgramPosition(input: {
     create: { userId: input.userId, programSlug: input.slug, position: next },
     update: { position: next },
   });
+}
+
+/** Séance suivante de la suite de chaque programme ECM (check-in) : libellé du programme -> intitulé. */
+export async function nextSessionByProgram(input: { userId: string | null; weekCycle: unknown }): Promise<Record<string, string>> {
+  const rows = input.userId ? await prisma.programPosition.findMany({ where: { userId: input.userId } }) : [];
+  const positions = new Map(rows.map((r) => [r.programSlug, r.position]));
+  const out: Record<string, string> = {};
+  for (const [label, slug] of Object.entries(SPORT_LABEL_TO_SLUG)) {
+    const template = getTemplate(slug);
+    if (!template) continue;
+    const modelDays = template.weeks[0].days.filter((d) => d.blocks.length > 0 || d.adaptive).map((d) => d.day);
+    // Sans créneau de ce programme dans la semaine : la suite complète du modèle.
+    const perWeek = sessionsPerWeek(input.weekCycle as Parameters<typeof sessionsPerWeek>[0], slug) || modelDays.length;
+    const sequence = sequenceFor(slug, perWeek, modelDays);
+    const dayNumber = pickFromSequence(sequence, positions.get(slug) ?? 0);
+    const day = template.weeks[0].days.find((d) => d.day === dayNumber);
+    if (day) out[label] = day.focus;
+  }
+  return out;
 }

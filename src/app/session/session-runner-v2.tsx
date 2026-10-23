@@ -874,14 +874,15 @@ export function SessionRunnerV2({
    * validées, le mouvement se coche et se replie seul (point 3) ; il reste
    * modifiable par un dépliage manuel. */
   function toggleSerieDone(blocIdx: number, exIdx: number, serieIdx: number) {
-    let startRest = false;
+    // Lu depuis l'état courant, pas depuis la fonction passée à setBlocks : React l'exécute plus
+    // tard, le repos ne démarrait donc jamais (mission 8).
+    const current = blocks[blocIdx]?.exerciseSeries[exIdx] ?? [];
+    const isLast = serieIdx === current.length - 1;
+    const nowDone = !current[serieIdx]?.done;
     setBlocks((prev) =>
       prev.map((x, i) => {
         if (i !== blocIdx) return x;
         const es = x.exerciseSeries[exIdx] ?? [];
-        const isLast = serieIdx === es.length - 1;
-        const nowDone = !es[serieIdx]?.done;
-        startRest = nowDone && !isLast;
         const updatedEs = es.map((s, k) => (k === serieIdx ? { ...s, done: nowDone } : s));
         const allDone = updatedEs.length > 0 && updatedEs.every((s) => s.done);
         return {
@@ -892,7 +893,13 @@ export function SessionRunnerV2({
         };
       }),
     );
-    if (startRest) startRestTimer(blocIdx, exIdx);
+    if (nowDone && !isLast) {
+      // Valider une série (même pendant un repos) relance le repos à sa durée complète.
+      startRestTimer(blocIdx, exIdx);
+    } else if (restTimer && restTimer.blocIdx === blocIdx && restTimer.exIdx === exIdx) {
+      // Décocher pendant le repos, ou valider la dernière série : aucun décompte.
+      cancelRestTimer();
+    }
   }
 
   /** Dépliage manuel d'un mouvement à séries, indépendant du coché automatique
@@ -1835,7 +1842,7 @@ function SerieInput({
             aria-label={s.done ? `Dévalider la série ${k + 1}` : `Valider la série ${k + 1}`}
             aria-pressed={!!s.done}
           >
-            {s.done ? "✓" : ""}
+            <span className={styles.serieCheckMark}>{s.done ? "✓" : ""}</span>
           </button>
         </div>
         {!isHold && (
@@ -2416,6 +2423,7 @@ function InlineRestTimer({
           +
         </button>
       </div>
+      <div className={styles.restInlineSub}>Repos entre séries</div>
       <div className={styles.restBarWrap}>
         <div className={styles.restBar} style={{ width: `${totalSec > 0 ? ((totalSec - remaining) / totalSec) * 100 : 0}%` }} />
       </div>

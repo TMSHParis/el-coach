@@ -6,10 +6,10 @@
 // "J'ai changé" — ecm-update-form.tsx). Purs, sans état externe.
 // ============================================================================
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import type { EcmProfileCookie, EcmObjectifDetail, WeekCycle, WeekCycleDay, WeekCycleDayKey } from "./actions";
 import { BackHomeButton } from "@/components/back-home-button";
-import { getTemplate } from "@/lib/programming";
+import { standardWeekFor, standardDayToWeekCycleDay } from "@/lib/standard-week";
 import styles from "./ecm-signup.module.css";
 import fx from "./event-fiche.module.css";
 import { EventSection } from "./event-fiche";
@@ -31,6 +31,7 @@ export const LEFT_PROGRAMS: { name: string; tag: string }[] = [
 
 import { SPORT_LABEL_TO_SLUG, SLUG_TO_SPORT_LABEL } from "@/lib/ecm-programs";
 export { SPORT_LABEL_TO_SLUG, SLUG_TO_SPORT_LABEL };
+export { standardCycleFor } from "@/lib/standard-week";
 
 export const LEVELS = ["🌱 Débutant", "📈 Intermédiaire", "🔥 Avancé", "⚡ Élite"];
 
@@ -585,41 +586,6 @@ export function ProgrammePrincipalPicker({ value, onChange }: { value: string; o
   );
 }
 
-/** Icône + libellé d'un sport ("⚡ CrossFit Pure" → "⚡"/"CrossFit Pure") —
- * les options sans emoji ("Step", "HIIT"...) retombent sur une icône neutre. */
-function splitIconLabel(raw: string): { icon: string; label: string } {
-  const match = raw.match(/^(\S+)\s+(.*)$/);
-  if (match && !/[a-zA-Z]/.test(match[1])) return { icon: match[1], label: match[2] };
-  return { icon: "🏋️", label: raw };
-}
-
-export type StandardWeekDay = { icon: string; label: string } | null;
-
-/**
- * Semaine type dérivée du programme principal choisi (doc H.16) — null pour
- * un jour de repos dans le template. Même source que resolveTodaySession
- * (demo-session.ts) côté check-in/dashboard, pour rester cohérent avec
- * "Prévu aujourd'hui" (doc H.15).
- */
-export function standardWeekFor(programmeLabel: string): Record<WeekCycleDayKey, StandardWeekDay> | null {
-  const slug = SPORT_LABEL_TO_SLUG[programmeLabel];
-  const template = slug ? getTemplate(slug) : undefined;
-  if (!template) return null;
-  const { icon, label } = splitIconLabel(programmeLabel);
-  const days = template.weeks[0]?.days ?? [];
-  const out = {} as Record<WeekCycleDayKey, StandardWeekDay>;
-  WEEK_DAY_KEYS.forEach((key, i) => {
-    const day = days.find((d) => d.day === i + 1);
-    out[key] = day && day.blocks.length > 0 ? { icon, label } : null;
-  });
-  return out;
-}
-
-function standardDayToWeekCycleDay(d: StandardWeekDay): WeekCycleDay {
-  if (!d) return { repos: true, slots: [] };
-  return { repos: false, slots: [{ sport: `${d.icon} ${d.label}`.trim(), heure: "", duree: "", niveau: "" }] };
-}
-
 /** Semaine type — 7 jours, chacun avec repos ou plusieurs créneaux sport (matin/soir). */
 export function WeekCyclePicker({
   value,
@@ -627,8 +593,23 @@ export function WeekCyclePicker({
   onChange,
   onReset,
   forceCustomized,
+  hideHeader,
+  onBeforeOpen,
+  editorNote,
+  onTouchDay,
+  markedDays,
 }: {
   value: WeekCycle;
+  /** Partie 3 (mission 7) : le planificateur affiche lui-même badge, bouton et lien de réinitialisation. */
+  hideHeader?: boolean;
+  /** Appelé avant d'ouvrir l'éditeur d'un jour : renvoie false pour l'empêcher (aucune portée choisie). */
+  onBeforeOpen?: (day: WeekCycleDayKey) => boolean;
+  /** Ligne sous le titre de l'éditeur (« Sera appliqué : … »). */
+  editorNote?: ReactNode;
+  /** Jour effectivement modifié par l'utilisateur (pour enregistrer seulement ceux-là). */
+  onTouchDay?: (day: WeekCycleDayKey) => void;
+  /** Jours dont le contenu diffère de la semaine type : point d'accent sur le bouton. */
+  markedDays?: WeekCycleDayKey[];
   /** Semaine modifiée individuellement : le lien "Rétablir" appelle ceci plutôt que de vider la semaine type. */
   onReset?: () => void;
   forceCustomized?: boolean;
@@ -656,6 +637,7 @@ export function WeekCyclePicker({
   }
 
   function patchDay(day: WeekCycleDayKey, patch: Partial<WeekCycle[WeekCycleDayKey]>) {
+    onTouchDay?.(day);
     const base = seedIfNeeded();
     onChange({ ...base, [day]: { ...base[day], ...patch } });
   }
@@ -686,6 +668,7 @@ export function WeekCyclePicker({
       <div className={styles.ql}>
         <i>📅</i> Ma semaine type d&apos;entraînement
       </div>
+      {!hideHeader && (
       <div className={styles.weekBadgeRow}>
         {customized ? (
           <span className={styles.weekBadge}>Semaine personnalisée</span>
@@ -700,6 +683,7 @@ export function WeekCyclePicker({
           </button>
         )}
       </div>
+      )}
       <p className={styles.weekHint}>
         Clique sur un jour. Tu peux ajouter plusieurs sports le même jour (matin + soir).
       </p>
@@ -719,8 +703,12 @@ export function WeekCyclePicker({
                 hasSport && styles.hasSport,
                 displayRest && styles.isRest,
               )}
-              onClick={() => setActiveDay(d)}
+              onClick={() => {
+                if (onBeforeOpen && !onBeforeOpen(d)) return;
+                setActiveDay(d);
+              }}
             >
+              {markedDays?.includes(d) && <span className={styles.dayDot} aria-label="Modifié" />}
               <div className={styles.dayBtnName}>{d.toUpperCase()}</div>
               <div className={styles.dayBtnActivity}>{displayRest ? "Repos" : displaySport ?? "—"}</div>
             </div>
@@ -730,6 +718,7 @@ export function WeekCyclePicker({
       {activeDay && (
         <div className={cx(styles.dayDetail, styles.visible)}>
           <div className={styles.dayDetailTitle}>{WEEK_DAY_LABELS[activeDay]} : que prévois-tu ?</div>
+          {editorNote && <div className={styles.weekHint}>{editorNote}</div>}
           <label className={styles.dayRestRow}>
             <input
               type="checkbox"

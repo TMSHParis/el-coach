@@ -2,8 +2,12 @@ import Link from "next/link";
 import { isCheckinDoneToday } from "./actions";
 import { getUserId } from "@/lib/user-id";
 import { prisma } from "@/lib/prisma";
-import { getDemoState, resolvePlannedToday } from "@/lib/demo-session";
-import { SLUG_TO_SPORT_LABEL } from "@/lib/ecm-programs";
+import { todayDayNumber } from "@/lib/demo-session";
+import { SPORT_LABEL_TO_SLUG } from "@/lib/ecm-programs";
+import { buildCheckinPlan } from "@/lib/checkin-plan";
+import { nextSessionByProgram } from "@/lib/program-position";
+import { splitIconLabel, standardCycleFor } from "@/lib/standard-week";
+import { WEEK_DAYS, isEmptyCycle } from "@/lib/week-cycle";
 import type { WeekCycle } from "@/app/signup/actions";
 import { resolveDayState } from "@/lib/ecm-engine";
 import { stripLeadingEmoji } from "@/lib/advice-session";
@@ -35,19 +39,9 @@ export const metadata = { title: "Check-in du jour — EL COACH METHOD" };
 export default async function CheckinPage() {
   const doneToday = await isCheckinDoneToday();
   const userId = await getUserId();
-  const [profile, demo] = await Promise.all([
-    userId
-      ? prisma.profile.findUnique({ where: { userId }, select: { programme: true, programmes: true, weekCycle: true } })
-      : null,
-    getDemoState(),
-  ]);
-  // Programmes actifs choisis dans /settings — proposés en tête du choix de séance.
-  const programmes = profile
-    ? profile.programmes.length > 0
-      ? profile.programmes
-      : [profile.programme].filter(Boolean)
-    : [];
-
+  const profile = userId
+    ? await prisma.profile.findUnique({ where: { userId }, select: { programme: true, weekCycle: true } })
+    : null;
   // "Tes habitudes" — 3 séances les plus fréquentes des 30 derniers jours.
   const since = new Date();
   since.setDate(since.getDate() - 30);
@@ -63,15 +57,22 @@ export default async function CheckinPage() {
     : [];
   const habits = habitRows.map((r) => r.seance).filter((s): s is string => Boolean(s));
 
-  // "Prévu aujourd'hui" — planning personnalisé du profil en priorité, sinon
-  // séance ECM programmée si un programme actif en a une pour le jour (doc H.15).
-  const todayEcmLabel = demo.programSlug ? SLUG_TO_SPORT_LABEL[demo.programSlug] : undefined;
-  const todayEcm = resolvePlannedToday(
-    ((userId ? await effectiveWeekCycle(userId, profile?.weekCycle, todayKey()) : profile?.weekCycle) as unknown as WeekCycle | null) ?? null,
-    demo.programSlug,
-    demo.fatigueScore,
-    todayEcmLabel,
-  );
+  // "Prévu aujourd'hui" (partie 3, mission 9) — uniquement la semaine enregistrée dans le profil, lue
+  // pour la date du jour : modification ponctuelle, puis alternance A/B, puis semaine type.
+  const stored = ((userId ? await effectiveWeekCycle(userId, profile?.weekCycle, todayKey()) : profile?.weekCycle) as unknown as WeekCycle | null) ?? null;
+  // Semaine jamais personnalisée : la semaine standard du programme principal, celle que le profil affiche.
+  const weekCycle = isEmptyCycle(stored) && profile?.programme ? standardCycleFor(profile.programme) : stored;
+  const nextByProgram = await nextSessionByProgram({ userId, weekCycle });
+  const plan = buildCheckinPlan(weekCycle, WEEK_DAYS[todayDayNumber() - 1], nextByProgram);
+
+  // Les 5 programmes ECM sont toujours proposés (At Home compris), le programme prévu en tête.
+  const plannedValue = plan.kind === "day" ? plan.cards.find((c) => c.ecm)?.value : undefined;
+  const programs = Object.keys(SPORT_LABEL_TO_SLUG)
+    .map((value) => {
+      const { icon, label } = splitIconLabel(value);
+      return { value, icon, name: label, next: nextByProgram[value] ?? "", planned: value === plannedValue };
+    })
+    .sort((x, y) => Number(y.planned) - Number(x.planned));
 
   // Rappel du dernier check-in réalisé (pas forcément hier si un jour a été sauté).
   const lastCheckin =
@@ -120,7 +121,7 @@ export default async function CheckinPage() {
 
   return (
     <div className={checkinFontVariables}>
-      <CheckinForm programmes={programmes} habits={habits} todayEcm={todayEcm} prevCheckin={prevCheckin} />
+      <CheckinForm habits={habits} plan={plan} programs={programs} prevCheckin={prevCheckin} />
     </div>
   );
 }

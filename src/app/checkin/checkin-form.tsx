@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import type { CheckinPlan } from "@/lib/checkin-plan";
 import {
   COACH_PARAMS,
   FEATURE_FLAGS,
@@ -67,6 +68,8 @@ export function buildSeanceGroups(programmes: string[]): { label: string; option
   );
 }
 
+/** Autres activités du check-in : repos, sports et cours. Les 5 programmes ECM ont leurs propres lignes (mission 10). */
+const OTHER_SEANCE_GROUPS = SEANCE_GROUPS.filter((g) => g.label !== "⚡ PROGRAMMATIONS ECM");
 
 const VOLUME_BLOCK_LABEL = "💪 Volume Block Hypertrophy";
 const VOLUME_FOCUS_OPTIONS: { value: string; label: string }[] = [
@@ -193,29 +196,46 @@ function accordionKindOf(value: string): "repos" | "recup" | null {
 }
 
 export function CheckinForm({
-  programmes = [],
   habits = [],
-  todayEcm = null,
+  plan = { kind: "none" },
+  programs = [],
   prevCheckin = null,
 }: {
-  programmes?: string[];
   /** 3 séances les plus fréquentes des 30 derniers jours (la plus fréquente en premier). */
   habits?: string[];
-  /** Séance ECM programmée aujourd'hui, si un programme actif en a une — carte "Prévu aujourd'hui". */
-  todayEcm?: { value: string; label: string; sub: string } | null;
+  /** Ce que la semaine enregistrée prévoit aujourd'hui (mission 9). */
+  plan?: CheckinPlan;
+  /** Les 5 programmes ECM avec leur séance suivante, le programme prévu en tête (mission 10). */
+  programs?: { value: string; icon: string; name: string; next: string; planned: boolean }[];
   /** Rappel du dernier check-in réalisé (bandeau sous le header). */
   prevCheckin?: { dayLabel: string; stateLabel: string; seance: string | null; energie: number | null } | null;
 }) {
   const router = useRouter();
-  // Le groupe "Programmations ECM" se réduit aux programmes actifs de l'athlète
-  // (choisis dans /settings) ; sans sélection enregistrée, le catalogue complet.
-  const seanceGroups = buildSeanceGroups(programmes);
+  const seanceGroups = OTHER_SEANCE_GROUPS;
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [d, setD] = useState<FormState>(INITIAL_STATE);
+  // Mission 9 : la ligne « Séance du jour » est préremplie avec la séance prévue (modifiable).
+  const plannedSeance =
+    plan.kind === "day" ? (plan.cards.find((c) => c.ecm)?.value ?? plan.cards[0]?.value ?? "") : "";
+  const [d, setD] = useState<FormState>(() => ({ ...INITIAL_STATE, seance: plannedSeance }));
+  const [trainAnyway, setTrainAnyway] = useState(false);
+  // Jour de repos prévu (sans « Je m'entraîne quand même ») ou jour 100 % hors ECM : la ligne n'est pas affichée.
+  const restMode = plan.kind === "rest" && !trainAnyway;
+  const externalOnly = plan.kind === "day" && !plan.cards.some((c) => c.ecm);
+  const hideSeanceRow = restMode || externalOnly;
+  const effectiveSeance = restMode ? REPOS_SUBTYPES[0] : d.seance;
+  const plannedProgram = plan.kind === "day" ? plan.cards.find((c) => c.ecm)?.value : undefined;
   const [submitting, setSubmitting] = useState(false);
   const [slowSubmit, setSlowSubmit] = useState(false);
   const [missing, setMissing] = useState<string[]>([]);
   const [demandeOpen, setDemandeOpen] = useState(false);
+
+  // La semaine est relue à minuit : une modification de la semaine est visible au prochain affichage.
+  useEffect(() => {
+    const now = new Date();
+    const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 5);
+    const id = setTimeout(() => router.refresh(), midnight.getTime() - now.getTime());
+    return () => clearTimeout(id);
+  }, [router]);
 
   useEffect(() => {
     if (!submitting) {
@@ -281,7 +301,8 @@ export function CheckinForm({
     set({ seance: value, accordionOpen: false });
   }
 
-  const selectValue = d.seanceAccordion === "repos" ? "__repos__" : d.seanceAccordion === "recup" ? "__recup__" : d.seance;
+  const isProgram = programs.some((p) => p.value === d.seance);
+  const selectValue = d.seanceAccordion === "repos" ? "__repos__" : d.seanceAccordion === "recup" ? "__recup__" : isProgram ? "" : d.seance;
   // "Personnaliser ma séance" : uniquement pour un vrai sport/programme — jamais
   // pour repos ou récupération active, quel que soit le sous-type choisi.
   const showPersonalize = Boolean(d.seance) && d.seanceAccordion === null;
@@ -314,7 +335,7 @@ export function CheckinForm({
     if (!d.mental) miss.push("Mental");
     if (!d.stress) miss.push("Stress");
     if (!d.libido) miss.push("Libido");
-    if (!d.seance) miss.push("Séance");
+    if (!effectiveSeance) miss.push("Séance");
     if (d.travail === null) miss.push("Travail");
     if (isH && d.soirPerformance === null) miss.push("Soir performance");
     return miss;
@@ -332,7 +353,7 @@ export function CheckinForm({
     Boolean(d.mental),
     Boolean(d.stress),
     Boolean(d.libido),
-    Boolean(d.seance),
+    Boolean(effectiveSeance),
     d.travail !== null,
     isH ? d.soirPerformance !== null : true,
   ].filter(Boolean).length;
@@ -690,7 +711,11 @@ export function CheckinForm({
               <div className={styles.freqLabel}>Tes habitudes</div>
               <div className={styles.freqRow}>
                 {habits.map((h) => (
-                  <div key={h} className={styles.freqItem} onClick={() => chooseSeance(h)}>
+                  <div
+                    key={h}
+                    className={cx(styles.freqItem, plannedProgram && h === plannedProgram && styles.freqItemPlanned)}
+                    onClick={() => chooseSeance(h)}
+                  >
                     <p>{h}</p>
                   </div>
                 ))}
@@ -698,25 +723,77 @@ export function CheckinForm({
             </>
           )}
 
-          {todayEcm && (
-            <div className={styles.ecmToday} onClick={() => chooseSeance(todayEcm.value)}>
-              <div className={styles.badgeToday}>PRÉVU AUJOURD&apos;HUI</div>
-              <div className={styles.etRow}>
-                <div className={styles.etIcon}>⚡</div>
-                <div>
-                  <p className={styles.etTitle}>{todayEcm.label}</p>
-                  <p className={styles.etSub}>{todayEcm.sub}</p>
+          {plan.kind === "day" &&
+            plan.cards.map((c, i) => (
+              <div
+                key={`${c.value}-${i}`}
+                className={cx(styles.ecmToday, !c.ecm && styles.ecmTodayStatic)}
+                onClick={c.ecm ? () => chooseSeance(c.value) : undefined}
+              >
+                <div className={styles.badgeToday}>PRÉVU AUJOURD&apos;HUI</div>
+                <div className={styles.etRow}>
+                  <div className={styles.etIcon}>{c.icon}</div>
+                  <div style={{ flex: 1 }}>
+                    <p className={styles.etTitle}>{c.name}</p>
+                    <p className={styles.etSub}>{c.ecm ? c.sub : [c.heure, c.duree].filter(Boolean).join(" · ") || c.sub}</p>
+                    {!c.ecm && (c.heure || c.duree) && <p className={styles.etSub}>{c.sub}</p>}
+                  </div>
+                  {c.ecm && c.heure && <span className={styles.etHeure}>{c.heure}</span>}
                 </div>
               </div>
-            </div>
+            ))}
+
+          {plan.kind === "rest" && (
+            <>
+              <div className={styles.restToday}>
+                <div className={styles.badgeRest}>PRÉVU AUJOURD&apos;HUI</div>
+                <div className={styles.etRow}>
+                  <div className={styles.restIcon}>🛋️</div>
+                  <div>
+                    <p className={styles.restTitle}>Repos prévu aujourd&apos;hui</p>
+                    <p className={styles.restSub}>Ta semaine prévoit du repos.</p>
+                  </div>
+                </div>
+              </div>
+              {!trainAnyway && (
+                <button type="button" className={styles.trainAnyway} onClick={() => setTrainAnyway(true)}>
+                  Je m&apos;entraîne quand même
+                </button>
+              )}
+            </>
           )}
 
+          {!hideSeanceRow && (
+          <>
           <div className={styles.ql}>
             <i>🏋️</i> Séance du jour <span className={isH ? styles.bh : styles.bf}>Requis</span>
           </div>
+          <div className={styles.progHint}>Choisir ta séance...</div>
+          <div className={styles.progList} role="radiogroup" aria-label="Choisir ta séance">
+            {programs.map((p) => (
+              <div
+                key={p.value}
+                role="radio"
+                aria-checked={d.seance === p.value}
+                tabIndex={0}
+                className={cx(styles.progRow, d.seance === p.value && styles.progRowOn)}
+                onClick={() => chooseSeance(p.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") chooseSeance(p.value);
+                }}
+              >
+                <span className={styles.progIcon}>{p.icon}</span>
+                <span className={styles.progText}>
+                  <span className={styles.progName}>{p.name}</span>
+                  {p.next && <span className={styles.progNext}>{p.next}</span>}
+                </span>
+                {p.planned && <span className={styles.progBadge}>Prévu</span>}
+              </div>
+            ))}
+          </div>
           <select className={styles.ss} value={selectValue} onChange={(e) => onSelectChange(e.target.value)}>
             <option value="" disabled>
-              Choisir ta séance...
+              Autre : repos, sport, cours...
             </option>
             {seanceGroups.map((group) => (
               <optgroup key={group.label} label={group.label}>
@@ -728,6 +805,8 @@ export function CheckinForm({
               </optgroup>
             ))}
           </select>
+          </>
+          )}
 
           {d.seanceAccordion === "repos" && d.accordionOpen && (
             <div className={styles.seanceAccordion}>
