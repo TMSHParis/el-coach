@@ -1,0 +1,35 @@
+.btn {
+  position: fixed;
+  right: 16px;
+  z-index: 90;
+  width: 48px;
+  height: 48px;
+  min-width: 48px;
+  min-height: 48px;
+  border-radius: 50%;
+  border: 1.5px solid var(--scroll-top-accent, var(--t-accent, #e8ff00));
+  background: color-mix(in srgb, var(--t-overlay-bg, #0e0f12) 92%, transparent);
+  color: var(--scroll-top-accent, var(--t-accent, #e8ff00));
+  font-size: 22px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  opacity: 0;
+  transform: translateY(10px);
+  pointer-events: none;
+  visibility: hidden;
+  transition: opacity 0.2s ease, transform 0.2s ease, visibility 0s linear 0.2s;
+  -webkit-tap-highlight-color: transparent;
+}
+.shown {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+  visibility: visible;
+  transition: opacity 0.2s ease, transform 0.2s ease, visibility 0s;
+}
+.shown:active { transform: scale(0.92); }

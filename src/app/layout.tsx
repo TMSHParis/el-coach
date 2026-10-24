@@ -8,6 +8,9 @@ import { Footer } from "@/components/footer";
 import { ChromeGate } from "@/components/chrome-gate";
 import { NavigationTracker } from "@/components/back-home-button";
 import { SupportChat } from "@/components/support-chat";
+import { ScrollTopButton } from "@/components/scroll-top-button";
+import { LangProvider } from "@/lib/i18n/provider";
+import { getLang } from "@/lib/i18n/server";
 import { ecmFontVariables } from "@/app/signup/ecm-fonts";
 import "./globals.css";
 
@@ -32,10 +35,12 @@ const clerkLocalization = {
 
 const crispWebsiteId = process.env.NEXT_PUBLIC_CRISP_WEBSITE_ID ?? "";
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const lang = await getLang();
   const shell = (
-    <html lang="fr" className={`${geistSans.variable} ${geistMono.variable} ${ecmFontVariables}`}>
+    <html lang={lang} className={`${geistSans.variable} ${geistMono.variable} ${ecmFontVariables}`}>
       <body className="min-h-screen antialiased">
+        <LangProvider initial={lang}>
         <NavigationTracker />
         <ChromeGate>
           <Nav />
@@ -47,6 +52,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {/* Tchat de support : abonnés connectés seulement, et rien tant que
             l'ID Crisp n'est pas renseigné. */}
         {clerkEnabled && crispWebsiteId && <SupportChat websiteId={crispWebsiteId} />}
+        <ScrollTopButton />
+        </LangProvider>
       </body>
     </html>
   );

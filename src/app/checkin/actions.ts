@@ -11,7 +11,6 @@ import {
   generateEcmAnalysis,
   generateNonEcmAdvice,
   generateMindsetMessage,
-  generateTomorrowPreview,
   extractMainLift,
   isRestDay,
   type NonEcmAdvice,
@@ -304,14 +303,9 @@ async function persistCheckinAndGenerateDashboard(payload: CheckinPayload, fatig
     return { message: fallbackMindset(profile.prenom, checkin), tags: [] as string[] };
   });
 
-  // Aperçu de demain d'après la semaine type — best effort : sans semaine type
-  // renseignée (ou si Claude échoue), le dashboard retombe sur le programme fixe.
-  const tomorrowPromise: Promise<TomorrowPreview | null> = generateTomorrowPreview({ profile, checkin }).catch(
-    (err) => {
-      console.error("generateTomorrowPreview a échoué, repli sur le programme fixe:", err);
-      return null;
-    },
-  );
+  // L'aperçu de demain n'est plus généré ici (partie 5) : la section « Demain » du dashboard
+  // lit directement la semaine enregistrée dans le profil, sans calcul ni appel Claude.
+  const tomorrowPromise: Promise<TomorrowPreview | null> = Promise.resolve(null);
 
   // Activité hors des 5 programmes ECM (ou repos) → même dashboard complet
   // (score, stack, alertes, en-cas, sommeil, poids), seul le bloc séance change :

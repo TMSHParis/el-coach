@@ -426,7 +426,7 @@ export function CheckinForm({
   return (
     <div className={styles.checkinRoot}>
       {submitting && (
-        <div className={styles.loadingOverlay}>
+        <div data-hide-scroll-top className={styles.loadingOverlay}>
           <div className={styles.spinner} />
           <div className={styles.loadingText}>
             {slowSubmit ? "La génération prend un peu plus de temps que prévu…" : "Génération de ton plan..."}

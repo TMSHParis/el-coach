@@ -454,6 +454,7 @@ function BlockFocus({
 
   return (
     <div
+      data-hide-scroll-top
       className="fixed inset-0 z-50 flex flex-col bg-black/95 backdrop-blur-sm"
       role="dialog"
       aria-modal="true"

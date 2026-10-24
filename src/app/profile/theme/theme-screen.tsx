@@ -91,7 +91,7 @@ export function ThemeScreen() {
           {weak.length} sélectionné{weak.length > 1 ? "s" : ""} sur {MAX_WEAK_POINTS} maximum
         </div>
         {error && <div className={styles.error}>{error}</div>}
-        <div className={styles.footer}>
+        <div data-bottom-bar className={styles.footer}>
           <button
             type="button"
             className={styles.validate}
@@ -214,7 +214,7 @@ export function ThemeScreen() {
       </div>
       {error && <div className={styles.error}>{error}</div>}
 
-      <div className={styles.footer}>
+      <div data-bottom-bar className={styles.footer}>
         <button
           type="button"
           className={styles.validate}

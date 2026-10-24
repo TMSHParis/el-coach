@@ -14,7 +14,7 @@ import {
   type RecordsRm,
 } from "./actions";
 import styles from "./settings.module.css";
-import { useSmartBack } from "@/components/back-home-button";
+import { BackHomeButton } from "@/components/back-home-button";
 
 const cx = (...c: (string | false | undefined)[]) => c.filter(Boolean).join(" ");
 
@@ -50,7 +50,6 @@ export function SettingsView({
   isAdmin: boolean;
 }) {
   const router = useRouter();
-  const goBack = useSmartBack();
   const { user } = useUser();
   const { signOut } = useClerk();
   const [modal, setModal] = useState<string | null>(null);
@@ -123,7 +122,7 @@ export function SettingsView({
   return (
     <div className={styles.root}>
       <div className={styles.topbar}>
-        <button className={styles.backBtn} onClick={goBack} aria-label="Retour">←</button>
+        <BackHomeButton />
         <div className={styles.pageTitle}>Réglages</div>
       </div>
 
@@ -361,7 +360,7 @@ function Toggle({ on, onChange }: { on: boolean; onChange: (v: boolean) => void 
 
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   return (
-    <div className={styles.modalOverlay} onClick={(e) => e.target === e.currentTarget && onClose()}>
+    <div data-hide-scroll-top className={styles.modalOverlay} onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className={styles.modal}>
         <div className={styles.modalHandle} />
         <div className={styles.modalTitle}>{title}</div>

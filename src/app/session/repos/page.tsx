@@ -52,7 +52,7 @@ export default async function ReposPage() {
         <p className={styles.help}>Consulte les mouvements quand tu veux. Les ▶️ ouvrent les vidéos.</p>
         <RecoveryBlocks blocks={blocks} />
 
-        <div className={styles.ctaBar}>
+        <div data-bottom-bar className={styles.ctaBar}>
           <Link href="/dashboard" className={styles.cta}>
             VOIR MON DASHBOARD
           </Link>

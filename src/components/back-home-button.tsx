@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { useT } from "@/lib/i18n/provider";
 
 // Nombre de pages de l'app vues dans cet onglet (sessionStorage = par onglet).
 // window.history.length seul ne suffit pas : un onglet ouvert depuis un autre
@@ -39,37 +40,43 @@ export function useSmartBack(fallbackHref = "/") {
 }
 
 /**
- * Bouton "← Retour" des pages "bare" (sans Nav du site) qui ont leur propre
- * topbar. Styles en `var(--bd)` / `var(--m)` : ces custom properties sont
- * définies par le module CSS de la page hôte (checkin.module.css /
- * dashboard.module.css) et héritent normalement jusqu'ici.
+ * Bouton « ← Accueil » des pages secondaires (partie 5, mission 3) : ouvre directement la page d'accueil,
+ * quel que soit le chemin pris pour arriver (pas de retour à l'écran précédent, pas d'empilement).
+ * Les sous-écrans gardent leur propre « ← Retour » (variant="back" : page précédente de l'app, sinon `href`).
+ * Styles en `var(--bd)` / `var(--m)` : ces custom properties sont définies par le module CSS de la page hôte.
  */
 export function BackHomeButton({
   href = "/",
-  label = "← Retour",
+  label,
+  variant = "home",
   className,
   style,
 }: {
-  /** Destination si aucune page précédente dans l'app. */
+  /** Destination (accueil par défaut ; repli du mode « back »). */
   href?: string;
   label?: string;
+  variant?: "home" | "back";
   className?: string;
   style?: React.CSSProperties;
 }) {
-  const back = useSmartBack(href);
+  const router = useRouter();
+  const t = useT();
+  const smartBack = useSmartBack(href);
+  const text = label ?? (variant === "home" ? t("nav.home") : t("nav.back"));
   return (
     <button
       type="button"
-      onClick={back}
+      onClick={() => (variant === "home" ? router.push(href) : smartBack())}
       className={className}
       style={{
         display: "inline-flex",
         alignItems: "center",
-        background: "none",
-        border: "1px solid var(--bd, #2a2a2a)",
-        borderRadius: 4,
-        padding: "8px 12px",
-        color: "var(--m, #8a8a8a)",
+        minHeight: 44,
+        background: "var(--t-card, none)",
+        border: "1px solid var(--bd, var(--t-border, #2a2a2a))",
+        borderRadius: 8,
+        padding: "8px 14px",
+        color: "var(--m, var(--t-muted, #8a8a8a))",
         fontSize: 12,
         fontWeight: 600,
         letterSpacing: 1,
@@ -78,7 +85,7 @@ export function BackHomeButton({
         ...style,
       }}
     >
-      {label}
+      {text}
     </button>
   );
 }

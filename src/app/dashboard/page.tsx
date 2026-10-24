@@ -57,7 +57,6 @@ type DashboardOutputJson = EcmDashboardOutput | AdviceDashboardOutput;
 import type { Day } from "@/lib/programming";
 import { toDisplayBlocks } from "@/lib/session-format";
 import { SESSION_FEELINGS, shouldRecommendLightSession } from "@/lib/session-feeling";
-import type { TomorrowPreview } from "@/lib/ecm-engine";
 import { buildAdviceSession, stripLeadingEmoji, type StoredAdvice } from "@/lib/advice-session";
 import { isRestDay as isRestDaySeance } from "@/lib/ecm-engine";
 import { adaptDayForInjuries, detectInjuryAreas, reduceVolume, substitutionMessage } from "@/lib/session-adapt";
@@ -86,6 +85,11 @@ import { VARIANT_HINT, VARIANT_LABEL, parseVariant, resolveModularDay, type Modu
 import { SessionPreviewToggle } from "./session-preview-toggle";
 import { ApercuCards } from "./apercu-panel";
 import { blocksToApercuCards } from "./apercu-cards";
+import { TomorrowSection } from "./tomorrow-section";
+import { buildTomorrow, reportedZone } from "@/lib/tomorrow-plan";
+import { getLang } from "@/lib/i18n/server";
+import { makeT } from "@/lib/i18n";
+import type { TomorrowPreview } from "@/lib/ecm-engine";
 import styles from "./dashboard.module.css";
 
 export const metadata = { title: "Dashboard — EL COACH METHOD" };
@@ -329,7 +333,22 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
   // La semaine type prime : l'aperçu généré au check-in tient compte de l'état
   // du jour et des blessures. Sinon, repli sur le programme fixe hebdomadaire.
-  const tomorrow = real?.tomorrow ?? buildTomorrowPreview(today, fatigueScore);
+  // Section « Demain » (partie 5, mission 1) : uniquement la semaine enregistrée dans le profil, lue pour demain.
+  const lang = await getLang();
+  const tomorrowCards = userId
+    ? await buildTomorrow({
+        userId,
+        weekCycle: profile?.weekCycle,
+        lang,
+        zone: reportedZone({
+          profileBlessures: profile?.blessures,
+          profileDetail: profile?.blessuresDetail,
+          checkinDouleur: todayCheckin?.douleur,
+          checkinDetail: todayCheckin?.douleurDetail,
+        }),
+        doneTodaySlug: todaySession?.completed ? ((todaySession.data as { programSlug?: string } | null)?.programSlug ?? null) : null,
+      }).catch(() => null)
+    : null;
 
   // 2e (ou 3e...) activité du jour (doc G.3) — même traitement visuel que la
   // séance principale, empilée en dessous, statut indépendant par activité.
@@ -783,17 +802,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           {!(finishedSession || adviceSession?.repos || (!adviceSession && isRestDay)) || notDoneExtras.length > 0 ? <AddActivityLink /> : null}
 
           {/* DEMAIN */}
-          <div className={styles.sl} style={{ marginTop: 20 }}>
-            Demain
-          </div>
-          <div className={styles.demainCard}>
-            <div className={styles.demainTitle}>{tomorrow.titre}</div>
-            <div className={styles.demainContent}>
-              {tomorrow.lignes.map((ligne, i) => (
-                <div key={i}>{ligne}</div>
-              ))}
-            </div>
-          </div>
+          {tomorrowCards && <TomorrowSection title={makeT(lang)("tomorrow.title")} cards={tomorrowCards} />}
 
           <div className={styles.spacer} />
         </div>
@@ -944,28 +953,3 @@ function normalizeStackOrder(stack: StackMoment[], fatigueScore: number): StackM
 }
 
 /** Repli quand la semaine type n'est pas renseignée : le programme fixe hebdomadaire. */
-function buildTomorrowPreview(
-  today: NonNullable<Awaited<ReturnType<typeof resolveTodaySession>>>,
-  fatigueScore: number,
-): TomorrowPreview {
-  const tomorrowNum = today.dayNumber >= 7 ? 1 : today.dayNumber + 1;
-  const week = today.template.weeks[0];
-  const tomorrowDay = week.days.find((d) => d.day === tomorrowNum);
-
-  if (!tomorrowDay || tomorrowDay.blocks.length === 0) {
-    return {
-      titre: "😴 DEMAIN — REPOS",
-      lignes: ["📸 Envoie ton check-in ECM dès le réveil", "🧘 Récupération complète · sommeil prioritaire"],
-    };
-  }
-
-  const bedtime = fatigueScore >= 7 ? "22h00" : "22h30";
-  return {
-    titre: `🏋️ DEMAIN — ${today.template.name.toUpperCase()}`,
-    lignes: [
-      "📸 Envoie ton check-in ECM dès le réveil",
-      `💪 Séance focus ${tomorrowDay.focus}`,
-      `🕕 ${tomorrowDay.estimatedMinutes} min prévues · dors avant ${bedtime}`,
-    ],
-  };
-}

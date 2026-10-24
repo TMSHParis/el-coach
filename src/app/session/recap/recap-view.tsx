@@ -329,7 +329,7 @@ export function RecapView({
         </>
       )}
 
-      <div className={styles.ctaBar}>
+      <div data-bottom-bar className={styles.ctaBar}>
         <Link href="/dashboard" className={styles.cta}>
           VOIR MON DASHBOARD
         </Link>

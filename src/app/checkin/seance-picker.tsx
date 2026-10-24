@@ -79,7 +79,7 @@ export function SeancePicker({
       </button>
 
       {open && (
-        <div className={styles.pickerOverlay} onClick={() => onOpenChange(false)}>
+        <div data-hide-scroll-top className={styles.pickerOverlay} onClick={() => onOpenChange(false)}>
           <div className={styles.pickerSheet} role="dialog" aria-label="Choisir ta séance" onClick={(e) => e.stopPropagation()}>
             <div className={styles.pickerTitle}>Choisir ta séance…</div>
             {groups.map((g) => (

@@ -127,14 +127,14 @@ export function RecoveryPage({
       <p className={styles.help}>Consulte les mouvements quand tu veux. Les ▶️ ouvrent les vidéos.</p>
       <RecoveryBlocks blocks={blocks} />
 
-      <div className={styles.ctaBar}>
+      <div data-bottom-bar className={styles.ctaBar}>
         <button type="button" className={styles.cta} onClick={openSheet}>
           J&apos;AI TERMINÉ
         </button>
       </div>
 
       {sheet && (
-        <div className={styles.overlay} onClick={() => setSheet(false)}>
+        <div data-hide-scroll-top className={styles.overlay} onClick={() => setSheet(false)}>
           <div className={styles.sheet} role="dialog" aria-label="Enregistrer mon activité" onClick={(e) => e.stopPropagation()}>
             <div className={styles.sheetTitle}>Enregistrer mon activité</div>
             <div className={styles.sheetHelp}>Tout est facultatif sauf la durée.</div>

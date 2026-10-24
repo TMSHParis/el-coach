@@ -32,6 +32,7 @@ export function MobileDrawer({ signedIn }: { signedIn: boolean }) {
     <>
       <div
         aria-hidden
+        {...(open ? { "data-hide-scroll-top": "" } : {})}
         onClick={close}
         className={`fixed inset-0 z-[60] bg-black/70 transition-opacity duration-200 ${
           open ? "opacity-100" : "pointer-events-none opacity-0"

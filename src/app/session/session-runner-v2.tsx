@@ -1358,7 +1358,7 @@ export function SessionRunnerV2({
     // ici on patiente pendant l'enregistrement et la génération du message.
     return (
       <div className={styles.sessRoot}>
-        <div className={cx(styles.success, styles.show)}>
+        <div data-hide-scroll-top className={cx(styles.success, styles.show)}>
           <div className={styles.successIcon}>⚡</div>
           <div className={styles.successTitle}>
             Séance
@@ -1596,7 +1596,7 @@ export function SessionRunnerV2({
         </Link>
       </div>
 
-      <div className={styles.bottombar}>
+      <div data-bottom-bar className={styles.bottombar}>
         <div className={styles.bbStats}>
           <div className={styles.bbStat}>
             <div className={styles.bbVal}>{movementsDone}</div>
@@ -2747,6 +2747,7 @@ function FullscreenTimer({
 
   return (
     <div
+      data-hide-scroll-top
       className={styles.fsRoot}
       style={{ background: `radial-gradient(circle at 50% 44%, ${mixOpaque(halo, "#050505", 0.3)} 0%, ${mixOpaque(halo, "#050505", 0.1)} 38%, #050505 72%)` }}
     >
@@ -2874,7 +2875,7 @@ function ReplaceSheet({
   }, []);
 
   return (
-    <div className={styles.sheetOverlay} onClick={onClose}>
+    <div data-hide-scroll-top className={styles.sheetOverlay} onClick={onClose}>
       <div className={styles.sheet} role="dialog" aria-label={`Remplacer ${movementName}`} onClick={(e) => e.stopPropagation()}>
         <div className={styles.sheetTop}>
           <div className={styles.sheetTitle}>Remplacer {movementName}</div>

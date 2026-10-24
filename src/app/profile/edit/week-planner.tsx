@@ -256,7 +256,7 @@ export function WeekPlanner({
       )}
 
       {sheet && (
-        <div className={styles.overlay} onClick={() => setSheet(false)}>
+        <div data-hide-scroll-top className={styles.overlay} onClick={() => setSheet(false)}>
           <div className={styles.sheet} role="dialog" aria-label="Appliquer mes modifications" onClick={(e) => e.stopPropagation()}>
             <div className={styles.sheetTitle}>Appliquer mes modifications à :</div>
             <div className={styles.sheetHelp}>Ce choix vaut pour tous les jours que tu modifies ensuite.</div>
