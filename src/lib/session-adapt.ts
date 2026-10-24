@@ -223,7 +223,7 @@ const REST_SEC = (rest: string | undefined, fallback: number): number => {
 /** Durée d'un bloc de musculation : séries × (exécution + repos), sans repos après la toute dernière série. */
 export function estimateStrengthBlockMinutes(block: Block): number {
   let sec = 0;
-  const superset = block.format === "Superset";
+  const superset = block.format === "Superset" || block.format === "Circuit";
   if (superset && block.exercises.length > 1) {
     const sets = Math.max(...block.exercises.map((e) => e.sets ?? VOLUME_BLOCK_DEFAULT_SETS));
     const rest = Math.max(...block.exercises.map((e) => REST_SEC(e.rest, 60)));
@@ -266,7 +266,8 @@ export function normalizeVolumeBlockDay(day: Day): Day {
     const block: Block = {
       name: spec.name,
       type: spec.type,
-      format: src.format === "Superset" ? "Superset" : "StraightSets",
+      // Superset (2 mouvements) ou Circuit (3 et plus) : un seul repos à la fin de chaque tour.
+      format: src.format === "Superset" || src.format === "Circuit" ? (exercises.length >= 3 ? "Circuit" : "Superset") : "StraightSets",
       exercises,
       notes: src.notes?.replace(INTERNAL_NOTE, "").trim() || undefined,
     };

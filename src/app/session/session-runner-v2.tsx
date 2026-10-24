@@ -121,6 +121,16 @@ function looksLikeMisplacedStrengthBlock(block: DisplayBlock): boolean {
   return block.items.every((it) => /^\d+×\d+(-\d+)?$/.test(it.qty));
 }
 
+/** Superset (2 mouvements) ou Circuit (3 et plus) de musculation : le mode vient du plan de séance, jamais de l'utilisateur. */
+function isCircuitBlock(block: DisplayBlock): boolean {
+  if (!SERIES_RESULT_TYPES.includes(block.type)) return false;
+  if (block.format !== "Superset" && block.format !== "Circuit") return false;
+  return block.items.filter((i) => !i.noVideo).length >= 2;
+}
+
+/** Repos entre tours par défaut (secondes), paramétrable par bloc dans le plan via le repos du mouvement. */
+const CIRCUIT_REST_DEFAULT = 90;
+
 /** Gainage/isométrie (doc H.14) : sets + temps tenu, sans reps — ex. "3×30s"
  * de plank. Distingué d'un mouvement de musculation classique (sets+reps)
  * uniquement par les champs réellement renseignés sur l'Exercise. */
@@ -200,6 +210,10 @@ type Replacement = { id: string; name: string; videoUrl?: string; reason: string
 /** Séries déjà saisies sous un mouvement qui a été remplacé ou rétabli : elles restent enregistrées pour lui. */
 type ArchivedSeries = { exIdx: number; name: string; replacedFrom?: string; series: ExerciseSerie[] };
 
+/** Un tour d'un bloc Superset / Circuit : kg et reps de chaque mouvement, et le mouvement réellement réalisé. */
+type CircuitTour = { cells: { charge: string; reps: string }[]; names: string[]; done: boolean };
+type CircuitState = { tours: CircuitTour[]; restSec: number };
+
 type BlocState = {
   /** Instant du dernier démarrage (ms epoch) — le chrono se recalcule depuis l'horloge,
    * il continue donc à tourner quand l'app passe en arrière-plan. */
@@ -236,6 +250,8 @@ type BlocState = {
   /** Mouvement de remplacement par mouvement du bloc (null = mouvement prévu). */
   replaced?: (Replacement | null)[];
   archived?: ArchivedSeries[];
+  /** Bloc Superset / Circuit (mission 11) : un seul repos à la fin de chaque tour. */
+  circuit?: CircuitState;
   temps: string;
   rounds: string;
   score: string;
@@ -316,6 +332,19 @@ function archiveSeries(x: BlocState, exIdx: number, name: string, replacedFrom?:
   return series.length > 0 ? [...(x.archived ?? []), { exIdx, name, replacedFrom, series }] : (x.archived ?? []);
 }
 
+function makeCircuit(block: DisplayBlock, lastResults: Record<string, LastResult>): CircuitState {
+  const tours = Math.max(1, ...block.items.map((it) => it.sets ?? 1), block.rounds ?? 1);
+  const restFromPlan = block.items.map((it) => parseRestSeconds(it.rest, block.type)).find((n) => n > 0);
+  const cells = block.items.map((it) => {
+    const last = lastResults[it.name] ?? lastResults[it.movementName];
+    return { charge: last && last.charge > 0 ? String(last.suggestion) : "", reps: "" };
+  });
+  return {
+    tours: Array.from({ length: tours }, () => ({ cells: cells.map((c) => ({ ...c })), names: block.items.map((it) => it.name), done: false })),
+    restSec: block.items.some((it) => it.rest) ? (restFromPlan ?? CIRCUIT_REST_DEFAULT) : CIRCUIT_REST_DEFAULT,
+  };
+}
+
 export function SessionRunnerV2({
   sessionName,
   sessionMeta,
@@ -393,8 +422,11 @@ export function SessionRunnerV2({
           open: i === 0,
           checked: items.map(() => false),
           amrapRounds: 0,
+          circuit: isCircuitBlock(baseBlocks[i]) ? makeCircuit(baseBlocks[i], lastResults) : undefined,
           exerciseSeries:
-            type && (SERIES_RESULT_TYPES.includes(type) || looksLikeMisplacedStrengthBlock(baseBlocks[i]))
+            isCircuitBlock(baseBlocks[i])
+              ? items.map(() => [])
+              : type && (SERIES_RESULT_TYPES.includes(type) || looksLikeMisplacedStrengthBlock(baseBlocks[i]))
               ? items.map((it) => {
                   // Une ligne par série prévue (doc H.13, Étape 0 point 2) — 5 lignes
                   // pour un 5×5, pas seulement 1. Repli à 1 ligne si `sets` est inconnu.
@@ -503,6 +535,7 @@ export function SessionRunnerV2({
               expanded: b.expanded ?? b.checked,
               replaced: b.replaced ?? b.exerciseTimes.map(() => null),
               archived: b.archived ?? [],
+              circuit: b.circuit,
             })),
           );
           setSessionStartedAt(saved.sessionStartedAt);
@@ -954,6 +987,82 @@ export function SessionRunnerV2({
     );
   }
 
+  /** Saisie d'une case (kg ou reps) d'un mouvement dans un tour non validé. */
+  function updateCircuitCell(blocIdx: number, tourIdx: number, exIdx: number, patch: Partial<{ charge: string; reps: string }>) {
+    setBlocks((prev) =>
+      prev.map((x, i) =>
+        i !== blocIdx || !x.circuit
+          ? x
+          : {
+              ...x,
+              circuit: {
+                ...x.circuit,
+                tours: x.circuit.tours.map((t, ti) =>
+                  ti === tourIdx ? { ...t, cells: t.cells.map((c, j) => (j === exIdx ? { ...c, ...patch } : c)) } : t,
+                ),
+              },
+            },
+      ),
+    );
+  }
+
+  /** Valide le tour en cours : un seul repos démarre, sauf après le dernier tour qui termine le bloc. */
+  function validateTour(blocIdx: number) {
+    const st = blocks[blocIdx]?.circuit;
+    if (!st) return;
+    const tourIdx = st.tours.findIndex((t) => !t.done);
+    if (tourIdx === -1) return;
+    const isLast = tourIdx === st.tours.length - 1;
+    const names = blockData[blocIdx].items.map((it) => it.name);
+    unlockAudio();
+    setBlocks((prev) =>
+      prev.map((x, i) => {
+        if (i !== blocIdx || !x.circuit) return x;
+        const tours = x.circuit.tours.map((t, ti) => (ti === tourIdx ? { ...t, names, done: true } : t));
+        return isLast
+          ? { ...x, circuit: { ...x.circuit, tours }, checked: x.checked.map(() => true), done: true, running: false, startedAt: null }
+          : { ...x, circuit: { ...x.circuit, tours } };
+      }),
+    );
+    if (isLast) {
+      cancelRestTimer();
+      vibrate([80]);
+      return;
+    }
+    restTickRef.current = -1;
+    restTenRef.current = false;
+    setRestJustEnded(null);
+    setRestTimer({
+      blocIdx,
+      exIdx: -1,
+      endsAt: Date.now() + st.restSec * 1000,
+      totalSec: st.restSec,
+      label: `Tour ${tourIdx + 1}`,
+    });
+  }
+
+  function addCircuitTour(blocIdx: number) {
+    setBlocks((prev) =>
+      prev.map((x, i) => {
+        if (i !== blocIdx || !x.circuit) return x;
+        const last = x.circuit.tours[x.circuit.tours.length - 1];
+        return {
+          ...x,
+          circuit: { ...x.circuit, tours: [...x.circuit.tours, { cells: last.cells.map((c) => ({ charge: c.charge, reps: "" })), names: last.names, done: false }] },
+          // Un bloc terminé qu'on prolonge redevient actif.
+          done: false,
+          checked: x.checked.map(() => false),
+        };
+      }),
+    );
+  }
+
+  function setCircuitRest(blocIdx: number, sec: number) {
+    setBlocks((prev) =>
+      prev.map((x, i) => (i === blocIdx && x.circuit ? { ...x, circuit: { ...x.circuit, restSec: Math.min(600, Math.max(5, sec)) } } : x)),
+    );
+  }
+
   /** Remplace un mouvement pour cette séance (mission 11) : séries et répétitions prévues conservées,
    * charges préremplies avec l'historique du nouveau mouvement s'il en a un. */
   function replaceMovement(blocIdx: number, exIdx: number, option: EquivalentOption, reason: string) {
@@ -962,6 +1071,31 @@ export function SessionRunnerV2({
     if (!planned || !current) return;
     const history = lastResults[option.name];
     const n = Math.max(1, planned.sets ?? 1);
+    // Superset / Circuit : le remplacement vaut pour tous les tours restants ; les tours faits gardent leur mouvement.
+    if (isCircuitBlock(baseBlocks[blocIdx])) {
+      setBlocks((prev) =>
+        prev.map((x, i) =>
+          i !== blocIdx || !x.circuit
+            ? x
+            : {
+                ...x,
+                replaced: (x.replaced ?? x.checked.map(() => null)).map((r, j) =>
+                  j === exIdx ? { id: option.id, name: option.name, videoUrl: option.videoUrl, reason, equipmentLabel: option.equipmentLabel } : r,
+                ),
+                circuit: {
+                  ...x.circuit,
+                  tours: x.circuit.tours.map((t) =>
+                    t.done ? t : { ...t, cells: t.cells.map((c, j) => (j === exIdx ? { charge: history ? String(history.suggestion) : "", reps: "" } : c)) },
+                  ),
+                },
+              },
+        ),
+      );
+      setReplaceSheet(null);
+      setToast(`Remplacé par ${option.name}`);
+      setTimeout(() => setToast(null), 1800);
+      return;
+    }
     setBlocks((prev) =>
       prev.map((x, i) =>
         i !== blocIdx
@@ -992,6 +1126,20 @@ export function SessionRunnerV2({
     const current = blockData[blocIdx]?.items[exIdx];
     if (!planned || !current) return;
     const n = Math.max(1, planned.sets ?? 1);
+    if (isCircuitBlock(baseBlocks[blocIdx])) {
+      setBlocks((prev) =>
+        prev.map((x, i) =>
+          i !== blocIdx || !x.circuit
+            ? x
+            : {
+                ...x,
+                replaced: (x.replaced ?? x.checked.map(() => null)).map((r, j) => (j === exIdx ? null : r)),
+                circuit: { ...x.circuit, tours: x.circuit.tours.map((t) => (t.done ? t : { ...t, cells: t.cells.map((c, j) => (j === exIdx ? { charge: "", reps: "" } : c)) })) },
+              },
+        ),
+      );
+      return;
+    }
     setBlocks((prev) =>
       prev.map((x, i) =>
         i !== blocIdx
@@ -1136,6 +1284,23 @@ export function SessionRunnerV2({
     const blocs: SessionBlocResult[] = [];
     blockData.forEach((b, i) => {
       const state = blocks[i];
+      // Superset / Circuit : chaque mouvement avec ses tours (kg × reps par tour).
+      if (state.circuit) {
+        b.items.forEach((it, j) => {
+          const byName = new Map<string, { charge: string; reps: string }[]>();
+          for (const t of state.circuit!.tours) {
+            if (!t.done) continue;
+            const cell = t.cells[j];
+            if (!cell || (!cell.charge.trim() && !cell.reps.trim())) continue;
+            const name = t.names[j] ?? it.name;
+            byName.set(name, [...(byName.get(name) ?? []), { charge: cell.charge, reps: cell.reps }]);
+          }
+          for (const [nom, series] of byName) {
+            blocs.push({ bloc: i + 1, nom, series, kind: "strength", remplaceDe: nom !== baseBlocks[i].items[j].name ? baseBlocks[i].items[j].name : undefined });
+          }
+        });
+        return;
+      }
       b.items.forEach((it, j) => {
         const series = (state.exerciseSeries[j] ?? []).filter((x) => x.charge.trim() || x.reps.trim() || x.time?.trim() || x.timeD?.trim());
         const temps = state.exerciseTimes[j]?.trim();
@@ -1378,6 +1543,11 @@ export function SessionRunnerV2({
               restJustEnded={restJustEnded}
               lastResults={lastResults}
               equivalents={equivalents}
+              onCircuitCell={(tourIdx, exIdx, patch) => updateCircuitCell(i, tourIdx, exIdx, patch)}
+              onValidateTour={() => validateTour(i)}
+              onAddTour={() => addCircuitTour(i)}
+              onCircuitRest={(sec) => setCircuitRest(i, sec)}
+              onSkipRest={cancelRestTimer}
               onOpenReplace={(exIdx) => setReplaceSheet({ blocIdx: i, exIdx })}
               onRevert={(exIdx) => revertMovement(i, exIdx)}
               sessionKind={sessionKind}
@@ -1462,6 +1632,11 @@ function BlocCard({
   restJustEnded,
   lastResults,
   equivalents,
+  onCircuitCell,
+  onValidateTour,
+  onAddTour,
+  onCircuitRest,
+  onSkipRest,
   onOpenReplace,
   onRevert,
   sessionKind,
@@ -1497,6 +1672,11 @@ function BlocCard({
   restJustEnded: { blocIdx: number; exIdx: number } | null;
   lastResults: Record<string, LastResult>;
   equivalents: Record<string, EquivalentOption[]>;
+  onCircuitCell: (tourIdx: number, exIdx: number, patch: Partial<{ charge: string; reps: string }>) => void;
+  onValidateTour: () => void;
+  onAddTour: () => void;
+  onCircuitRest: (sec: number) => void;
+  onSkipRest: () => void;
   onOpenReplace: (exIdx: number) => void;
   onRevert: (exIdx: number) => void;
   sessionKind: SessionKind;
@@ -1563,7 +1743,24 @@ function BlocCard({
           onOpenFullscreen={onOpenFullscreen}
         />
 
-        {isWod ? (
+        {state.circuit ? (
+          <CircuitBlock
+            block={block}
+            circuit={state.circuit}
+            blocDone={state.done}
+            restTimer={restTimer && restTimer.exIdx === -1 && restTimer.blocIdx === index ? restTimer : null}
+            now={now}
+            lastResults={lastResults}
+            equivalents={equivalents}
+            onCell={onCircuitCell}
+            onValidate={onValidateTour}
+            onAddTour={onAddTour}
+            onRest={onCircuitRest}
+            onSkipRest={onSkipRest}
+            onOpenReplace={onOpenReplace}
+            onRevert={onRevert}
+          />
+        ) : isWod ? (
           <WodSheet block={block} />
         ) : (
           <>
@@ -2739,6 +2936,200 @@ function ReplaceSheet({
         </div>
         {video && <VideoModal open onClose={() => setVideo(null)} title={video.name} searchQuery={video.name} videoUrl={video.videoUrl} />}
       </div>
+    </div>
+  );
+}
+
+/** Bloc Superset / Circuit (mission 11) : une carte par tour, un seul repos à la fin de chaque tour. */
+function CircuitBlock({
+  block,
+  circuit,
+  blocDone,
+  restTimer,
+  now,
+  lastResults,
+  equivalents,
+  onCell,
+  onValidate,
+  onAddTour,
+  onRest,
+  onSkipRest,
+  onOpenReplace,
+  onRevert,
+}: {
+  block: DisplayBlock;
+  circuit: CircuitState;
+  blocDone: boolean;
+  restTimer: NonNullable<RestTimerState> | null;
+  now: number;
+  lastResults: Record<string, LastResult>;
+  equivalents: Record<string, EquivalentOption[]>;
+  onCell: (tourIdx: number, exIdx: number, patch: Partial<{ charge: string; reps: string }>) => void;
+  onValidate: () => void;
+  onAddTour: () => void;
+  onRest: (sec: number) => void;
+  onSkipRest: () => void;
+  onOpenReplace: (exIdx: number) => void;
+  onRevert: (exIdx: number) => void;
+}) {
+  const [video, setVideo] = useState<number | null>(null);
+  const items = block.items;
+  const total = circuit.tours.length;
+  const currentIdx = circuit.tours.findIndex((t) => !t.done);
+  const isCircuit = items.length >= 3;
+  const tag = isCircuit ? "CIRCUIT" : "SUPERSET";
+  const remaining = restTimer ? Math.max(0, Math.ceil((restTimer.endsAt - now) / 1000)) : 0;
+  const restAfter = restTimer ? Number(restTimer.label.replace(/\D/g, "")) : 0;
+  const fmtRest = (sec: number) => `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}`;
+  const dec = useLongPress(() => onRest(circuit.restSec - 5), () => onRest(circuit.restSec - 5));
+  const inc = useLongPress(() => onRest(circuit.restSec + 5), () => onRest(circuit.restSec + 5));
+
+  return (
+    <div className={styles.circuit}>
+      <div className={styles.circuitHead}>
+        <span className={styles.circuitLetter}>{block.lettre}</span>
+        <span className={styles.circuitTitle}>{block.titre}</span>
+        <span className={styles.circuitTag}>{tag}</span>
+      </div>
+      <div className={styles.circuitHelp}>
+        {items.length} mouvements enchaînés, {total} tour{total > 1 ? "s" : ""}. Repos seulement à la fin de chaque tour.
+      </div>
+
+      {circuit.tours.map((t, ti) => {
+        const current = ti === currentIdx;
+        return (
+          <div key={ti}>
+            <div className={`${styles.tourCard} ${current ? styles.tourCurrent : ""} ${t.done ? styles.tourDone : ""}`}>
+              <div className={styles.tourHead}>
+                <span className={styles.tourLabel}>
+                  TOUR {ti + 1} / {total}
+                </span>
+                <span className={current ? styles.tourState : styles.tourStateMuted}>{t.done ? "✓ FAIT" : current ? "EN COURS" : "À VENIR"}</span>
+              </div>
+
+              {t.done && (
+                <div className={styles.tourSummary}>
+                  {items.map((_, j) => {
+                    const c = t.cells[j];
+                    const parts = [c.charge.trim() ? `${c.charge} kg` : "", c.reps.trim() ? `× ${c.reps}` : ""].filter(Boolean).join(" ");
+                    return (
+                      <div key={j}>
+                        {t.names[j] ?? items[j].name} · {parts || "non renseigné"}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {current && (
+                <>
+                  <div className={styles.tourCols}>
+                    <span>KG</span>
+                    <span>REPS</span>
+                  </div>
+                  {items.map((it, j) => {
+                    const last = lastResults[it.name] ?? lastResults[it.movementName];
+                    const canReplace = !!it.plannedMovementId && (equivalents[it.plannedMovementId]?.length ?? 0) > 0;
+                    return (
+                      <div key={`${it.movementName}-${j}`} className={styles.tourRow}>
+                        <div className={styles.tourRowMain}>
+                          <span className={styles.tourMark}>
+                            {String.fromCharCode(64 + (Number(block.lettre) || 1))}
+                            {j + 1}
+                          </span>
+                          <div className={styles.tourName}>
+                            {it.replacedFrom && <span className={styles.replacedTag}>REMPLACÉ</span>}
+                            <div>{it.name}</div>
+                            <div className={styles.tourPresc}>{it.reps !== undefined ? `${it.reps} reps` : it.qty}</div>
+                            {it.replacedFrom && <div className={styles.replacedFrom}>à la place de : {it.replacedFrom}</div>}
+                            {last && last.charge > 0 && (
+                              <div className={styles.lastResult} style={{ margin: "2px 0 0" }}>
+                                Dernière fois : {last.charge} kg × {last.reps || "—"}
+                              </div>
+                            )}
+                          </div>
+                          <input
+                            className={styles.tourInput}
+                            type="number"
+                            inputMode="decimal"
+                            placeholder="—"
+                            value={t.cells[j]?.charge ?? ""}
+                            onChange={(e) => onCell(ti, j, { charge: e.target.value })}
+                            aria-label={`kg ${it.name}`}
+                          />
+                          <input
+                            className={styles.tourInput}
+                            type="number"
+                            inputMode="numeric"
+                            placeholder="—"
+                            value={t.cells[j]?.reps ?? ""}
+                            onChange={(e) => onCell(ti, j, { reps: e.target.value })}
+                            aria-label={`reps ${it.name}`}
+                          />
+                        </div>
+                        <div className={styles.tourBtns}>
+                          <button type="button" className={styles.tourBtn} onClick={() => setVideo(j)}>
+                            ▶️ Vidéo
+                          </button>
+                          {canReplace && (
+                            <button type="button" className={styles.tourBtn} onClick={() => onOpenReplace(j)}>
+                              ⇄ {it.replacedFrom ? "Changer" : "Remplacer"}
+                            </button>
+                          )}
+                          {it.replacedFrom && (
+                            <button type="button" className={styles.revertLink} style={{ padding: 0 }} onClick={() => onRevert(j)}>
+                              Rétablir
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                  <button type="button" className={styles.tourValidate} onClick={onValidate}>
+                    {ti === total - 1 ? "VALIDER LE DERNIER TOUR" : "VALIDER LE TOUR"}
+                  </button>
+                </>
+              )}
+            </div>
+
+            {restTimer && restAfter === ti + 1 && (
+              <div className={styles.tourRest}>
+                <div className={styles.tourRestLabel}>
+                  REPOS · TOUR {restAfter} / {total} TERMINÉ
+                </div>
+                <div className={styles.tourRestTime}>{fmtRest(remaining)}</div>
+                <button type="button" className={styles.tourRestSkip} onClick={onSkipRest}>
+                  Passer le repos
+                </button>
+              </div>
+            )}
+          </div>
+        );
+      })}
+
+      {blocDone && currentIdx === -1 && <div className={styles.circuitDone}>✓ BLOC TERMINÉ</div>}
+
+      <div className={styles.circuitRestRow}>
+        <span className={styles.sheetLabel} style={{ margin: 0 }}>
+          REPOS ENTRE TOURS
+        </span>
+        <div className={styles.circuitRestCtl}>
+          <button type="button" className={styles.roundBtn} aria-label="Moins 5 secondes" {...dec}>
+            −
+          </button>
+          <span className={styles.circuitRestVal}>{fmtRest(circuit.restSec)}</span>
+          <button type="button" className={styles.roundBtn} aria-label="Plus 5 secondes" {...inc}>
+            +
+          </button>
+        </div>
+      </div>
+      <button type="button" className={styles.addSerieBtn} onClick={onAddTour}>
+        + Ajouter un tour
+      </button>
+
+      {video !== null && (
+        <VideoModal open onClose={() => setVideo(null)} title={items[video].movementName} searchQuery={items[video].movementName} videoUrl={items[video].videoUrl} />
+      )}
     </div>
   );
 }
