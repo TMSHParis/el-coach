@@ -3,6 +3,21 @@
 // document "Nouveaux programmes" (octobre 2026), construites par IA et validées
 // par Mohamed, pas encore par un coach : à ajuster ici sans toucher au code.
 
+/**
+ * Volume Block Hypertrophie (partie 4, mission 10) : les blocs 2, 3 et 4 sont de la musculation.
+ * Nombre de mouvements (min-max), plage de durée de départ (minutes) et temps d'exécution estimé d'une série.
+ * Valeurs de départ à valider par un coach.
+ */
+export const VOLUME_BLOCK_STRUCTURE = [
+  { name: "Strength", type: "strength", movements: [1, 2], minutes: [15, 25], defaultReps: "6-8", defaultRest: "2min" },
+  { name: "Accessoire 1", type: "accessory", movements: [2, 4], minutes: [10, 20], defaultReps: "8-12", defaultRest: "90s" },
+  { name: "Accessoire 2", type: "accessory", movements: [2, 4], minutes: [8, 15], defaultReps: "10-15", defaultRest: "60s" },
+] as const;
+export const VOLUME_BLOCK_EXEC_SEC_PER_SET = 45;
+export const VOLUME_BLOCK_DEFAULT_SETS = 3;
+/** Séries d'approche ajoutées au mouvement principal (bloc Strength), repos 60 s. */
+export const VOLUME_BLOCK_APPROACH_SETS = 2;
+
 export const COACH_PARAMS = {
   /** Séances où un finisher est remplacé quand la séance est déjà longue (objectif force/hypertrophie). */
   longSessionMinutes: 75,

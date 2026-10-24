@@ -10,6 +10,7 @@
 
 import { getMovement } from "./movements";
 import type { Block, Day, Exercise } from "./programming";
+import { VOLUME_BLOCK_APPROACH_SETS, VOLUME_BLOCK_DEFAULT_SETS, VOLUME_BLOCK_EXEC_SEC_PER_SET, VOLUME_BLOCK_STRUCTURE } from "./coach-params";
 
 export type InjuryArea = "shoulder" | "knee" | "back" | "hamstring";
 
@@ -204,5 +205,94 @@ export function validateGeneratedDay(day: Day, allowedIds: ReadonlySet<string>):
       };
     }),
   }));
+  return { ...day, blocks };
+}
+
+// ---------------------------------------------------------------------------
+// Volume Block Hypertrophie (partie 4, missions 8 et 10)
+// ---------------------------------------------------------------------------
+
+const REST_SEC = (rest: string | undefined, fallback: number): number => {
+  if (!rest) return fallback;
+  const min = rest.match(/(\d+)\s*min/i);
+  if (min) return Number(min[1]) * 60;
+  const sec = rest.match(/(\d+)/);
+  return sec ? Number(sec[1]) : fallback;
+};
+
+/** Durée d'un bloc de musculation : séries × (exécution + repos), sans repos après la toute dernière série. */
+export function estimateStrengthBlockMinutes(block: Block): number {
+  let sec = 0;
+  const superset = block.format === "Superset";
+  if (superset && block.exercises.length > 1) {
+    const sets = Math.max(...block.exercises.map((e) => e.sets ?? VOLUME_BLOCK_DEFAULT_SETS));
+    const rest = Math.max(...block.exercises.map((e) => REST_SEC(e.rest, 60)));
+    sec = sets * (block.exercises.length * VOLUME_BLOCK_EXEC_SEC_PER_SET + rest) - rest;
+  } else {
+    for (const e of block.exercises) {
+      const sets = e.sets ?? VOLUME_BLOCK_DEFAULT_SETS;
+      sec += sets * (VOLUME_BLOCK_EXEC_SEC_PER_SET + REST_SEC(e.rest, 90)) - REST_SEC(e.rest, 90);
+    }
+  }
+  if (block.type === "strength") sec += VOLUME_BLOCK_APPROACH_SETS * (VOLUME_BLOCK_EXEC_SEC_PER_SET + 60);
+  return Math.max(5, Math.round(sec / 60 / 5) * 5);
+}
+
+const INTERNAL_NOTE = /format\s*nft[^.;]*[.;]?|volumeBlockFocus[^.;]*[.;]?|not for time[^.;]*[.;]?/gi;
+
+/**
+ * Impose la structure musculation aux blocs 2, 3 et 4 : « Strength » (1 à 2 mouvements), « Accessoire 1 »
+ * et « Accessoire 2 » (2 à 4). Le type vient du programme, pas du squelette commun (où le bloc 3 est un
+ * metcon et le bloc 4 un finisher). Chaque mouvement reçoit des séries × reps et un repos ; la durée du bloc
+ * est calculée, plus fixée à une plage.
+ */
+export function normalizeVolumeBlockDay(day: Day): Day {
+  const warm = day.blocks.findIndex((b) => b.type === "warmup");
+  const cool = day.blocks.length - 1 - [...day.blocks].reverse().findIndex((b) => b.type === "cooldown");
+  const middle = day.blocks.filter((_, i) => i !== warm && !(day.blocks[i].type === "cooldown" && i === cool));
+  if (middle.length === 0) return day;
+
+  const shaped: Block[] = VOLUME_BLOCK_STRUCTURE.map((spec, i): Block | null => {
+    const src = middle[i];
+    if (!src) return null;
+    let exercises = src.exercises.slice(0, spec.movements[1]).map((e): Exercise => {
+      const reps = typeof e.reps === "number" ? e.reps : /^\d+(-\d+)?$/.test(String(e.reps ?? "")) ? e.reps : spec.defaultReps;
+      const { time, distance, ...rest } = e;
+      void time;
+      void distance;
+      return { ...rest, sets: e.sets ?? VOLUME_BLOCK_DEFAULT_SETS, reps, rest: e.rest ?? spec.defaultRest };
+    });
+    if (exercises.length === 0) exercises = [];
+    const block: Block = {
+      name: spec.name,
+      type: spec.type,
+      format: src.format === "Superset" ? "Superset" : "StraightSets",
+      exercises,
+      notes: src.notes?.replace(INTERNAL_NOTE, "").trim() || undefined,
+    };
+    const minutes = estimateStrengthBlockMinutes(block);
+    return { ...block, duration: `${Math.min(spec.minutes[1], Math.max(spec.minutes[0], minutes))}min` };
+  }).filter((b): b is Block => b !== null);
+
+  const blocks = [...(warm >= 0 ? [day.blocks[warm]] : []), ...shaped, ...(cool >= 0 && day.blocks[cool]?.type === "cooldown" ? [day.blocks[cool]] : [])];
+  return { ...day, blocks, notes: day.notes?.replace(INTERNAL_NOTE, "").trim() || undefined };
+}
+
+const ISOMETRIC = /plank|hold|hollow|l-sit|wall-sit|dead-hang|side-plank|superman|deep-squat-hold/i;
+
+/** Un mouvement isométrique prescrit avec des répétitions devient un temps tenu (mission 8, gainage). */
+export function fixIsometricPrescriptions(day: Day): Day {
+  const blocks = day.blocks.map((b) => {
+    if (b.type !== "strength" && b.type !== "accessory" && b.type !== "skill") return b;
+    return {
+      ...b,
+      exercises: b.exercises.map((e) => {
+        if (!ISOMETRIC.test(e.movementId) || e.reps === undefined || e.time) return e;
+        const { reps, ...rest } = e;
+        void reps;
+        return { ...rest, time: "30s" };
+      }),
+    };
+  });
   return { ...day, blocks };
 }

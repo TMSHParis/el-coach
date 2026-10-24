@@ -13,6 +13,7 @@ import { standardWeekFor, standardDayToWeekCycleDay } from "@/lib/standard-week"
 import styles from "./ecm-signup.module.css";
 import fx from "./event-fiche.module.css";
 import { EventSection } from "./event-fiche";
+import { SPORT_GROUPS } from "@/lib/sports-catalog";
 
 function emptyWeekCycle(): WeekCycle {
   const empty = (): WeekCycleDay => ({ repos: false, slots: [] });
@@ -398,26 +399,7 @@ export const SPORT_OPTGROUPS: { label: string; options: string[] }[] = [
     label: "⚡ PROGRAMMATIONS EL COACH METHOD",
     options: Object.keys(SPORT_LABEL_TO_SLUG),
   },
-  {
-    label: "🏃 COURS COLLECTIFS",
-    options: ["Step", "CrossTraining", "CAF — Cuisse Abdo Fessier", "HIIT", "Cardio Boxe"],
-  },
-  {
-    label: "🥊 SPORTS DE COMBAT",
-    options: ["🥊 Boxe Thaï / Muay Thai", "🥋 MMA", "🥊 Boxe anglaise", "🥋 Jiu-Jitsu brésilien", "🥋 Judo / Lutte"],
-  },
-  {
-    label: "🏃 CARDIO & ENDURANCE",
-    options: ["🏃 Running", "🚴 Cyclisme", "🏊 Natation", "⛷️ Trail"],
-  },
-  {
-    label: "⚽ SPORTS COLLECTIFS",
-    options: ["⚽ Football", "🏀 Basketball", "🏈 Rugby", "🎾 Tennis / Padel"],
-  },
-  {
-    label: "🧘 MOBILITÉ & BIEN-ÊTRE",
-    options: ["🧘 Yoga / Pilates", "🤸 Calisthénie", "🧗 Escalade"],
-  },
+  ...SPORT_GROUPS,
 ];
 
 export function emptyEcmProfile(preselectedProgramme = ""): EcmProfileCookie {

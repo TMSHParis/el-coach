@@ -27,7 +27,8 @@ import {
   soundTransition,
   soundTriple,
   soundWork,
-  speakEn,
+  announce,
+  prepareVoices,
   unlockAudio,
   vibrate,
 } from "@/lib/session-audio";
@@ -188,7 +189,7 @@ function wodTimeCap(block: DisplayBlock): string | null {
  * partagé par musculation et gainage.
  * `done` (doc H.10/H.13, Étape 0 point 1) : série validée par l'athlète —
  * grise la ligne et déclenche le repos, reste modifiable. */
-type ExerciseSerie = { charge: string; reps: string; rpe?: string; time?: string; done?: boolean; unit?: "m" | "km" };
+type ExerciseSerie = { charge: string; reps: string; rpe?: string; time?: string; /** Gainage « par côté » : temps du côté droit (time = gauche). */ timeD?: string; done?: boolean; unit?: "m" | "km" };
 
 /** Chrono de repos actif (doc H.10) — null quand aucun repos n'est en cours. */
 type RestTimerState = { blocIdx: number; exIdx: number; endsAt: number; totalSec: number; label: string } | null;
@@ -240,6 +241,8 @@ type BlocState = {
   score: string;
   /** Version réellement réalisée du Metcon/Finisher (doc H.11). */
   rxScaled: "rx" | "scaled";
+  /** Formats à intervalles : un temps par série. */
+  roundTimes?: string[];
 };
 
 function fmtMS(totalSec: number): string {
@@ -309,7 +312,7 @@ const SESSION_KIND_ICON: Record<SessionKind, string> = {
 
 /** Met de côté les séries saisies d'un mouvement avant qu'il soit remplacé ou rétabli. */
 function archiveSeries(x: BlocState, exIdx: number, name: string, replacedFrom?: string): ArchivedSeries[] {
-  const series = (x.exerciseSeries[exIdx] ?? []).filter((s) => s.charge.trim() || s.reps.trim() || s.time?.trim());
+  const series = (x.exerciseSeries[exIdx] ?? []).filter((s) => s.charge.trim() || s.reps.trim() || s.time?.trim() || s.timeD?.trim());
   return series.length > 0 ? [...(x.archived ?? []), { exIdx, name, replacedFrom, series }] : (x.archived ?? []);
 }
 
@@ -396,7 +399,10 @@ export function SessionRunnerV2({
                   // Une ligne par série prévue (doc H.13, Étape 0 point 2) — 5 lignes
                   // pour un 5×5, pas seulement 1. Repli à 1 ligne si `sets` est inconnu.
                   const n = Math.max(1, it.sets ?? 1);
-                  return Array.from({ length: n }, () => ({ charge: "", reps: "", done: false }));
+                  // Charge préremplie avec la charge suggérée d'après la dernière séance (musculation seulement).
+                  const last = lastResults[it.name] ?? lastResults[it.movementName];
+                  const charge = last && last.charge > 0 && !isHoldItem(it) && !isCarryItem(it) ? String(last.suggestion) : "";
+                  return Array.from({ length: n }, () => ({ charge, reps: "", done: false }));
                 })
               : [],
           expanded: items.map(() => false),
@@ -411,7 +417,7 @@ export function SessionRunnerV2({
           rxScaled: "rx",
         };
       }),
-    [baseBlocks, initial],
+    [baseBlocks, initial, lastResults],
   );
 
   const [blocks, setBlocks] = useState<BlocState[]>(makeInitial);
@@ -585,11 +591,10 @@ export function SessionRunnerV2({
         vibrate([60]);
       };
       /** Alerte des 10 dernières secondes — une fois par `key` (par minute sur l'EMOM). */
-      const tenSeconds = (key: string) => once(key, () => speakEn("Ten seconds!"));
+      const tenSeconds = (key: string) => once(key, () => announce("ten-seconds"));
       /** Fin d'un chrono : 3 bips imposants, vibration longue et annonce. */
-      const finish = (phrase: string) => {
+      const finish = () => {
         soundTriple();
-        speakEn(phrase);
         vibrate([600]);
       };
 
@@ -600,7 +605,10 @@ export function SessionRunnerV2({
           // Départ réel du chrono (T=0) : bip accentué + voix, tous les deux ici,
           // pas avant — sinon l'accent tombe une seconde trop tôt (au "1").
           soundCountAccent();
-          speakEn("Let's Go!");
+          announce("lets-go", { beep: false });
+          // EMOM et Tabata : le premier round est annoncé juste après « Let's Go! ».
+          if (b.format === "emom") announce(b.durationSec <= 60 ? "last-round" : "round-1", { beep: false });
+          if (b.format === "tabata") announce(b.tabataRounds <= 1 ? "last-round" : "round-1", { beep: false });
           vibrate([400]);
           setFullscreen(i);
           setBlocks((prev) =>
@@ -621,38 +629,31 @@ export function SessionRunnerV2({
         const total = b.durationSec;
         const remaining = total - elapsed;
         if (remaining <= 0) {
-          finish("Time's up!");
+          finish();
           finishBloc(i, total);
           return;
         }
-        if (elapsed >= Math.floor(total / 2)) once("half", () => speakEn("Halfway there!"));
+        if (total >= 20 && elapsed >= Math.floor(total / 2)) once("half", () => announce("halfway"));
         if (remaining <= 10) tenSeconds("ten");
         if (remaining <= 3) beepSecond(remaining);
         return;
       }
 
-      if (b.format === "ft") {
-        // Pas de fin imposée : les repères sont calés sur la durée estimée du bloc.
-        const estimated = b.durationSec;
-        if (estimated <= 0) return;
-        const remaining = estimated - elapsed;
-        if (elapsed >= Math.floor(estimated / 2)) once("half", () => speakEn("Half Time!"));
-        if (remaining <= 10 && remaining > 0) tenSeconds("ten");
-        if (remaining <= 3 && remaining > 0) beepSecond(remaining);
-        return;
-      }
+      // For Time : annonces de départ et de fin seulement (pas de fin imposée, donc ni mi-temps ni « Ten seconds! »).
+      if (b.format === "ft") return;
 
       if (b.format === "emom") {
         const total = b.durationSec;
         if (elapsed >= total) {
-          finish("Well done!");
+          finish();
           finishBloc(i, total);
           return;
         }
         const minute = Math.floor(elapsed / 60) + 1;
+        const totalMinutes = Math.max(1, Math.round(total / 60));
         const secondsLeftInMinute = 60 - (elapsed % 60);
         // "Halfway there !" une seule fois, à la moitié du temps total du bloc (doc H.12).
-        if (elapsed >= Math.floor(total / 2)) once("half", () => speakEn("Halfway there!"));
+        if (total >= 20 && elapsed >= Math.floor(total / 2)) once("half", () => announce("halfway"));
         // "Ten seconds !" une fois par minute (doc H.12), avant les 3 bips finaux.
         if (secondsLeftInMinute <= 10) tenSeconds(`ten-${minute}`);
         // Compte à rebours des 3 dernières secondes par minute.
@@ -665,7 +666,7 @@ export function SessionRunnerV2({
           vibrate([120]);
           // "Let's Go!" seulement au tout premier départ du bloc — ici on garde
           // uniquement le numéro de tour à chaque nouvelle minute.
-          speakEn(`Round ${minute}`);
+          announce(minute >= totalMinutes ? "last-round" : (`round-${minute}` as const), { beep: false });
           // Mouvements pas tous cochés à la fin de la minute : un bip de rappel
           // en plus, sans remplacer l'annonce du round.
           const allChecked = b.checked.length > 0 && b.checked.every(Boolean);
@@ -677,20 +678,19 @@ export function SessionRunnerV2({
       if (b.format === "tabata") {
         const view = tabataView(b, elapsed);
         if (view.finished) {
-          finish("Well done!");
+          finish();
           finishBloc(i, b.tabataRounds * (b.workSec + b.restSec));
           return;
         }
+        // « Ten seconds! » avant la fin du bloc entier.
+        const tabataTotal = b.tabataRounds * (b.workSec + b.restSec);
+        if (tabataTotal >= 20 && tabataTotal - elapsed <= 10) tenSeconds("ten");
         // Bips sur les 3 dernières secondes, aussi bien en travail qu'en repos.
         if (view.remaining <= 3) beepSecond(view.remaining);
         // Pas de "Ten seconds!" en Tabata.
         // Mi-temps de la phase travail : double bip, pas de vocal.
         if (view.phase === "work" && view.remaining <= Math.ceil(b.workSec / 2)) {
           once(`half-${view.round}`, () => soundDouble());
-        }
-        // Dernier tour annoncé pendant le repos qui le précède.
-        if (view.phase === "rest" && view.round === b.tabataRounds - 1) {
-          once("last-round", () => speakEn("Last round!"));
         }
         const key = `${view.round}-${view.phase}`;
         if (tabataRef.current[i] === undefined) tabataRef.current[i] = key;
@@ -700,10 +700,11 @@ export function SessionRunnerV2({
           vibrate([120]);
           if (view.phase === "work") {
             soundWork();
-            speakEn(`Round ${view.round}`);
+            // « Last round! » au début du dernier round, à la place de « Round X! ».
+            announce(view.round >= b.tabataRounds ? "last-round" : (`round-${view.round}` as const), { beep: false });
           } else {
             soundRest();
-            speakEn("Rest!");
+            announce("rest", { beep: false });
           }
         }
       }
@@ -719,7 +720,6 @@ export function SessionRunnerV2({
       if (restTickRef.current !== 0) {
         restTickRef.current = 0;
         soundTriple();
-        speakEn("Rest over! Next set!");
         vibrate([600]);
         const { blocIdx, exIdx } = restTimer;
         setRestTimer(null);
@@ -730,7 +730,7 @@ export function SessionRunnerV2({
     }
     if (remaining === 10 && !restTenRef.current) {
       restTenRef.current = true;
-      speakEn("Ten seconds!");
+      announce("ten-seconds");
     }
     // Bips 3 · 2 · 1 classiques — l'accent (soundCountAccent) reste réservé au
     // départ réel (T=0, branche remaining <= 0 ci-dessus) pour ne pas tomber
@@ -744,6 +744,8 @@ export function SessionRunnerV2({
 
   function startTimer(i: number) {
     unlockAudio(); // geste utilisateur : seul moment où iOS autorise le son
+    const cfg = blocks[i];
+    prepareVoices(cfg?.format === "emom" ? Math.round(cfg.durationSec / 60) : cfg?.format === "tabata" ? cfg.tabataRounds : 0);
     setBlocks((prev) =>
       prev.map((x, idx) => {
         if (idx !== i || x.running || x.done || x.countdownEndsAt) return x;
@@ -784,7 +786,7 @@ export function SessionRunnerV2({
     if (b.format === "ft" && b.running) {
       // Fin d'un For Time : les 3 bips imposants, puis le temps réalisé.
       soundTriple();
-      speakEn(`Well done! Time: ${Math.floor(sec / 60)} minutes ${sec % 60}`);
+      // Fin d'un For Time : les 3 bips suffisent (aucune annonce hors liste fermée).
       vibrate([600]);
     } else {
       soundTransition();
@@ -1135,7 +1137,7 @@ export function SessionRunnerV2({
     blockData.forEach((b, i) => {
       const state = blocks[i];
       b.items.forEach((it, j) => {
-        const series = (state.exerciseSeries[j] ?? []).filter((x) => x.charge.trim() || x.reps.trim() || x.time?.trim());
+        const series = (state.exerciseSeries[j] ?? []).filter((x) => x.charge.trim() || x.reps.trim() || x.time?.trim() || x.timeD?.trim());
         const temps = state.exerciseTimes[j]?.trim();
         const kind = resultKindFor(b, it);
         if (series.length > 0) blocs.push({ bloc: i + 1, nom: it.name, series, kind, remplaceDe: it.replacedFrom, remplaceRaison: it.replacedReason });
@@ -1652,6 +1654,9 @@ function BlocCard({
                       last={lastResults[it.name] ?? lastResults[it.movementName]}
                       isHold={isHoldItem(it)}
                       isCarry={isCarryItem(it)}
+                      targetTime={it.time}
+                      perSide={/par c[ôo]t[ée]|side plank|unilat/i.test(`${it.detail ?? ""} ${it.movementName}`)}
+                      loaded={!!it.load && it.load.toLowerCase() !== "bw"}
                       onAdd={() => onAddSerie(j)}
                       onToggleDone={(serieIdx) => onToggleSerieDone(j, serieIdx)}
                       onUpdate={(serieIdx, patch) => onUpdateSerie(j, serieIdx, patch)}
@@ -1740,6 +1745,8 @@ function BlocCard({
             rounds={state.rounds}
             score={state.score}
             rxScaled={state.rxScaled}
+            roundCount={block.rounds ?? 1}
+            roundTimes={state.roundTimes ?? []}
             onPatch={onPatch}
           />
         )}
@@ -1805,6 +1812,8 @@ function WodResult({
   rounds,
   score,
   rxScaled,
+  roundCount,
+  roundTimes,
   onPatch,
 }: {
   format?: WodFormat;
@@ -1812,8 +1821,17 @@ function WodResult({
   rounds: string;
   score: string;
   rxScaled: "rx" | "scaled";
+  /** Formats à intervalles : nombre de séries, un temps par série. */
+  roundCount: number;
+  roundTimes: string[];
   onPatch: (patch: Partial<BlocState>) => void;
 }) {
+  const isIntervals = format === "Intervals";
+  const toSec = (t: string) => {
+    const m = t.trim().match(/^(\d+):(\d{2})$/);
+    return m ? Number(m[1]) * 60 + Number(m[2]) : parseFloat(t) || 0;
+  };
+  const total = roundTimes.reduce((sum, t) => sum + toSec(t ?? ""), 0);
   const isForTime = format === "ForTime" || format === "RFT" || format === "Chipper" || format === "Simulation";
   const isAmrap = format === "AMRAP";
   const isEmom = format === "EMOM" || format === "E2MOM" || format === "E3MOM";
@@ -1821,7 +1839,29 @@ function WodResult({
   return (
     <div className={styles.wodResultWrap}>
       <div className={styles.wodResultRow}>
-        {isForTime ? (
+        {isIntervals ? (
+          <>
+            {Array.from({ length: Math.max(1, roundCount) }, (_, i) => (
+              <div key={i} className={styles.wodResultField}>
+                <label>Série {i + 1}</label>
+                <input
+                  type="text"
+                  placeholder="MM:SS"
+                  value={roundTimes[i] ?? ""}
+                  onChange={(e) => {
+                    const next = Array.from({ length: Math.max(1, roundCount) }, (_, j) => (j === i ? e.target.value : roundTimes[j] ?? ""));
+                    const sum = next.reduce((acc, t) => acc + toSec(t), 0);
+                    onPatch({ roundTimes: next, temps: sum > 0 ? `${Math.floor(sum / 60)}:${String(sum % 60).padStart(2, "0")}` : "" });
+                  }}
+                />
+              </div>
+            ))}
+            <div className={styles.wodResultField}>
+              <label>Total</label>
+              <div className={styles.wodTotal}>{total > 0 ? `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}` : "—"}</div>
+            </div>
+          </>
+        ) : isForTime ? (
           <>
             <div className={styles.wodResultField}>
               <label>Temps</label>
@@ -1896,6 +1936,9 @@ function SerieInput({
   last,
   isHold,
   isCarry,
+  targetTime,
+  perSide,
+  loaded,
   onAdd,
   onToggleDone,
   onUpdate,
@@ -1903,6 +1946,12 @@ function SerieInput({
 }: {
   series: ExerciseSerie[];
   last?: LastResult;
+  /** Gainage : temps visé de la prescription (« 45s »). */
+  targetTime?: string;
+  /** Gainage « par côté » : deux temps par série, G et D. */
+  perSide?: boolean;
+  /** Gainage lesté : le champ charge est affiché d'office. */
+  loaded?: boolean;
   /** Gainage/isométrie (doc H.14) : temps tenu par série au lieu de reps,
    * charge facultative masquée par défaut (mouvement lesté, rare). */
   isHold?: boolean;
@@ -1914,8 +1963,32 @@ function SerieInput({
   onUpdate: (serieIdx: number, patch: Partial<ExerciseSerie>) => void;
   onRemove: (serieIdx: number) => void;
 }) {
-  const [chargeEnabled, setChargeEnabled] = useState(false);
+  const [chargeEnabled, setChargeEnabled] = useState(!!loaded);
   const showCharge = !isHold || chargeEnabled;
+  // Chrono d'une tenue : un seul à la fois ; à l'arrêt, le temps tenu est écrit dans le champ.
+  const [holdTimer, setHoldTimer] = useState<{ k: number; side: "G" | "D"; startedAt: number } | null>(null);
+  const [holdNow, setHoldNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!holdTimer) return;
+    const id = setInterval(() => setHoldNow(Date.now()), 250);
+    return () => clearInterval(id);
+  }, [holdTimer]);
+  const fmtHold = (sec: number) => `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}`;
+  function toggleHold(k: number, side: "G" | "D") {
+    if (holdTimer) {
+      const sec = Math.max(0, Math.round((Date.now() - holdTimer.startedAt) / 1000));
+      onUpdate(holdTimer.k, holdTimer.side === "G" ? { time: fmtHold(sec) } : { timeD: fmtHold(sec) });
+      const same = holdTimer.k === k && holdTimer.side === side;
+      setHoldTimer(null);
+      if (same) return;
+    }
+    setHoldNow(Date.now());
+    setHoldTimer({ k, side, startedAt: Date.now() });
+  }
+  const holdValue = (k: number, side: "G" | "D", stored: string | undefined) =>
+    holdTimer && holdTimer.k === k && holdTimer.side === side
+      ? fmtHold(Math.max(0, Math.round((holdNow - holdTimer.startedAt) / 1000)))
+      : (stored ?? "");
 
   return (
     <div className={styles.seriesWrap}>
@@ -1938,14 +2011,30 @@ function SerieInput({
             </>
           )}
           {isHold ? (
-            <input
-              className={styles.serieInput}
-              type="text"
-              inputMode="numeric"
-              placeholder="MM:SS"
-              value={s.time ?? ""}
-              onChange={(e) => onUpdate(k, { time: e.target.value })}
-            />
+            <>
+              {targetTime && <span className={styles.holdTarget}>{targetTime.replace(/(\d+)s$/, "$1 s")}</span>}
+              {(perSide ? (["G", "D"] as const) : (["G"] as const)).map((side) => (
+                <span key={side} className={styles.holdCell}>
+                  {perSide && <span className={styles.holdSide}>{side}</span>}
+                  <input
+                    className={styles.serieInput}
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="mm:ss"
+                    value={holdValue(k, side, side === "G" ? s.time : s.timeD)}
+                    onChange={(e) => onUpdate(k, side === "G" ? { time: e.target.value } : { timeD: e.target.value })}
+                  />
+                  <button
+                    type="button"
+                    className={cx(styles.holdPlay, holdTimer?.k === k && holdTimer.side === side && styles.holdPlayOn)}
+                    onClick={() => toggleHold(k, side)}
+                    aria-label={holdTimer?.k === k && holdTimer.side === side ? "Arrêter le chrono" : "Lancer le chrono"}
+                  >
+                    {holdTimer?.k === k && holdTimer.side === side ? "■" : "▶"}
+                  </button>
+                </span>
+              ))}
+            </>
           ) : (
             <input
               className={styles.serieInput}
@@ -1967,7 +2056,7 @@ function SerieInput({
               <option value="km">km</option>
             </select>
           ) : (
-            <span className={styles.serieUnit}>{isHold ? "tenu" : "reps"}</span>
+            !isHold && <span className={styles.serieUnit}>reps</span>
           )}
           {series.length > 1 && (
             <button
@@ -2009,18 +2098,19 @@ function SerieInput({
         )}
         </div>
       ))}
-      {last && !isHold && (
+      {last && !isHold && last.charge > 0 && (
         <div className={styles.lastResult}>
           Dernière fois : {last.charge} kg × {last.reps || "—"} · suggéré {last.suggestion} kg
         </div>
       )}
+      {last && isHold && last.time && <div className={styles.lastResult}>Dernière fois : {last.time}</div>}
       <div className={styles.seriesActionsRow}>
         <button type="button" className={styles.addSerieBtn} onClick={onAdd}>
           + Ajouter une série
         </button>
         {isHold && !chargeEnabled && (
           <button type="button" className={styles.addSerieBtn} onClick={() => setChargeEnabled(true)}>
-            + Ajouter une charge
+            + Charge
           </button>
         )}
       </div>
@@ -2560,7 +2650,7 @@ function MovementActions({
   );
 }
 
-/** Feuille « Remplacer [mouvement] » : raison, équivalents, confirmation (mission 11). */
+/** Feuille « Remplacer [mouvement] » : trois zones empilées — haut fixe, milieu qui défile, bas fixe (mission 7). */
 function ReplaceSheet({
   movementName,
   options,
@@ -2577,61 +2667,76 @@ function ReplaceSheet({
   const [video, setVideo] = useState<EquivalentOption | null>(null);
   const chosen = options.find((o) => o.id === picked) ?? options[0];
 
+  // La page derrière ne défile pas tant que la feuille est ouverte.
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, []);
+
   return (
     <div className={styles.sheetOverlay} onClick={onClose}>
       <div className={styles.sheet} role="dialog" aria-label={`Remplacer ${movementName}`} onClick={(e) => e.stopPropagation()}>
-        <div className={styles.sheetTitle}>Remplacer {movementName}</div>
-        <div className={styles.sheetHelp}>Pour cette séance seulement. Les séries et répétitions prévues sont gardées.</div>
-
-        <div className={styles.sheetLabel}>POURQUOI ?</div>
-        <div className={styles.reasonRow}>
-          {REPLACE_REASONS.map((r) => (
-            <button key={r} type="button" className={reason === r ? styles.reasonOn : styles.reason} onClick={() => setReason(r)}>
-              {r}
-            </button>
-          ))}
+        <div className={styles.sheetTop}>
+          <div className={styles.sheetTitle}>Remplacer {movementName}</div>
+          <div className={styles.sheetHelp}>Pour cette séance seulement. Les séries et répétitions prévues sont gardées.</div>
         </div>
 
-        <div className={styles.sheetLabel}>ÉQUIVALENTS</div>
-        <div className={styles.equivList}>
-          {options.map((o) => (
-            <div
-              key={o.id}
-              role="radio"
-              aria-checked={picked === o.id}
-              tabIndex={0}
-              className={picked === o.id ? styles.equivOn : styles.equiv}
-              onClick={() => setPicked(o.id)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") setPicked(o.id);
-              }}
-            >
-              <span className={picked === o.id ? styles.equivRadioOn : styles.equivRadio} />
-              <span className={styles.equivText}>
-                <span className={styles.equivName}>{o.name}</span>
-                <span className={styles.equivEquip}>{o.equipmentLabel}</span>
-              </span>
-              <button
-                type="button"
-                className={styles.equivVideo}
-                aria-label={`Vidéo ${o.name}`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setVideo(o);
+        <div className={styles.sheetMiddle}>
+          <div className={styles.sheetLabel}>POURQUOI ?</div>
+          <div className={styles.reasonRow}>
+            {REPLACE_REASONS.map((r) => (
+              <button key={r} type="button" className={reason === r ? styles.reasonOn : styles.reason} onClick={() => setReason(r)}>
+                {r}
+              </button>
+            ))}
+          </div>
+
+          <div className={styles.sheetLabel}>ÉQUIVALENTS</div>
+          <div className={styles.equivList}>
+            {options.map((o) => (
+              <div
+                key={o.id}
+                role="radio"
+                aria-checked={picked === o.id}
+                tabIndex={0}
+                className={picked === o.id ? styles.equivOn : styles.equiv}
+                onClick={() => setPicked(o.id)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") setPicked(o.id);
                 }}
               >
-                ▶
-              </button>
-            </div>
-          ))}
+                <span className={picked === o.id ? styles.equivRadioOn : styles.equivRadio} />
+                <span className={styles.equivText}>
+                  <span className={styles.equivName}>{o.name}</span>
+                  <span className={styles.equivEquip}>{o.equipmentLabel}</span>
+                </span>
+                <button
+                  type="button"
+                  className={styles.equivVideo}
+                  aria-label={`Vidéo ${o.name}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setVideo(o);
+                  }}
+                >
+                  ▶
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
 
-        <button type="button" className={styles.sheetConfirm} onClick={() => chosen && onConfirm(chosen, reason)}>
-          Remplacer
-        </button>
-        <button type="button" className={styles.sheetCancel} onClick={onClose}>
-          Annuler
-        </button>
+        <div className={styles.sheetBottom}>
+          <button type="button" className={styles.sheetConfirm} onClick={() => chosen && onConfirm(chosen, reason)}>
+            Remplacer
+          </button>
+          <button type="button" className={styles.sheetCancel} onClick={onClose}>
+            Annuler
+          </button>
+        </div>
         {video && <VideoModal open onClose={() => setVideo(null)} title={video.name} searchQuery={video.name} videoUrl={video.videoUrl} />}
       </div>
     </div>

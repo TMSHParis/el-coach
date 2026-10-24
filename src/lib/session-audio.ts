@@ -61,6 +61,7 @@ export function unlockAudio(): void {
   if (typeof window === "undefined") return;
   getVolume();
   unlockSpeech();
+  prepareVoices(0);
 
   if (!unlocked) {
     pool = {};
@@ -222,4 +223,107 @@ export function vibrate(pattern: number | number[]): void {
   if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
     navigator.vibrate(pattern);
   }
+}
+
+// --- Annonces vocales (fichiers audio préenregistrés, partie 4, mission 9) ----------
+//
+// Liste fermée, en anglais, une seule voix sur tous les appareils : les fichiers sont dans
+// /sounds/voice (lets-go, rest, ten-seconds, halfway, last-round, round-1 à round-60) et jouent
+// comme les bips, au volume du curseur de la séance. Pas de synthèse vocale du navigateur.
+
+export type VoiceName = "lets-go" | "rest" | "ten-seconds" | "halfway" | "last-round" | `round-${number}`;
+
+/** Priorité quand plusieurs annonces tombent au même instant (la plus importante d'abord). */
+function voicePriority(name: VoiceName): number {
+  if (name === "lets-go") return 0;
+  if (name === "last-round") return 1;
+  if (name.startsWith("round-")) return 2;
+  if (name === "rest") return 3;
+  if (name === "halfway") return 4;
+  return 5;
+}
+
+const voicePool: Partial<Record<VoiceName, HTMLAudioElement>> = {};
+
+function voiceElement(name: VoiceName, prime: boolean): HTMLAudioElement | null {
+  if (typeof window === "undefined") return null;
+  let a = voicePool[name];
+  if (!a) {
+    a = new Audio(`/sounds/voice/${name}.mp3`);
+    a.preload = "auto";
+    voicePool[name] = a;
+    if (prime) {
+      // Débloque l'élément pendant le geste utilisateur (iOS) : lecture muette puis arrêt.
+      const el = a;
+      el.muted = true;
+      void el.play().then(() => {
+        el.pause();
+        el.currentTime = 0;
+        el.muted = false;
+      }).catch(() => {
+        el.muted = false;
+      });
+    }
+  }
+  return a;
+}
+
+/** À appeler dans un geste : précharge et débloque les annonces ; `maxRound` = nombre de « Round X! » utiles. */
+export function prepareVoices(maxRound = 0): void {
+  for (const n of ["lets-go", "rest", "ten-seconds", "halfway", "last-round"] as VoiceName[]) voiceElement(n, true);
+  for (let i = 1; i <= Math.min(60, maxRound); i++) voiceElement(`round-${i}`, true);
+}
+
+function playVoice(name: VoiceName): Promise<void> {
+  return new Promise((resolve) => {
+    const a = voiceElement(name, false);
+    if (!a) return resolve();
+    let done = false;
+    const end = () => {
+      if (done) return;
+      done = true;
+      a.removeEventListener("ended", end);
+      resolve();
+    };
+    a.addEventListener("ended", end);
+    // Garde-fou : si le fichier ne démarre pas ou ne se termine pas, on enchaîne quand même.
+    setTimeout(end, 2200);
+    try {
+      a.currentTime = 0;
+      a.volume = volume;
+      void a.play().catch(end);
+    } catch {
+      end();
+    }
+  });
+}
+
+let voiceBuffer: { name: VoiceName; beep: boolean }[] = [];
+let voiceFlush: ReturnType<typeof setTimeout> | null = null;
+let voiceChain: Promise<void> = Promise.resolve();
+
+/**
+ * Annonce vocale : jouée juste après un bip (sauf `beep: false` quand l'appelant vient déjà d'en jouer un,
+ * comme le bip accentué avant « Let's Go! »). Des annonces simultanées sont jouées l'une après l'autre,
+ * la plus importante d'abord.
+ */
+export function announce(name: VoiceName, opts: { beep?: boolean } = {}): void {
+  voiceBuffer.push({ name, beep: opts.beep ?? true });
+  if (voiceFlush) return;
+  voiceFlush = setTimeout(() => {
+    voiceFlush = null;
+    const list = [...voiceBuffer].sort((a, b) => voicePriority(a.name) - voicePriority(b.name));
+    voiceBuffer = [];
+    voiceChain = voiceChain.then(async () => {
+      for (let i = 0; i < list.length; i++) {
+        if (i === 0 && list[0].beep) {
+          play("tick");
+          await new Promise((r) => setTimeout(r, 280));
+        } else if (i === 0) {
+          await new Promise((r) => setTimeout(r, 380));
+        }
+        await playVoice(list[i].name);
+      }
+    });
+  }, 0);
 }

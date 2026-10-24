@@ -27,7 +27,7 @@ export type BlocSummary = {
 export type SessionBlocResult = {
   bloc: number;
   nom: string;
-  series?: { charge: string; reps: string; rpe?: string; time?: string; unit?: "m" | "km" }[];
+  series?: { charge: string; reps: string; rpe?: string; time?: string; timeD?: string; unit?: "m" | "km" }[];
   /** Type de saisie du mouvement (page "Séance terminée") : détermine l'affichage 43 kg × 5, 20 reps, 32 kg × 40 m… */
   kind?: ResultKind;
   /** Cardio / endurance : ligne prête à afficher (distance · temps · allure · zone). */

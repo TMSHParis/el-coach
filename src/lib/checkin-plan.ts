@@ -5,6 +5,7 @@
 import type { WeekCycle, WeekCycleDayKey } from "@/app/signup/actions";
 import { SPORT_LABEL_TO_SLUG } from "./ecm-programs";
 import { splitIconLabel } from "./standard-week";
+import { normalizeSport } from "./sports-catalog";
 import { isEmptyCycle } from "./week-cycle";
 
 export type PlanCard = {
@@ -42,13 +43,14 @@ export function buildCheckinPlan(
     .map((s, i) => ({ s, i }))
     .sort((a, b) => heureMinutes(a.s.heure) - heureMinutes(b.s.heure) || a.i - b.i)
     .map(({ s }): PlanCard => {
-      const { icon, label } = splitIconLabel(s.sport);
-      const ecm = s.sport in SPORT_LABEL_TO_SLUG;
+      const sport = normalizeSport(s.sport);
+      const { icon, label } = splitIconLabel(sport);
+      const ecm = sport in SPORT_LABEL_TO_SLUG;
       return {
-        value: s.sport,
+        value: sport,
         icon,
         name: label,
-        sub: ecm ? nextByProgram[s.sport] ?? "" : "Séance hors ECM",
+        sub: ecm ? nextByProgram[sport] ?? "" : "Séance hors ECM",
         heure: s.heure ?? "",
         duree: s.duree ?? "",
         ecm,

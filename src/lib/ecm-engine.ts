@@ -28,7 +28,7 @@ import { movements, type Movement } from "./movements";
 import { WODS } from "./wods";
 import { SOURCE_PROGRAM_EXAMPLES } from "./source-program-examples";
 import type { Block, BlockType, Day, Exercise, WodFormat } from "./programming";
-import { validateGeneratedDay, reclassifyMisplacedStrengthBlocks } from "./session-adapt";
+import { validateGeneratedDay, reclassifyMisplacedStrengthBlocks, fixIsometricPrescriptions, normalizeVolumeBlockDay } from "./session-adapt";
 import { ageFromDateNaissance } from "./age";
 import { isRestLikeSeance } from "./seance-kinds";
 import { callCoachMessage, formatRecentTags, type CoachMessageResult, type CoachTagsByDay } from "./coach-message";
@@ -458,7 +458,8 @@ RÈGLES :
 - volumeBlockFocus (Volume Block Hypertrophy uniquement) : "upper" = haut du corps, "lower" = bas du corps, "full" = corps entier. Quand il est renseigné, sessionBlocks ne doit travailler que cette zone (le bloc strength et les accessoires suivent ce focus).${
     isVolumeBlockHypertrophy
       ? `
-- IMPORTANT : Volume Block Hypertrophy est un programme de musculation pure. Tous les blocs doivent être en format NOT FOR TIME (NFT) — n'utilise jamais AMRAP, EMOM, E2MOM, E3MOM, ForTime, RFT, Chipper, Tabata ou Simulation pour ce programme, y compris pour le bloc "wod" (qui doit ici être un bloc de musculation classique — série × reps, pas un metcon chronométré). Utilise uniquement "StraightSets", "Superset" ou aucun format. Chaque exercice se structure en séries × répétitions avec temps de repos entre les séries, sans contrainte de vitesse ou de performance chronométrée.`
+- IMPORTANT : Volume Block Hypertrophy est un programme de musculation pure. Tous les blocs doivent être en format NOT FOR TIME (NFT) — n'utilise jamais AMRAP, EMOM, E2MOM, E3MOM, ForTime, RFT, Chipper, Tabata ou Simulation pour ce programme, y compris pour le bloc "wod" (qui doit ici être un bloc de musculation classique — série × reps, pas un metcon chronométré). Utilise uniquement "StraightSets", "Superset" ou aucun format. Chaque exercice se structure en séries × répétitions avec temps de repos entre les séries, sans contrainte de vitesse ou de performance chronométrée.
+- STRUCTURE Volume Block : exactement 5 blocs — "warmup", "strength" (1 à 2 mouvements, mouvement principal), "accessory" (Accessoire 1 : 2 à 4 mouvements), "accessory" (Accessoire 2 : 2 à 4 mouvements), "cooldown". Aucun bloc "wod", "conditioning" ni finisher chronométré. Chaque mouvement a sets, reps (fourchette) et rest.`
       : ""
   }
 - rest (exercises[].rest, blocs strength/accessory avec plusieurs séries) : renseigne un temps de repos suggéré entre les séries (ex: "90s") selon le type de mouvement — mouvement lourd (squat/deadlift/bench press...) 90-120s, accessoire/isolation 60s, superset/finisher 30-45s.
@@ -557,7 +558,9 @@ RÈGLES :
     blocks,
   };
 
-  const generatedDay = reclassifyMisplacedStrengthBlocks(validateGeneratedDay(rawDay, allowedMovementIds));
+  const checked = fixIsometricPrescriptions(reclassifyMisplacedStrengthBlocks(validateGeneratedDay(rawDay, allowedMovementIds)));
+  // Volume Block : blocs 2, 3 et 4 = musculation, quel que soit le squelette renvoyé par le modèle.
+  const generatedDay = isVolumeBlockHypertrophy ? normalizeVolumeBlockDay(checked) : checked;
 
   return {
     ecm: {

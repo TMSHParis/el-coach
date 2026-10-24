@@ -20,9 +20,11 @@ export function fmtSerie(s: SerieLike, kind: string | undefined): string | null 
   const hasCharge = Number.isFinite(charge) && charge > 0;
   const reps = s.reps?.trim();
   if (kind === "endurance") return s.time?.trim() || null;
-  if (kind === "hold" || (!reps && s.time?.trim())) {
-    const t = s.time?.trim();
-    if (!t) return null;
+  if (kind === "hold" || (!reps && (s.time?.trim() || s.timeD?.trim()))) {
+    const g = s.time?.trim();
+    const d = s.timeD?.trim();
+    if (!g && !d) return null;
+    const t = d ? `G ${g || "—"} · D ${d}` : (g as string);
     return hasCharge ? `${t} · +${charge} kg` : t;
   }
   if (kind === "carry") {

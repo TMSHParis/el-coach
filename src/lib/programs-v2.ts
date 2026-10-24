@@ -9,6 +9,7 @@
 // (pas de cycle d'import à l'exécution).
 
 import type { Block, Day, Exercise, ProgramTemplate } from "./programming";
+import { normalizeVolumeBlockDay } from "./session-adapt";
 
 const ex = (movementId: string, o: Partial<Exercise> = {}): Exercise => ({ movementId, ...o });
 
@@ -554,6 +555,8 @@ const VOLUME_BLOCK_DAYS: Day[] = [
   },
 ];
 
+const VOLUME_BLOCK_NORMALIZED: Day[] = VOLUME_BLOCK_DAYS.map(normalizeVolumeBlockDay);
+
 export const VOLUME_BLOCK_V2: ProgramTemplate = {
   slug: "volume-block-hypertrophy",
   name: "Volume Block · Hypertrophy",
@@ -566,7 +569,7 @@ export const VOLUME_BLOCK_V2: ProgramTemplate = {
     {
       weekNumber: 1,
       theme: "Filière Hypertrophie par défaut · cible ≈ 12 à 16 séries par groupe et par semaine (à recompter par un coach)",
-      days: withRestDays(VOLUME_BLOCK_DAYS, "Week-end libre", "Week-end libre : repos, ou le sport de ton choix."),
+      days: withRestDays(VOLUME_BLOCK_NORMALIZED, "Week-end libre", "Week-end libre : repos, ou le sport de ton choix."),
     },
   ],
 };

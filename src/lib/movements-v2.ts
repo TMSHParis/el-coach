@@ -35,5 +35,6 @@ export const V2_MOVEMENTS: Movement[] = [
   mv("high-pull", "High Pull", "barbell", ["barbell"], "intermediate", ["olympic-drill"], "olympic"),
   mv("incline-db-press", "Développé incliné haltères", "dumbbell", ["dumbbell", "bench"], "beginner", ["hypertrophy"], "press"),
   // Partie 3 (mission 11) : équivalent « squat gobelet au disque » du Goblet Squat.
+  mv("calf-raise-unilateral", "Calf Raise unilatéral", "bodyweight", ["none"], "beginner", ["mollets", "home-friendly"]),
   mv("plate-goblet-squat", "Squat gobelet au disque", "barbell", ["barbell"], "beginner", ["jambes-quad-dominants"], "squat"),
 ];

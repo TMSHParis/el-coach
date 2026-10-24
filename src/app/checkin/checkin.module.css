@@ -267,3 +267,13 @@
 .progName { font-size: 16px; color: var(--w); }
 .progNext { font-size: 12px; color: #9a9a9a; margin-top: 1px; }
 .progBadge { font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; background: var(--g); color: #1a1200; border-radius: 6px; padding: 3px 8px; }
+
+/* Mission 6 : menu en feuille du bas */
+.pickerField { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 54px; padding: 8px 14px; border-radius: 12px; border: 1px solid var(--bd); background: var(--s2); color: var(--w); font: inherit; text-align: left; cursor: pointer; box-sizing: border-box; }
+.pickerPlaceholder { flex: 1; font-size: 16px; color: #9a9a9a; }
+.pickerChev { margin-left: auto; color: #9a9a9a; }
+.pickerOverlay { position: fixed; inset: 0; z-index: 70; background: rgba(0, 0, 0, .65); display: flex; align-items: flex-end; justify-content: center; }
+.pickerSheet { width: 100%; max-width: 520px; max-height: 90vh; overflow-y: auto; background: #121212; border-radius: 20px 20px 0 0; padding: 16px 16px calc(20px + env(safe-area-inset-bottom)); box-sizing: border-box; overscroll-behavior: contain; }
+.pickerTitle { font-size: 18px; font-weight: 700; color: var(--w); margin-bottom: 4px; }
+.pickerGroup { font-size: 12px; letter-spacing: 1.5px; text-transform: uppercase; color: #9a9a9a; margin: 16px 0 8px; }
+.pickerSheet .progRow { margin-bottom: 8px; }

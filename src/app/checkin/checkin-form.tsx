@@ -17,7 +17,9 @@ import { NO_IMPACT_COOKIE, ZONES, ZONE_COOKIE, ZONE_WARNING } from "@/lib/substi
 import { useRouter } from "next/navigation";
 import { submitCheckin, type CheckinGender, type SleepPhotoAnalysis } from "./actions";
 import { BackHomeButton } from "@/components/back-home-button";
+import { SPORT_GROUPS } from "@/lib/sports-catalog";
 import { REPOS_SUBTYPES, RECUP_SUBTYPES, isReposSubtype, isRecupSubtype } from "@/lib/seance-kinds";
+import { SeancePicker, buildPickerGroups } from "./seance-picker";
 import styles from "./checkin.module.css";
 
 const cx = (...classes: (string | false | undefined)[]) => classes.filter(Boolean).join(" ");
@@ -41,20 +43,7 @@ const REPOS_SENTINEL_OPTIONS: SeanceOption[] = [
 export const SEANCE_GROUPS: { label: string; options: SeanceOption[] }[] = [
   { label: "🛋️ REPOS", options: REPOS_SENTINEL_OPTIONS },
   { label: "⚡ PROGRAMMATIONS ECM", options: ECM_PROGRAM_OPTIONS.map((o) => ({ value: o, label: o })) },
-  {
-    label: "🏃 COURS COLLECTIFS",
-    options: ["Step", "CrossTraining", "CAF — Cuisse Abdo Fessier", "HIIT", "Cardio Boxe"].map((o) => ({ value: o, label: o })),
-  },
-  {
-    label: "🥊 SPORTS DE COMBAT",
-    options: ["🥊 Boxe Thaï / Muay Thai", "🥋 MMA", "🥊 Boxe anglaise", "🥋 Jiu-Jitsu brésilien", "🥋 Judo / Lutte"].map((o) => ({
-      value: o,
-      label: o,
-    })),
-  },
-  { label: "🏃 CARDIO & ENDURANCE", options: ["🏃 Running", "🚴 Cyclisme", "🏊 Natation", "⛷️ Trail"].map((o) => ({ value: o, label: o })) },
-  { label: "⚽ SPORTS COLLECTIFS", options: ["⚽ Football", "🏀 Basketball", "🏈 Rugby", "🎾 Tennis / Padel"].map((o) => ({ value: o, label: o })) },
-  { label: "🧘 MOBILITÉ", options: ["🧘 Yoga / Pilates", "🤸 Calisthénie", "🧗 Escalade"].map((o) => ({ value: o, label: o })) },
+  ...SPORT_GROUPS.map((g) => ({ label: g.label, options: g.options.map((o) => ({ value: o, label: o })) })),
 ];
 
 /** Groupes du <select> "Séance du jour", avec les programmes actifs en tête. */
@@ -67,9 +56,6 @@ export function buildSeanceGroups(programmes: string[]): { label: string; option
       : g,
   );
 }
-
-/** Autres activités du check-in : repos, sports et cours. Les 5 programmes ECM ont leurs propres lignes (mission 10). */
-const OTHER_SEANCE_GROUPS = SEANCE_GROUPS.filter((g) => g.label !== "⚡ PROGRAMMATIONS ECM");
 
 const VOLUME_BLOCK_LABEL = "💪 Volume Block Hypertrophy";
 const VOLUME_FOCUS_OPTIONS: { value: string; label: string }[] = [
@@ -211,17 +197,17 @@ export function CheckinForm({
   prevCheckin?: { dayLabel: string; stateLabel: string; seance: string | null; energie: number | null } | null;
 }) {
   const router = useRouter();
-  const seanceGroups = OTHER_SEANCE_GROUPS;
   const fileInputRef = useRef<HTMLInputElement>(null);
   // Mission 9 : la ligne « Séance du jour » est préremplie avec la séance prévue (modifiable).
   const plannedSeance =
     plan.kind === "day" ? (plan.cards.find((c) => c.ecm)?.value ?? plan.cards[0]?.value ?? "") : "";
   const [d, setD] = useState<FormState>(() => ({ ...INITIAL_STATE, seance: plannedSeance }));
   const [trainAnyway, setTrainAnyway] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const pickerGroups = buildPickerGroups(programs);
   // Jour de repos prévu (sans « Je m'entraîne quand même ») ou jour 100 % hors ECM : la ligne n'est pas affichée.
   const restMode = plan.kind === "rest" && !trainAnyway;
-  const externalOnly = plan.kind === "day" && !plan.cards.some((c) => c.ecm);
-  const hideSeanceRow = restMode || externalOnly;
+  const hideSeanceRow = restMode;
   const effectiveSeance = restMode ? REPOS_SUBTYPES[0] : d.seance;
   const plannedProgram = plan.kind === "day" ? plan.cards.find((c) => c.ecm)?.value : undefined;
   const [submitting, setSubmitting] = useState(false);
@@ -301,8 +287,6 @@ export function CheckinForm({
     set({ seance: value, accordionOpen: false });
   }
 
-  const isProgram = programs.some((p) => p.value === d.seance);
-  const selectValue = d.seanceAccordion === "repos" ? "__repos__" : d.seanceAccordion === "recup" ? "__recup__" : isProgram ? "" : d.seance;
   // "Personnaliser ma séance" : uniquement pour un vrai sport/programme — jamais
   // pour repos ou récupération active, quel que soit le sous-type choisi.
   const showPersonalize = Boolean(d.seance) && d.seanceAccordion === null;
@@ -756,7 +740,10 @@ export function CheckinForm({
                 </div>
               </div>
               {!trainAnyway && (
-                <button type="button" className={styles.trainAnyway} onClick={() => setTrainAnyway(true)}>
+                <button type="button" className={styles.trainAnyway} onClick={() => {
+                    setTrainAnyway(true);
+                    setMenuOpen(true);
+                  }}>
                   Je m&apos;entraîne quand même
                 </button>
               )}
@@ -764,48 +751,21 @@ export function CheckinForm({
           )}
 
           {!hideSeanceRow && (
-          <>
-          <div className={styles.ql}>
-            <i>🏋️</i> Séance du jour <span className={isH ? styles.bh : styles.bf}>Requis</span>
-          </div>
-          <div className={styles.progHint}>Choisir ta séance...</div>
-          <div className={styles.progList} role="radiogroup" aria-label="Choisir ta séance">
-            {programs.map((p) => (
-              <div
-                key={p.value}
-                role="radio"
-                aria-checked={d.seance === p.value}
-                tabIndex={0}
-                className={cx(styles.progRow, d.seance === p.value && styles.progRowOn)}
-                onClick={() => chooseSeance(p.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") chooseSeance(p.value);
-                }}
-              >
-                <span className={styles.progIcon}>{p.icon}</span>
-                <span className={styles.progText}>
-                  <span className={styles.progName}>{p.name}</span>
-                  {p.next && <span className={styles.progNext}>{p.next}</span>}
-                </span>
-                {p.planned && <span className={styles.progBadge}>Prévu</span>}
+            <>
+              <div className={styles.ql}>
+                <i>🏋️</i> Séance du jour{" "}
+                <span className={isH ? styles.bh : styles.bf}>{plannedSeance && d.seance === plannedSeance ? "Prévu" : "Requis"}</span>
               </div>
-            ))}
-          </div>
-          <select className={styles.ss} value={selectValue} onChange={(e) => onSelectChange(e.target.value)}>
-            <option value="" disabled>
-              Autre : repos, sport, cours...
-            </option>
-            {seanceGroups.map((group) => (
-              <optgroup key={group.label} label={group.label}>
-                {group.options.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </optgroup>
-            ))}
-          </select>
-          </>
+              <SeancePicker
+                groups={pickerGroups}
+                value={d.seance}
+                accordion={d.seanceAccordion}
+                plannedValue={plan.kind === "day" ? plannedSeance : plan.kind === "rest" ? "__repos__" : undefined}
+                open={menuOpen}
+                onOpenChange={setMenuOpen}
+                onPick={onSelectChange}
+              />
+            </>
           )}
 
           {d.seanceAccordion === "repos" && d.accordionOpen && (
