@@ -1,7 +1,11 @@
 import { ThemeScreen } from "./theme-screen";
 import { ecmFontVariables } from "@/app/signup/ecm-fonts";
+import { getT } from "@/lib/i18n/server";
 
-export const metadata = { title: "Mon bloc d'entraînement · EL COACH METHOD" };
+export async function generateMetadata() {
+  const { t } = await getT();
+  return { title: t("su.meta.theme") };
+}
 
 export default function ThemePage() {
   return (

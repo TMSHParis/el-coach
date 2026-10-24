@@ -17,7 +17,7 @@ export default function SignInPage() {
     <section className="grid min-h-[70vh] place-items-center px-6 py-16">
       <SignIn
         appearance={{
-          variables: { colorPrimary: "#ffffff", colorBackground: "#000000", colorText: "#ffffff" },
+          variables: { colorPrimary: "var(--c-ffffff)", colorBackground: "var(--c-080808)", colorText: "var(--c-ffffff)" },
         }}
       />
     </section>

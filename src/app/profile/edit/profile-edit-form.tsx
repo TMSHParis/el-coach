@@ -17,6 +17,8 @@ import {
 import { WeekPlanner } from "./week-planner";
 import { BlockCard } from "./block-card";
 import styles from "@/app/signup/ecm-signup.module.css";
+import { useT } from "@/lib/i18n/provider";
+import { dv } from "@/app/signup/display";
 
 /**
  * Contenu de /profile/edit. Aucun garde-fou d'auth ici — le middleware
@@ -25,6 +27,7 @@ import styles from "@/app/signup/ecm-signup.module.css";
  */
 export function ProfileEditForm() {
   const router = useRouter();
+  const t = useT();
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<EcmProfileCookie>(emptyEcmProfile());
   const [notFound, setNotFound] = useState(false);
@@ -74,7 +77,7 @@ export function ProfileEditForm() {
         <div className={styles.logo}>
           EL <span>COACH</span>
         </div>
-        <p style={{ color: "#8a8a8a" }}>Chargement de ton profil…</p>
+        <p style={{ color: "var(--c-8a8a8a)" }}>{t("su.edit.loading")}</p>
       </div>
     );
   }
@@ -85,9 +88,9 @@ export function ProfileEditForm() {
         <div className={styles.logo}>
           EL <span>COACH</span>
         </div>
-        <h2 style={{ fontSize: "1.4rem", fontWeight: 600 }}>Pas encore de profil ECM sur ce compte.</h2>
-        <p style={{ color: "#8a8a8a", fontSize: "0.9rem", maxWidth: 360 }}>
-          Termine d&apos;abord ton inscription depuis <a href="/signup" style={{ color: "inherit" }}>/signup</a>.
+        <h2 style={{ fontSize: "1.4rem", fontWeight: 600 }}>{t("su.edit.notFound")}</h2>
+        <p style={{ color: "var(--c-8a8a8a)", fontSize: "0.9rem", maxWidth: 360 }}>
+          {t("su.edit.finishSignup")} <a href="/signup" style={{ color: "inherit" }}>/signup</a>.
         </p>
       </div>
     );
@@ -103,7 +106,7 @@ export function ProfileEditForm() {
         {/* Personnel */}
         <div className={styles.qc}>
           <div className={styles.ql}>
-            <i>👤</i> Prénom &amp; date de naissance
+            <i>👤</i> {t("su.form.nameBirth")}
           </div>
           <div className={styles.nr} style={{ gap: 8, marginBottom: 8 }}>
             <input
@@ -125,7 +128,7 @@ export function ProfileEditForm() {
         </div>
         <div className={styles.qc}>
           <div className={styles.ql}>
-            <i>📏</i> Morphologie
+            <i>📏</i> {t("su.form.morpho")}
           </div>
           <div className={styles.nr} style={{ gap: 8 }}>
             <input
@@ -155,7 +158,7 @@ export function ProfileEditForm() {
           onProgramme={(v) => setField({ programmePrincipal: v })}
           onPickOtherProgramme={() => document.getElementById("programme-principal")?.scrollIntoView({ behavior: "smooth", block: "center" })}
         />
-        {objError && <div style={{ marginTop: 6, fontSize: "0.8rem", color: "var(--error)" }}>2 objectifs maximum</div>}
+        {objError && <div style={{ marginTop: 6, fontSize: "0.8rem", color: "var(--error)" }}>{t("su.form.maxGoals")}</div>}
 
         {/* Sportif */}
         <ProgrammePrincipalPicker
@@ -170,7 +173,7 @@ export function ProfileEditForm() {
         />
         <div className={styles.qc}>
           <div className={styles.ql}>
-            <i>🏗️</i> Accès équipement
+            <i>🏗️</i> {t("su.form.equip")}
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {EQUIPEMENTS.map((o) => (
@@ -180,7 +183,7 @@ export function ProfileEditForm() {
                 onClick={() => setField({ equip: o })}
               >
                 <div className={styles.mc}>{profile.equip === o ? "✓" : ""}</div>
-                {o}
+                {dv(t, o)}
               </div>
             ))}
           </div>
@@ -189,20 +192,20 @@ export function ProfileEditForm() {
         {/* Nutrition */}
         <div className={styles.qc}>
           <div className={styles.ql}>
-            <i>⏱️</i> Jeûne intermittent ?
+            <i>⏱️</i> {t("su.form.fasting")}
           </div>
           <YesNo value={profile.jeune} onChange={(v) => setField({ jeune: v })} />
           {profile.jeune && (
             <div style={{ marginTop: 10 }}>
-              <div className={styles.dl}>Type de jeûne</div>
+              <div className={styles.dl}>{t("su.form.fastType")}</div>
               <div className={styles.opts} style={{ marginBottom: 10 }}>
                 {["16:8", "18:6", "20:4", "Autre"].map((o) => (
                   <button key={o} type="button" className={cx(styles.opt, profile.tj === o && styles.sel)} onClick={() => setField({ tj: o })}>
-                    {o}
+                    {dv(t, o)}
                   </button>
                 ))}
               </div>
-              <div className={styles.dl}>Fenêtre alimentaire</div>
+              <div className={styles.dl}>{t("su.form.eatWindow")}</div>
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                 <input className={styles.mi} type="text" placeholder="12h00" style={{ flex: 1 }} value={profile.df} onChange={(e) => setField({ df: e.target.value })} />
                 <span style={{ fontFamily: "var(--font-bebas)", fontSize: "1.2rem", color: "var(--accent)" }}>→</span>
@@ -213,16 +216,16 @@ export function ProfileEditForm() {
         </div>
         <div className={styles.qc}>
           <div className={styles.ql}>
-            🚫 Restrictions / Allergies <span className={styles.hint}>(plusieurs choix)</span>
+            🚫 {t("su.form.restrictions")} <span className={styles.hint}>{t("su.form.multi")}</span>
           </div>
           <MoMulti options={RESTRICTIONS} values={profile.rest} onToggle={(v) => toggleMulti("rest", v)} />
         </div>
         <div className={styles.qc}>
-          <div className={styles.ql}>💧 Hydratation quotidienne</div>
+          <div className={styles.ql}>💧 {t("su.form.hydration")}</div>
           <div className={styles.opts}>
             {["Moins de 1.5L", "1.5 - 2L", "2 - 3L", "Plus de 3L"].map((o) => (
               <button key={o} type="button" className={cx(styles.opt, profile.hydra === o && styles.sel)} onClick={() => setField({ hydra: o })}>
-                {o}
+                {dv(t, o)}
               </button>
             ))}
           </div>
@@ -230,47 +233,47 @@ export function ProfileEditForm() {
 
         {/* Santé & compléments */}
         <div className={styles.qc}>
-          <div className={styles.ql}>🤕 Blessures chroniques ?</div>
+          <div className={styles.ql}>🤕 {t("su.form.injuries")}</div>
           <YesNo value={profile.bles} onChange={(v) => setField({ bles: v })} />
           {profile.bles && (
             <div style={{ marginTop: 8 }}>
-              <textarea className={styles.ecmTa} placeholder="Décris tes blessures..." value={profile.bt} onChange={(e) => setField({ bt: e.target.value })} />
+              <textarea className={styles.ecmTa} placeholder={t("su.form.injuriesPhShort")} value={profile.bt} onChange={(e) => setField({ bt: e.target.value })} />
             </div>
           )}
         </div>
         <div className={styles.qc}>
           <div className={styles.ql}>
-            💊 Compléments alimentaires <span className={styles.hint}>(plusieurs choix)</span>
+            💊 {t("su.form.supplements")} <span className={styles.hint}>{t("su.form.multi")}</span>
           </div>
           <MoMulti options={COMPLEMENTS} values={profile.comp} onToggle={(v) => toggleMulti("comp", v)} />
           <div style={{ marginTop: 8 }}>
-            <div className={styles.dl}>➕ Autres</div>
+            <div className={styles.dl}>{t("su.form.others")}</div>
             <input className={styles.ecmInput} type="text" value={profile.ca} onChange={(e) => setField({ ca: e.target.value })} />
           </div>
         </div>
         <div className={styles.qc}>
-          <div className={styles.ql}>😴 Qualité de sommeil</div>
+          <div className={styles.ql}>😴 {t("su.form.sleepQuality")}</div>
           <div className={styles.opts}>
             {["😴 Très bonne", "🌤 Correcte", "😓 Difficile", "😫 Très mauvaise"].map((o) => (
               <button key={o} type="button" className={cx(styles.opt, profile.qs === o && styles.sel)} onClick={() => setField({ qs: o })}>
-                {o}
+                {dv(t, o)}
               </button>
             ))}
           </div>
         </div>
         <div className={styles.qc}>
-          <div className={styles.ql}>⏰ Durée de sommeil moyenne</div>
+          <div className={styles.ql}>⏰ {t("su.form.sleepDuration")}</div>
           <div className={styles.opts}>
             {["Moins de 6h", "6h - 7h", "7h - 8h", "Plus de 8h"].map((o) => (
               <button key={o} type="button" className={cx(styles.opt, profile.ds === o && styles.sel)} onClick={() => setField({ ds: o })}>
-                {o}
+                {dv(t, o)}
               </button>
             ))}
           </div>
         </div>
 
         <button className={styles.btnNext} type="button" disabled={saving} onClick={handleSave} style={{ marginTop: 16 }}>
-          {saving ? "Enregistrement…" : "Enregistrer mes modifications"}
+          {saving ? t("su.edit.saving") : t("su.edit.save")}
         </button>
       </div>
     </div>

@@ -13,19 +13,86 @@ import {
   type SessionFormat,
 } from "@/lib/coach-params";
 import { parseAvailableMinutes } from "@/lib/session-modular";
-import { NO_IMPACT_COOKIE, ZONES, ZONE_COOKIE, ZONE_WARNING } from "@/lib/substitutions";
+import { NO_IMPACT_COOKIE, ZONES, ZONE_COOKIE } from "@/lib/substitutions";
 import { useRouter } from "next/navigation";
 import { submitCheckin, type CheckinGender, type SleepPhotoAnalysis } from "./actions";
 import { BackHomeButton } from "@/components/back-home-button";
-import { SPORT_GROUPS } from "@/lib/sports-catalog";
+import { SPORT_GROUPS, sportLabel } from "@/lib/sports-catalog";
+import { formatDate, type DictKey, type Translate } from "@/lib/i18n";
+import { useLang, useT } from "@/lib/i18n/provider";
 import { REPOS_SUBTYPES, RECUP_SUBTYPES, isReposSubtype, isRecupSubtype } from "@/lib/seance-kinds";
 import { SeancePicker, buildPickerGroups } from "./seance-picker";
 import styles from "./checkin.module.css";
 
 const cx = (...classes: (string | false | undefined)[]) => classes.filter(Boolean).join(" ");
 
-const ENERGIE_LABELS = ["", "Très bas", "Bas", "Faible", "Moyen−", "Moyen", "Moyen+", "Bien", "Très bien", "Excellent", "⚡ Max"];
-const MOTIV_LABELS = ["", "Nulle", "Très basse", "Basse", "Faible", "Moyenne", "Correcte", "Bonne", "Très bonne", "Excellente", "🔥 Max"];
+const energieLabel = (t: Translate, n: number) => t(`ci.energy.${n}` as DictKey);
+const motivLabel = (t: Translate, n: number) => t(`ci.motiv.${n}` as DictKey);
+
+/** Valeur d'option (français, enregistrée telle quelle) -> clé d'affichage. Les valeurs inconnues s'affichent telles quelles. */
+const OPT_KEYS: Record<string, DictKey> = {
+  "😩 Faible": "ci.opt.recupLow",
+  "😐 Moyenne": "ci.opt.recupMid",
+  "💪 Bonne": "ci.opt.recupGood",
+  "🥗 Équilibré": "ci.opt.nutBalanced",
+  "🍝 Correct": "ci.opt.nutOk",
+  "🍔 Négligé": "ci.opt.nutPoor",
+  "💧 Faible": "ci.opt.hydLow",
+  "💧💧 Correcte": "ci.opt.hydOk",
+  "💧💧💧 Élevée": "ci.opt.hydHigh",
+  "🪶 Légères": "ci.opt.legsLight",
+  "⚡ Légèrement lourdes": "ci.opt.legsMid",
+  "🪨 Lourdes": "ci.opt.legsHeavy",
+  "✅ Aucune": "ci.opt.painNone",
+  "🟡 Légères": "ci.opt.painMild",
+  "🔴 Intenses": "ci.opt.painSevere",
+  "✨ Clair": "ci.opt.mentalClear",
+  "🌤 Moyen": "ci.opt.mentalMid",
+  "🌫 Brouillard": "ci.opt.mentalFog",
+  "😌 Faible": "ci.opt.stressLow",
+  "😐 Modéré": "ci.opt.stressMid",
+  "😰 Élevé": "ci.opt.stressHigh",
+  "🔥 Bonne": "ci.opt.libidoGood",
+  "💛 Moyenne": "ci.opt.libidoMid",
+  "🩶 Basse": "ci.opt.libidoLow",
+  Légère: "ci.opt.intLight",
+  Modérée: "ci.opt.intModerate",
+  Intense: "ci.opt.intHard",
+  Maximum: "ci.opt.intMax",
+  "Complet (5 blocs)": "ci.opt.fmtFull",
+  "Deux blocs (2 × 4 mouvements)": "ci.opt.fmtTwo",
+  "Un seul bloc (6 à 8 mouvements)": "ci.opt.fmtOne",
+  "Upper Body": "ci.volume.upper",
+  "Lower Body": "ci.volume.lower",
+  "Full Body": "ci.volume.full",
+  Bras: "ci.opt.arms",
+  Épaules: "ci.opt.shoulders",
+  Abdos: "ci.opt.abs",
+  Dos: "ci.opt.back",
+  Pectoraux: "ci.opt.chest",
+  Fessiers: "ci.opt.glutes",
+  Mollets: "ci.opt.calves",
+  "Haut du corps": "ci.opt.upperBody",
+  Jambes: "ci.opt.legs",
+  Core: "ci.opt.core",
+  Skill: "ci.opt.skill",
+  "Salle complète": "ci.opt.gymFull",
+  "Haltères seulement": "ci.opt.dumbbells",
+  "Poids du corps": "ci.opt.bodyweight",
+  Étendu: "ci.opt.homeExtended",
+  Basique: "ci.opt.homeBasic",
+  Aucun: "ci.opt.homeNone",
+  Épaule: "ci.opt.zoneShoulder",
+  Genou: "ci.opt.zoneKnee",
+  Poignet: "ci.opt.zoneWrist",
+  Autre: "ci.opt.zoneOther",
+};
+
+/** Texte affiché d'une option (la valeur, elle, reste inchangée). */
+function optText(t: Translate, lang: Parameters<typeof sportLabel>[1], o: string): string {
+  const k = OPT_KEYS[o];
+  return k ? t(k) : sportLabel(o, lang);
+}
 
 const ECM_PROGRAM_OPTIONS = ["⚡ CrossFit Pure", "🔥 Hybrid Engine", "🏁 Hyrox Pure", "💪 Volume Block Hypertrophy", "🏠 At Home"];
 
@@ -75,10 +142,10 @@ function suggestedVolumeFocus(): string {
   if (day === 2 || day === 6) return "lower";
   return "full";
 }
-const FORMAT_OPTIONS: { value: SessionFormat; label: string; hint: string }[] = [
-  { value: "complet", label: "Complet", hint: "5 blocs" },
-  { value: "deux_blocs", label: "Deux blocs", hint: "2 × 4 mouvements" },
-  { value: "un_bloc", label: "Un seul bloc", hint: "6 à 8 mouvements" },
+const FORMAT_OPTIONS: { value: SessionFormat; label: string; hint: string; nameKey: DictKey }[] = [
+  { value: "complet", label: "Complet", hint: "5 blocs", nameKey: "ci.opt.fmtFullName" },
+  { value: "deux_blocs", label: "Deux blocs", hint: "2 × 4 mouvements", nameKey: "ci.opt.fmtTwoName" },
+  { value: "un_bloc", label: "Un seul bloc", hint: "6 à 8 mouvements", nameKey: "ci.opt.fmtOneName" },
 ];
 const INTENSITE_OPTIONS = ["Légère", "Modérée", "Intense", "Maximum"];
 
@@ -167,13 +234,6 @@ const INITIAL_STATE: FormState = {
   volumeBlockFocus: "",
 };
 
-const DATE_STR = new Date().toLocaleDateString("fr-FR", {
-  weekday: "short",
-  day: "numeric",
-  month: "short",
-  year: "numeric",
-});
-
 /** Sentinelle de l'accordéon dans laquelle `value` (une fois choisie) retombe — null si ni repos ni récup. */
 function accordionKindOf(value: string): "repos" | "recup" | null {
   if (isReposSubtype(value)) return "repos";
@@ -197,6 +257,9 @@ export function CheckinForm({
   prevCheckin?: { dayLabel: string; stateLabel: string; seance: string | null; energie: number | null } | null;
 }) {
   const router = useRouter();
+  const t = useT();
+  const { lang } = useLang();
+  const dateStr = formatDate(lang, new Date(), { weekday: "short", day: "numeric", month: "short", year: "numeric" });
   const fileInputRef = useRef<HTMLInputElement>(null);
   // Mission 9 : la ligne « Séance du jour » est préremplie avec la séance prévue (modifiable).
   const plannedSeance =
@@ -204,7 +267,7 @@ export function CheckinForm({
   const [d, setD] = useState<FormState>(() => ({ ...INITIAL_STATE, seance: plannedSeance }));
   const [trainAnyway, setTrainAnyway] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const pickerGroups = buildPickerGroups(programs);
+  const pickerGroups = buildPickerGroups(programs, t, lang);
   // Jour de repos prévu (sans « Je m'entraîne quand même ») ou jour 100 % hors ECM : la ligne n'est pas affichée.
   const restMode = plan.kind === "rest" && !trainAnyway;
   const hideSeanceRow = restMode;
@@ -213,6 +276,7 @@ export function CheckinForm({
   const [submitting, setSubmitting] = useState(false);
   const [slowSubmit, setSlowSubmit] = useState(false);
   const [missing, setMissing] = useState<string[]>([]);
+  const [formError, setFormError] = useState<string | null>(null);
   const [demandeOpen, setDemandeOpen] = useState(false);
 
   // La semaine est relue à minuit : une modification de la semaine est visible au prochain affichage.
@@ -309,19 +373,19 @@ export function CheckinForm({
   function validate(): string[] {
     const miss: string[] = [];
     const sleepOk = d.sleepPhoto || d.sleepDuree || d.sleepCoucher;
-    if (!sleepOk) miss.push("Sommeil");
-    if (!d.recuperationPercue) miss.push("Récupération perçue");
-    if (!d.jambes) miss.push("Jambes");
-    if (d.douleur === null) miss.push("Douleur");
-    if (!isH && d.cycle === null) miss.push("Cycle menstruel");
-    if (!d.energie) miss.push("Énergie");
-    if (!d.motivation) miss.push("Motivation");
-    if (!d.mental) miss.push("Mental");
-    if (!d.stress) miss.push("Stress");
-    if (!d.libido) miss.push("Libido");
-    if (!effectiveSeance) miss.push("Séance");
-    if (d.travail === null) miss.push("Travail");
-    if (isH && d.soirPerformance === null) miss.push("Soir performance");
+    if (!sleepOk) miss.push(t("ci.miss.sleep"));
+    if (!d.recuperationPercue) miss.push(t("ci.miss.recovery"));
+    if (!d.jambes) miss.push(t("ci.miss.legs"));
+    if (d.douleur === null) miss.push(t("ci.miss.pain"));
+    if (!isH && d.cycle === null) miss.push(t("ci.miss.cycle"));
+    if (!d.energie) miss.push(t("ci.miss.energy"));
+    if (!d.motivation) miss.push(t("ci.miss.motivation"));
+    if (!d.mental) miss.push(t("ci.miss.mental"));
+    if (!d.stress) miss.push(t("ci.miss.stress"));
+    if (!d.libido) miss.push(t("ci.miss.libido"));
+    if (!effectiveSeance) miss.push(t("ci.miss.session"));
+    if (d.travail === null) miss.push(t("ci.miss.work"));
+    if (isH && d.soirPerformance === null) miss.push(t("ci.miss.evening"));
     return miss;
   }
 
@@ -346,19 +410,20 @@ export function CheckinForm({
 
   // État live (⚪/🟢/🟡/🔴) — mêmes seuils que la suggestion contextuelle.
   const liveState = (() => {
-    if (d.energie === null && d.mental === "") return { cls: "", emoji: "⚪", title: "En attente", sub: "Remplis le check-in pour voir ton état" };
+    if (d.energie === null && d.mental === "") return { cls: "", emoji: "⚪", title: t("ci.live.waitTitle"), sub: t("ci.live.waitSub") };
     if ((d.energie !== null && d.energie <= 5) || d.mental === "🌫 Brouillard" || d.jambes === "🪨 Lourdes" || d.stress === "😰 Élevé" || cycleIntense) {
-      return { cls: "red", emoji: "🔴", title: "Vigilance", sub: cycleIntense ? "Douleurs intenses détectées" : "Signes de fatigue accumulée" };
+      return { cls: "red", emoji: "🔴", title: t("ci.live.redTitle"), sub: cycleIntense ? t("ci.live.redSubPain") : t("ci.live.redSubFatigue") };
     }
     if ((d.energie !== null && d.energie <= 7) || d.stress === "😐 Modéré") {
-      return { cls: "yellow", emoji: "🟡", title: "À surveiller", sub: "Journée à gérer avec soin" };
+      return { cls: "yellow", emoji: "🟡", title: t("ci.live.yellowTitle"), sub: t("ci.live.yellowSub") };
     }
-    return { cls: "green", emoji: "🟢", title: "Ça part bien", sub: "État plutôt favorable" };
+    return { cls: "green", emoji: "🟢", title: t("ci.live.greenTitle"), sub: t("ci.live.greenSub") };
   })();
 
   async function handleSubmit() {
     const miss = validate();
     setMissing(miss);
+    setFormError(null);
     if (miss.length) return;
 
     setSubmitting(true);
@@ -406,16 +471,12 @@ export function CheckinForm({
       // ligne ou non (pas "connexion perdue" à tort s'il est bien connecté).
       setSubmitting(false);
       const offline = typeof navigator !== "undefined" && !navigator.onLine;
-      setMissing([
-        offline
-          ? "Pas de connexion internet détectée. Vérifie ta connexion puis réessaie."
-          : "Le serveur n'a pas répondu. Tes réponses sont conservées — réessaie.",
-      ]);
+      setFormError(offline ? t("ci.err.offline") : t("ci.err.noReply"));
       return;
     }
     if (!result.ok) {
       setSubmitting(false);
-      setMissing([result.error]);
+      setFormError(result.error);
       return;
     }
     // Page mindset intermédiaire (elle enchaîne sur le dashboard) — replace pour
@@ -429,7 +490,7 @@ export function CheckinForm({
         <div data-hide-scroll-top className={styles.loadingOverlay}>
           <div className={styles.spinner} />
           <div className={styles.loadingText}>
-            {slowSubmit ? "La génération prend un peu plus de temps que prévu…" : "Génération de ton plan..."}
+            {slowSubmit ? t("ci.loading.slow") : t("ci.loading.plan")}
           </div>
         </div>
       )}
@@ -441,26 +502,24 @@ export function CheckinForm({
         <div className={styles.bt}>Daily Performance Check-In</div>
         <div className={styles.hdiv} />
         <div className={styles.dateRow}>
-          <div className={styles.datePill}>{DATE_STR}</div>
+          <div className={styles.datePill}>{dateStr}</div>
           <div className={cx(styles.sportBadge, isH ? styles.h : styles.f)}>
-            {isH ? "♂ HOMME — CHECK-IN" : "♀ FEMME — CHECK-IN"}
+            {isH ? t("ci.hero.male") : t("ci.hero.female")}
           </div>
         </div>
       </div>
 
       {prevCheckin && (
         <div className={styles.prevCheckin}>
-          {prevCheckin.dayLabel} : {prevCheckin.stateLabel}
+          {t("ci.prev.head", { day: prevCheckin.dayLabel, state: prevCheckin.stateLabel })}
           {prevCheckin.seance ? ` · ${prevCheckin.seance}` : ""}
-          {prevCheckin.energie ? ` · Énergie ${prevCheckin.energie}/10` : ""}
+          {prevCheckin.energie ? ` · ${t("ci.prev.energy", { n: prevCheckin.energie })}` : ""}
         </div>
       )}
 
-      {missing.length > 0 && (
+      {(formError || missing.length > 0) && (
         <div className={styles.errorBanner}>
-          {missing.length === 1 && missing[0].startsWith("Vérifie")
-            ? missing[0]
-            : `Complète les champs : ${missing.join(", ")}`}
+          {formError ?? t("ci.err.complete", { fields: missing.join(", ") })}
         </div>
       )}
 
@@ -469,24 +528,24 @@ export function CheckinForm({
           className={cx(styles.gtab, isH && styles.activeH)}
           onClick={() => set({ gender: "h" })}
         >
-          ♂ HOMME
-          <div className={styles.gtabSub}>Version masculine</div>
+          {t("ci.tab.male")}
+          <div className={styles.gtabSub}>{t("ci.tab.maleSub")}</div>
         </div>
         <div
           className={cx(styles.gtab, !isH && styles.activeF)}
           onClick={() => set({ gender: "f" })}
         >
-          ♀ FEMME
-          <div className={styles.gtabSub}>Version féminine</div>
+          {t("ci.tab.female")}
+          <div className={styles.gtabSub}>{t("ci.tab.femaleSub")}</div>
         </div>
       </div>
 
       <div className={styles.fw}>
-        <SectionKicker number="01" title="Récupération nocturne" />
-        <div className={cx(styles.sl, isH ? styles.blue : styles.pink)}>😴 Sommeil</div>
+        <SectionKicker number="01" title={t("ci.sec.01")} />
+        <div className={cx(styles.sl, isH ? styles.blue : styles.pink)}>{t("ci.sl.sleep")}</div>
         <div className={cx(styles.qc, (d.sleepPhoto || d.sleepDuree) && (isH ? styles.onH : styles.onF))}>
           <div className={styles.ql}>
-            <i>📱</i> Suivi sommeil <span className={isH ? styles.bh : styles.bf}>Requis</span>
+            <i>📱</i> {t("ci.q.sleepTracking")} <span className={isH ? styles.bh : styles.bf}>{t("ci.badge.required")}</span>
           </div>
           <label className={cx(styles.photoZone, isH ? styles.ph : styles.pf)}>
             <input
@@ -502,34 +561,34 @@ export function CheckinForm({
               <>
                 <div className={styles.pi}>📸</div>
                 <div className={styles.pt}>
-                  <strong className={isH ? styles.h : styles.f}>Capture de ta montre connectée</strong>
+                  <strong className={isH ? styles.h : styles.f}>{t("ci.photo.title")}</strong>
                   Apple Watch, Garmin, Polar, Whoop...
                 </div>
               </>
             )}
           </label>
           {d.sleepAnalyzing && (
-            <div className={cx(styles.pok, isH ? styles.h : styles.f)}>⏳ Analyse de la photo...</div>
+            <div className={cx(styles.pok, isH ? styles.h : styles.f)}>{t("ci.photo.analyzing")}</div>
           )}
           {d.sleepPhoto && !d.sleepAnalyzing && (
             <div className={cx(styles.pok, isH ? styles.h : styles.f)}>
-              {d.sleepAnalysis ? "✅ Photo analysée — champs pré-remplis" : "✅ Photo sommeil ajoutée"}
+              {d.sleepAnalysis ? t("ci.photo.analyzed") : t("ci.photo.added")}
             </div>
           )}
-          <div className={styles.orSep}>ou saisie manuelle</div>
+          <div className={styles.orSep}>{t("ci.sleep.or")}</div>
           <div className={styles.smw}>
-            <div className={styles.smt}>Entre tes données manuellement</div>
+            <div className={styles.smt}>{t("ci.sleep.manual")}</div>
             <div className={styles.smg}>
               <div className={styles.smi}>
-                <label>🌙 Coucher</label>
+                <label>{t("ci.sleep.bed")}</label>
                 <input type="text" placeholder="23h00" value={d.sleepCoucher} onChange={(e) => set({ sleepCoucher: e.target.value })} />
               </div>
               <div className={styles.smi}>
-                <label>☀️ Réveil</label>
+                <label>{t("ci.sleep.wake")}</label>
                 <input type="text" placeholder="07h00" value={d.sleepReveil} onChange={(e) => set({ sleepReveil: e.target.value })} />
               </div>
               <div className={styles.smi}>
-                <label>⏱️ Durée</label>
+                <label>{t("ci.sleep.duration")}</label>
                 <input type="text" placeholder="7h30" value={d.sleepDuree} onChange={(e) => set({ sleepDuree: e.target.value })} />
               </div>
             </div>
@@ -538,16 +597,16 @@ export function CheckinForm({
 
         <div className={cx(styles.qc, d.recuperationPercue && (isH ? styles.onH : styles.onF))}>
           <div className={styles.ql}>
-            <i>🔄</i> Récupération perçue <span className={isH ? styles.bh : styles.bf}>Requis</span>
+            <i>🔄</i> {t("ci.q.recovery")} <span className={isH ? styles.bh : styles.bf}>{t("ci.badge.required")}</span>
           </div>
           <OptRow gender={g} options={RECUP_PERCUE_OPTIONS} value={d.recuperationPercue} onChange={(v) => set({ recuperationPercue: v })} />
         </div>
 
-        <SectionKicker number="02" title="État corporel" />
-        <div className={cx(styles.sl, isH ? styles.blue : styles.pink)}>🌅 Corps au réveil</div>
+        <SectionKicker number="02" title={t("ci.sec.02")} />
+        <div className={cx(styles.sl, isH ? styles.blue : styles.pink)}>{t("ci.sl.body")}</div>
         <div className={cx(styles.qc, styles.opt, d.poids && (isH ? styles.onH : styles.onF))}>
           <div className={styles.ql}>
-            <i>⚖️</i> Poids ce matin <span className={styles.bo}>Facultatif</span>
+            <i>⚖️</i> {t("ci.q.weight")} <span className={styles.bo}>{t("ci.badge.optional")}</span>
           </div>
           <div className={styles.nr}>
             <input
@@ -566,19 +625,19 @@ export function CheckinForm({
 
         <div className={cx(styles.qc, d.jambes && (isH ? styles.onH : styles.onF))}>
           <div className={styles.ql}>
-            <i>🦵</i> État des jambes <span className={isH ? styles.bh : styles.bf}>Requis</span>
+            <i>🦵</i> {t("ci.q.legs")} <span className={isH ? styles.bh : styles.bf}>{t("ci.badge.required")}</span>
           </div>
           <OptRow gender={g} options={["🪶 Légères", "⚡ Légèrement lourdes", "🪨 Lourdes"]} value={d.jambes} onChange={(v) => set({ jambes: v })} />
         </div>
 
         <div className={cx(styles.qc, d.douleur !== null && (isH ? styles.onH : styles.onF))}>
           <div className={styles.ql}>
-            <i>🤕</i> Douleur physique <span className={isH ? styles.bh : styles.bf}>Requis</span>
+            <i>🤕</i> {t("ci.q.pain")} <span className={isH ? styles.bh : styles.bf}>{t("ci.badge.required")}</span>
           </div>
           <YesNo gender={g} value={d.douleur} onChange={(v) => set({ douleur: v })} />
           {d.douleur && (
             <div style={{ marginTop: 9 }}>
-              <input type="text" placeholder="Décris la douleur..." value={d.douleurTxt} onChange={(e) => set({ douleurTxt: e.target.value })} />
+              <input type="text" placeholder={t("ci.pain.placeholder")} value={d.douleurTxt} onChange={(e) => set({ douleurTxt: e.target.value })} />
             </div>
           )}
         </div>
@@ -586,13 +645,13 @@ export function CheckinForm({
         {!isH && (
           <div className={cx(styles.qc, d.cycle !== null && styles.onF)} style={{ borderColor: "rgba(236,72,153,.2)" }}>
             <div className={styles.ql}>
-              <i>🌸</i> Cycle menstruel en cours <span className={styles.bf}>Requis</span>
+              <i>🌸</i> {t("ci.q.cycle")} <span className={styles.bf}>{t("ci.badge.required")}</span>
             </div>
             <YesNo gender={g} value={d.cycle} onChange={(v) => set({ cycle: v })} />
             {d.cycle && (
               <div style={{ marginTop: 10 }}>
                 <div style={{ fontSize: 12, color: "var(--m)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 7 }}>
-                  💊 Douleurs menstruelles
+                  {t("ci.q.cyclePain")}
                 </div>
                 <div className={styles.opts} style={{ marginBottom: 10 }}>
                   <OptRow
@@ -603,7 +662,7 @@ export function CheckinForm({
                   />
                 </div>
                 <div style={{ fontSize: 12, color: "var(--m)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 7 }}>
-                  📅 Jour du cycle
+                  {t("ci.q.cycleDay")}
                 </div>
                 <div className={styles.nr}>
                   <input
@@ -616,23 +675,23 @@ export function CheckinForm({
                     value={d.cycleJour}
                     onChange={(e) => set({ cycleJour: e.target.value })}
                   />
-                  <span className={styles.nu}>/ ~28 jours</span>
+                  <span className={styles.nu}>{t("ci.cycle.days")}</span>
                 </div>
               </div>
             )}
           </div>
         )}
 
-        <SectionKicker number="03" title="Vitalité" />
-        <div className={cx(styles.sl, isH ? styles.blue : styles.pink)}>⚡ Énergie & motivation</div>
+        <SectionKicker number="03" title={t("ci.sec.03")} />
+        <div className={cx(styles.sl, isH ? styles.blue : styles.pink)}>{t("ci.sl.vitality")}</div>
         <div className={cx(styles.qc, Boolean(d.energie) && (isH ? styles.onH : styles.onF))}>
           <div className={styles.ql}>
-            <i>🔋</i> Énergie <span className={isH ? styles.bh : styles.bf}>Requis</span>
+            <i>🔋</i> {t("ci.q.energy")} <span className={isH ? styles.bh : styles.bf}>{t("ci.badge.required")}</span>
           </div>
           <div className={styles.sr}>
             <div className={cx(styles.sv, isH ? styles.h : styles.f)}>{d.energie ?? "—"}</div>
             <div className={styles.slr}>
-              <span>{d.energie ? ENERGIE_LABELS[d.energie] : "Appuie sur une barre"}</span>/10
+              <span>{d.energie ? energieLabel(t, d.energie) : t("ci.slider.hint")}</span>/10
             </div>
           </div>
           <Track height={36} value={d.energie} onPick={(v) => set({ energie: v })} fillClass={isH ? styles.fh : styles.ff} />
@@ -640,59 +699,59 @@ export function CheckinForm({
 
         <div className={cx(styles.qc, Boolean(d.motivation) && (isH ? styles.onH : styles.onF))}>
           <div className={styles.ql}>
-            <i>💥</i> Motivation <span className={isH ? styles.bh : styles.bf}>Requis</span>
+            <i>💥</i> {t("ci.q.motivation")} <span className={isH ? styles.bh : styles.bf}>{t("ci.badge.required")}</span>
           </div>
           <div className={styles.sr}>
             <div className={cx(styles.sv, styles.motiv)}>{d.motivation ?? "—"}</div>
             <div className={styles.slr}>
-              <span>{d.motivation ? MOTIV_LABELS[d.motivation] : "Appuie sur une barre"}</span>/10
+              <span>{d.motivation ? motivLabel(t, d.motivation) : t("ci.slider.hint")}</span>/10
             </div>
           </div>
           <Track height={26} value={d.motivation} onPick={(v) => set({ motivation: v })} fillClass={styles.fm} />
         </div>
 
-        <div className={cx(styles.sl, isH ? styles.blue : styles.pink)}>🧠 Mental &amp; Bien-être</div>
+        <div className={cx(styles.sl, isH ? styles.blue : styles.pink)}>{t("ci.sl.mind")}</div>
         <div className={cx(styles.qc, d.mental && (isH ? styles.onH : styles.onF))}>
           <div className={styles.ql}>
-            <i>🧠</i> État mental <span className={isH ? styles.bh : styles.bf}>Requis</span>
+            <i>🧠</i> {t("ci.q.mental")} <span className={isH ? styles.bh : styles.bf}>{t("ci.badge.required")}</span>
           </div>
           <OptRow gender={g} options={["✨ Clair", "🌤 Moyen", "🌫 Brouillard"]} value={d.mental} onChange={(v) => set({ mental: v })} />
         </div>
 
         <div className={cx(styles.qc, d.stress && (isH ? styles.onH : styles.onF))}>
           <div className={styles.ql}>
-            <i>😤</i> Stress <span className={isH ? styles.bh : styles.bf}>Requis</span>
+            <i>😤</i> {t("ci.q.stress")} <span className={isH ? styles.bh : styles.bf}>{t("ci.badge.required")}</span>
           </div>
           <OptRow gender={g} options={["😌 Faible", "😐 Modéré", "😰 Élevé"]} value={d.stress} onChange={(v) => set({ stress: v })} />
         </div>
 
         <div className={cx(styles.qc, d.libido && (isH ? styles.onH : styles.onF))}>
           <div className={styles.ql}>
-            <i>❤️</i> Libido <span className={isH ? styles.bh : styles.bf}>Requis</span>
+            <i>❤️</i> {t("ci.q.libido")} <span className={isH ? styles.bh : styles.bf}>{t("ci.badge.required")}</span>
           </div>
           <OptRow gender={g} options={["🔥 Bonne", "💛 Moyenne", "🩶 Basse"]} value={d.libido} onChange={(v) => set({ libido: v })} />
         </div>
 
-        <div className={cx(styles.sl, isH ? styles.blue : styles.pink)}>🍽 Nutrition & hydratation</div>
+        <div className={cx(styles.sl, isH ? styles.blue : styles.pink)}>{t("ci.sl.nutrition")}</div>
         <div className={cx(styles.qc, styles.opt, d.nutrition && (isH ? styles.onH : styles.onF))}>
           <div className={styles.ql}>
-            <i>🥗</i> Repas d&apos;hier soir <span className={styles.bo}>Facultatif</span>
+            <i>🥗</i> {t("ci.q.dinner")} <span className={styles.bo}>{t("ci.badge.optional")}</span>
           </div>
           <OptRow gender={g} options={NUTRITION_OPTIONS} value={d.nutrition} onChange={(v) => set({ nutrition: v })} />
         </div>
         <div className={cx(styles.qc, styles.opt, d.hydratation && (isH ? styles.onH : styles.onF))}>
           <div className={styles.ql}>
-            <i>💧</i> Hydratation <span className={styles.bo}>Facultatif</span>
+            <i>💧</i> {t("ci.q.hydration")} <span className={styles.bo}>{t("ci.badge.optional")}</span>
           </div>
           <OptRow gender={g} options={HYDRATATION_OPTIONS} value={d.hydratation} onChange={(v) => set({ hydratation: v })} />
         </div>
 
-        <SectionKicker number="04" title="Programmation du jour" />
-        <div className={cx(styles.sl, styles.gold)}>🏋️ Ton activité du jour</div>
+        <SectionKicker number="04" title={t("ci.sec.04")} />
+        <div className={cx(styles.sl, styles.gold)}>{t("ci.sl.activity")}</div>
         <div className={cx(styles.qc, d.seance && (isH ? styles.onH : styles.onF))}>
           {habits.length > 0 && (
             <>
-              <div className={styles.freqLabel}>Tes habitudes</div>
+              <div className={styles.freqLabel}>{t("ci.habits")}</div>
               <div className={styles.freqRow}>
                 {habits.map((h) => (
                   <div
@@ -700,7 +759,7 @@ export function CheckinForm({
                     className={cx(styles.freqItem, plannedProgram && h === plannedProgram && styles.freqItemPlanned)}
                     onClick={() => chooseSeance(h)}
                   >
-                    <p>{h}</p>
+                    <p>{sportLabel(h, lang)}</p>
                   </div>
                 ))}
               </div>
@@ -714,7 +773,7 @@ export function CheckinForm({
                 className={cx(styles.ecmToday, !c.ecm && styles.ecmTodayStatic)}
                 onClick={c.ecm ? () => chooseSeance(c.value) : undefined}
               >
-                <div className={styles.badgeToday}>PRÉVU AUJOURD&apos;HUI</div>
+                <div className={styles.badgeToday}>{t("ci.plan.plannedToday")}</div>
                 <div className={styles.etRow}>
                   <div className={styles.etIcon}>{c.icon}</div>
                   <div style={{ flex: 1 }}>
@@ -730,12 +789,12 @@ export function CheckinForm({
           {plan.kind === "rest" && (
             <>
               <div className={styles.restToday}>
-                <div className={styles.badgeRest}>PRÉVU AUJOURD&apos;HUI</div>
+                <div className={styles.badgeRest}>{t("ci.plan.plannedToday")}</div>
                 <div className={styles.etRow}>
                   <div className={styles.restIcon}>🛋️</div>
                   <div>
-                    <p className={styles.restTitle}>Repos prévu aujourd&apos;hui</p>
-                    <p className={styles.restSub}>Ta semaine prévoit du repos.</p>
+                    <p className={styles.restTitle}>{t("ci.plan.restTitle")}</p>
+                    <p className={styles.restSub}>{t("ci.plan.restSub")}</p>
                   </div>
                 </div>
               </div>
@@ -744,7 +803,7 @@ export function CheckinForm({
                     setTrainAnyway(true);
                     setMenuOpen(true);
                   }}>
-                  Je m&apos;entraîne quand même
+                  {t("ci.plan.trainAnyway")}
                 </button>
               )}
             </>
@@ -753,8 +812,8 @@ export function CheckinForm({
           {!hideSeanceRow && (
             <>
               <div className={styles.ql}>
-                <i>🏋️</i> Séance du jour{" "}
-                <span className={isH ? styles.bh : styles.bf}>{plannedSeance && d.seance === plannedSeance ? "Prévu" : "Requis"}</span>
+                <i>🏋️</i> {t("ci.q.session")}{" "}
+                <span className={isH ? styles.bh : styles.bf}>{plannedSeance && d.seance === plannedSeance ? t("ci.badge.planned") : t("ci.badge.required")}</span>
               </div>
               <SeancePicker
                 groups={pickerGroups}
@@ -770,7 +829,7 @@ export function CheckinForm({
 
           {d.seanceAccordion === "repos" && d.accordionOpen && (
             <div className={styles.seanceAccordion}>
-              <p className={styles.accLabel}>😴 Choisis ton type de repos</p>
+              <p className={styles.accLabel}>{t("ci.acc.rest")}</p>
               <div className={styles.opts}>
                 {REPOS_SUBTYPES.map((o) => (
                   <div
@@ -778,8 +837,8 @@ export function CheckinForm({
                     className={cx(styles.optBtn, d.seance === o && (isH ? styles.selH : styles.selF))}
                     onClick={() => chooseSubtype(o)}
                   >
-                    {o}
-                    {suggestedValues.has(o) && <span className={styles.suggestedTag}>SUGGÉRÉ</span>}
+                    {sportLabel(o, lang)}
+                    {suggestedValues.has(o) && <span className={styles.suggestedTag}>{t("ci.badge.suggested")}</span>}
                   </div>
                 ))}
               </div>
@@ -788,7 +847,7 @@ export function CheckinForm({
 
           {d.seanceAccordion === "recup" && d.accordionOpen && (
             <div className={styles.seanceAccordion}>
-              <p className={styles.accLabel}>🚶 Choisis ta récupération active</p>
+              <p className={styles.accLabel}>{t("ci.acc.recup")}</p>
               <div className={styles.opts}>
                 {RECUP_SUBTYPES.map((o) => (
                   <div
@@ -796,8 +855,8 @@ export function CheckinForm({
                     className={cx(styles.optBtn, d.seance === o && (isH ? styles.selH : styles.selF))}
                     onClick={() => chooseSubtype(o)}
                   >
-                    {o}
-                    {suggestedValues.has(o) && <span className={styles.suggestedTag}>SUGGÉRÉ</span>}
+                    {sportLabel(o, lang)}
+                    {suggestedValues.has(o) && <span className={styles.suggestedTag}>{t("ci.badge.suggested")}</span>}
                   </div>
                 ))}
               </div>
@@ -806,7 +865,7 @@ export function CheckinForm({
 
           {showChosen && (
             <div className={styles.seanceChosen}>
-              ✓ Choix retenu : <strong>{d.seance}</strong>
+              {t("ci.chosen")} <strong>{sportLabel(d.seance, lang)}</strong>
             </div>
           )}
         </div>
@@ -814,7 +873,7 @@ export function CheckinForm({
         {isVolumeBlock(d.seance) && (
           <div className={cx(styles.qc, d.volumeBlockFocus && (isH ? styles.onH : styles.onF))}>
             <div className={styles.ql}>
-              <i>🎯</i> Focus Volume Block <span className={isH ? styles.bh : styles.bf}>Requis</span>
+              <i>🎯</i> {t("ci.q.volumeFocus")} <span className={isH ? styles.bh : styles.bf}>{t("ci.badge.required")}</span>
             </div>
             <OptRow
               gender={g}
@@ -825,7 +884,7 @@ export function CheckinForm({
               }
             />
             <div className={styles.dl} style={{ marginTop: 8 }}>
-              Suggestion du jour : {VOLUME_FOCUS_OPTIONS.find((o) => o.value === suggestedVolumeFocus())?.label}
+              {t("ci.volume.suggestion", { focus: optText(t, lang, VOLUME_FOCUS_OPTIONS.find((o) => o.value === suggestedVolumeFocus())?.label ?? "") })}
             </div>
           </div>
         )}
@@ -844,17 +903,17 @@ export function CheckinForm({
                 onClick={() => setDemandeOpen((v) => !v)}
                 aria-expanded={demandeOpen}
               >
-                <i>🎛️</i> Une demande pour aujourd&apos;hui ? <span className={styles.bo}>Facultatif</span>
+                <i>🎛️</i> {t("ci.q.request")} <span className={styles.bo}>{t("ci.badge.optional")}</span>
                 <span style={{ marginLeft: "auto" }}>{demandeOpen ? "▴" : "▾"}</span>
               </button>
-              <div className={styles.dl}>Si tu ne touches à rien, la séance reste celle prévue au programme.</div>
+              <div className={styles.dl}>{t("ci.req.default")}</div>
 
               {demandeOpen && (
                 <>
-                  <div className={styles.dl} style={{ marginTop: 12 }}>DURÉE DISPONIBLE · facultatif</div>
+                  <div className={styles.dl} style={{ marginTop: 12 }}>{t("ci.req.duration")}</div>
                   <OptRow gender={g} options={durations} value={d.seanceDuree} onChange={(v) => set({ seanceDuree: v })} />
 
-                  <div className={styles.dl} style={{ marginTop: 12 }}>FORMAT DE LA SÉANCE · facultatif</div>
+                  <div className={styles.dl} style={{ marginTop: 12 }}>{t("ci.req.format")}</div>
                   <OptRow
                     gender={g}
                     options={FORMAT_OPTIONS.map((f) => `${f.label} (${f.hint})`)}
@@ -862,10 +921,10 @@ export function CheckinForm({
                     onChange={(label) => set({ seanceFormat: FORMAT_OPTIONS.find((f) => `${f.label} (${f.hint})` === label)?.value ?? "" })}
                   />
                   {proposed && (
-                    <div className={styles.dl}>Proposé d&apos;après la durée : {FORMAT_OPTIONS.find((f) => f.value === proposed)?.label}</div>
+                    <div className={styles.dl}>{t("ci.req.proposed", { format: t(FORMAT_OPTIONS.find((f) => f.value === proposed)?.nameKey ?? "ci.opt.fmtFullName") })}</div>
                   )}
 
-                  <div className={styles.dl} style={{ marginTop: 12 }}>FOCUS DU JOUR · facultatif</div>
+                  <div className={styles.dl} style={{ marginTop: 12 }}>{t("ci.req.focus")}</div>
                   <MultiOptRow
                     gender={g}
                     options={[...(atHome ? FOCUS_AT_HOME_OPTIONS : FOCUS_MUSCLE_OPTIONS)]}
@@ -875,27 +934,25 @@ export function CheckinForm({
                     }
                   />
                   <div className={styles.dl}>
-                    {atHome
-                      ? "Le focus choisi s'ajoute à la séance, il ne remplace pas le cœur de la séance."
-                      : "Le groupe choisi s'ajoute au Bloc 4 (accessoires), il ne remplace pas le cœur de la séance."}
+                    {atHome ? t("ci.req.focusHome") : t("ci.req.focusEcm")}
                   </div>
 
-                  <div className={styles.dl} style={{ marginTop: 12 }}>MATÉRIEL DISPONIBLE AUJOURD&apos;HUI · facultatif</div>
+                  <div className={styles.dl} style={{ marginTop: 12 }}>{t("ci.req.equipment")}</div>
                   <OptRow
                     gender={g}
                     options={[...(atHome ? EQUIPMENT_OPTIONS_AT_HOME : EQUIPMENT_OPTIONS_ECM)]}
                     value={d.seanceEquipement}
                     onChange={(v) => set({ seanceEquipement: v })}
                   />
-                  <div className={styles.dl}>Par défaut : ton équipement du profil. Le changement vaut pour la journée seulement.</div>
+                  <div className={styles.dl}>{t("ci.req.equipmentHint")}</div>
 
-                  <div className={styles.dl} style={{ marginTop: 12 }}>INTENSITÉ SOUHAITÉE · facultatif</div>
+                  <div className={styles.dl} style={{ marginTop: 12 }}>{t("ci.req.intensity")}</div>
                   <OptRow gender={g} options={INTENSITE_OPTIONS} value={d.seanceIntensite} onChange={(v) => set({ seanceIntensite: v })} />
 
-                  <div className={styles.dl} style={{ marginTop: 12 }}>NOTE LIBRE SUR LA SÉANCE</div>
+                  <div className={styles.dl} style={{ marginTop: 12 }}>{t("ci.req.note")}</div>
                   <textarea
                     className={styles.ta}
-                    placeholder="ex : Je veux travailler les épaules · Pas de deadlift aujourd'hui"
+                    placeholder={t("ci.req.notePlaceholder")}
                     value={d.seanceNote}
                     onChange={(e) => set({ seanceNote: e.target.value })}
                   />
@@ -908,12 +965,12 @@ export function CheckinForm({
                           document.cookie = `${NO_IMPACT_COOKIE}=${e.target.checked ? "1" : ""}; path=/; max-age=${24 * 3600}; samesite=lax`;
                         }}
                       />
-                      Sans impact / silencieux : remplace les sauts par des variantes sans impact
+                      {t("ci.req.noImpact")}
                     </label>
                   )}
                   {FEATURE_FLAGS.zoneAMenager && (
                     <>
-                      <div className={styles.dl} style={{ marginTop: 12 }}>ZONE À MÉNAGER · facultatif</div>
+                      <div className={styles.dl} style={{ marginTop: 12 }}>{t("ci.req.zone")}</div>
                       <OptRow
                         gender={g}
                         options={[...ZONES]}
@@ -922,7 +979,7 @@ export function CheckinForm({
                           document.cookie = `${ZONE_COOKIE}=${encodeURIComponent(v)}; path=/; max-age=${24 * 3600}; samesite=lax`;
                         }}
                       />
-                      <div className={styles.dl}>{ZONE_WARNING}</div>
+                      <div className={styles.dl}>{t("ci.req.zoneWarning")}</div>
                     </>
                   )}
                 </>
@@ -933,7 +990,7 @@ export function CheckinForm({
 
         <div className={cx(styles.qc, d.travail !== null && (isH ? styles.onH : styles.onF))}>
           <div className={styles.ql}>
-            <i>💼</i> Journée de travail <span className={isH ? styles.bh : styles.bf}>Requis</span>
+            <i>💼</i> {t("ci.q.work")} <span className={isH ? styles.bh : styles.bf}>{t("ci.badge.required")}</span>
           </div>
           <YesNo gender={g} value={d.travail} onChange={(v) => set({ travail: v })} />
         </div>
@@ -941,25 +998,25 @@ export function CheckinForm({
         {isH && (
           <div className={cx(styles.qc, d.soirPerformance !== null && styles.onH)}>
             <div className={styles.ql}>
-              <i>🌙</i> Soir performance <span className={styles.bh}>Requis</span>
+              <i>🌙</i> {t("ci.q.evening")} <span className={styles.bh}>{t("ci.badge.required")}</span>
             </div>
             <YesNo gender={g} value={d.soirPerformance} onChange={(v) => set({ soirPerformance: v })} />
           </div>
         )}
 
-        <SectionKicker number="05" title="Observations" />
-        <div className={cx(styles.sl, isH ? styles.blue : styles.pink)}>📝 Notes</div>
+        <SectionKicker number="05" title={t("ci.sec.05")} />
+        <div className={cx(styles.sl, isH ? styles.blue : styles.pink)}>{t("ci.sl.notes")}</div>
         <div className={cx(styles.qc, styles.opt)}>
           <div className={styles.ql}>
-            <i>📝</i> Observations <span className={styles.bo}>Facultatif</span>
+            <i>📝</i> {t("ci.q.observations")} <span className={styles.bo}>{t("ci.badge.optional")}</span>
           </div>
-          <input type="text" placeholder="Ressenti particulier, événement..." value={d.notes} onChange={(e) => set({ notes: e.target.value })} />
+          <input type="text" placeholder={t("ci.notes.placeholder")} value={d.notes} onChange={(e) => set({ notes: e.target.value })} />
         </div>
 
-        <SectionKicker number="06" title="Validation" />
+        <SectionKicker number="06" title={t("ci.sec.06")} />
         <div className={styles.progressWrapInline}>
           <div className={styles.progressLabels}>
-            <span>{filledFields} / {progressTotal} sections</span>
+            <span>{t("ci.progress", { n: filledFields, total: progressTotal })}</span>
             <span className={styles.pct}>{progressPct}%</span>
           </div>
           <div className={styles.progressTrack}>
@@ -974,11 +1031,11 @@ export function CheckinForm({
               <p className={styles.lsSub}>{liveState.sub}</p>
             </div>
           </div>
-          <span className={styles.lsTag}>Provisoire</span>
+          <span className={styles.lsTag}>{t("ci.live.tag")}</span>
         </div>
 
         <button className={styles.sub} disabled={submitting} onClick={handleSubmit}>
-          ⚡ VALIDER MON CHECK-IN
+          {t("ci.submit")}
         </button>
       </div>
     </div>
@@ -1011,6 +1068,8 @@ function OptRow({
   value: string;
   onChange: (v: string) => void;
 }) {
+  const t = useT();
+  const { lang } = useLang();
   return (
     <div className={styles.opts}>
       {options.map((o) => (
@@ -1019,7 +1078,7 @@ function OptRow({
           className={cx(styles.optBtn, value === o && (gender === "h" ? styles.selH : styles.selF))}
           onClick={() => onChange(o)}
         >
-          {o}
+          {optText(t, lang, o)}
         </div>
       ))}
     </div>
@@ -1037,6 +1096,8 @@ function MultiOptRow({
   values: string[];
   onToggle: (v: string) => void;
 }) {
+  const t = useT();
+  const { lang } = useLang();
   return (
     <div className={styles.opts}>
       {options.map((o) => (
@@ -1045,7 +1106,7 @@ function MultiOptRow({
           className={cx(styles.optBtn, values.includes(o) && (gender === "h" ? styles.selH : styles.selF))}
           onClick={() => onToggle(o)}
         >
-          {o}
+          {optText(t, lang, o)}
         </div>
       ))}
     </div>
@@ -1061,19 +1122,20 @@ function YesNo({
   value: boolean | null;
   onChange: (v: boolean) => void;
 }) {
+  const t = useT();
   return (
     <div className={styles.yn}>
       <div
         className={cx(styles.ynb, styles.y, value === true && (gender === "h" ? styles.selH : styles.selF))}
         onClick={() => onChange(true)}
       >
-        ✓ OUI
+        {t("ci.yes")}
       </div>
       <div
         className={cx(styles.ynb, styles.n, value === false && (gender === "h" ? styles.selH : styles.selF))}
         onClick={() => onChange(false)}
       >
-        ✗ NON
+        {t("ci.no")}
       </div>
     </div>
   );

@@ -4,11 +4,14 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { cx } from "@/app/signup/ecm-shared";
 import { themeLabel } from "@/lib/training-themes";
+import { useT } from "@/lib/i18n/provider";
+import { dv } from "@/app/signup/display";
 import { getThemeScreenData, type ThemeScreenData } from "../theme-actions";
 import styles from "@/app/signup/ecm-signup.module.css";
 
 /** Carte « BLOC EN COURS » du profil, section Programme (2.1). */
 export function BlockCard() {
+  const t = useT();
   const [data, setData] = useState<ThemeScreenData | null>(null);
   useEffect(() => {
     void getThemeScreenData().then(setData);
@@ -18,9 +21,9 @@ export function BlockCard() {
   return (
     <div className={cx(styles.qc, styles.on)}>
       <div className={styles.ql}>
-        BLOC EN COURS : {themeLabel(data.slug, current.theme).toUpperCase()}
+        {t("su.block.current", { theme: dv(t, themeLabel(data.slug, current.theme)).toUpperCase() })}
         <span style={{ marginLeft: "auto", fontSize: 12 }}>
-          Semaine {current.week} sur {current.weeks}
+          {t("su.block.weekOf", { n: current.week, total: current.weeks })}
         </span>
       </div>
       <div style={{ display: "flex", gap: 4, margin: "8px 0" }}>
@@ -30,17 +33,17 @@ export function BlockCard() {
           return (
             <div
               key={n}
-              style={{ flex: 1, height: 8, borderRadius: 4, background: last ? "#555" : n <= current.week ? "var(--accent, #C9A84C)" : "#222" }}
+              style={{ flex: 1, height: 8, borderRadius: 4, background: last ? "var(--c-555555)" : n <= current.week ? "var(--accent, var(--c-c9a84c))" : "var(--c-222222)" }}
             />
           );
         })}
       </div>
       <div className={styles.weekHint}>
-        Semaines 1 à {current.weeks - 1} de progression, semaine {current.weeks} de décharge
+        {t("su.block.legend", { n: current.weeks - 1, total: current.weeks })}
       </div>
-      {current.finished && <div className={styles.weekHint}>Bloc terminé : choisis le bloc suivant.</div>}
+      {current.finished && <div className={styles.weekHint}>{t("su.block.finished")}</div>}
       <Link href="/profile/theme" className={styles.weekResetLink}>
-        {current.finished ? "Choisir le bloc suivant" : "Changer de thème"}
+        {current.finished ? t("su.block.chooseNext") : t("su.block.changeTheme")}
       </Link>
     </div>
   );

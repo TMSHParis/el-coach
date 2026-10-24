@@ -1,4 +1,6 @@
 import { redirect } from "next/navigation";
+import { getT } from "@/lib/i18n/server";
+import { formatDate } from "@/lib/i18n";
 import { getUserId } from "@/lib/user-id";
 import { prisma } from "@/lib/prisma";
 import { todayKey } from "@/lib/date-key";
@@ -15,12 +17,16 @@ import { leadingEmoji, recoveryBlocks, stripLeadingEmoji, type StoredAdvice } fr
 import { sessionFontVariables } from "../session-fonts";
 import { RecapView } from "./recap-view";
 
-export const metadata = { title: "Compte rendu de séance — EL COACH METHOD" };
+export async function generateMetadata() {
+  const { t } = await getT();
+  return { title: t("sp.recap.title") };
+}
 
 /** Page unique affichée à la fin d'une séance (et depuis le dashboard). Lecture seule :
  * l'ajout de photo (et l'analyse calories/retour narratif qui en découle) se fait
  * pendant la séance elle-même (/session), pas ici. */
 export default async function RecapPage() {
+  const { t, lang } = await getT();
   const userId = await getUserId();
   const date = todayKey();
   if (!userId) redirect("/dashboard");
@@ -47,7 +53,7 @@ export default async function RecapPage() {
     dureeMontre?: string | null;
   } | null;
 
-  const recapBlocs = buildRecapBlocs(data?.summary, results);
+  const recapBlocs = buildRecapBlocs(data?.summary, results, t);
   const durationSec = session.durationSec ?? 0;
   const percent = Math.round((session.completionRate ?? 0) * 100);
 
@@ -74,8 +80,8 @@ export default async function RecapPage() {
           mental: checkin?.mental ?? null,
           best,
           wod: wodBloc?.wodLine ? { titre: wodBloc.titre, temps: wodBloc.wodLine } : null,
-        })
-      : freeActivityMessage({ prenom: profile?.prenom ?? "", durationSec, energie: energy, recuperation: recup });
+        }, t)
+      : freeActivityMessage({ prenom: profile?.prenom ?? "", durationSec, energie: energy, recuperation: recup }, t);
   // At Home : propose de monter d'un cran quand l'objectif de reps est atteint (jamais en semaine de décharge).
   const chainProposals =
     checkin?.seance && SPORT_LABEL_TO_SLUG[checkin.seance] === "at-home" && !(await getOrCreateActiveBlock(userId, "at-home", date)).info.isDeload
@@ -100,8 +106,8 @@ export default async function RecapPage() {
 
   const dateLabel = (() => {
     const [y, m, d] = date.split("-").map(Number);
-    const t = new Date(y, m - 1, d).toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "long" });
-    return t.charAt(0).toUpperCase() + t.slice(1);
+    const label = formatDate(lang, new Date(y, m - 1, d), { weekday: "short", day: "numeric", month: "long" });
+    return label.charAt(0).toUpperCase() + label.slice(1);
   })();
   const seance = checkin?.seance ?? "";
 
@@ -111,12 +117,12 @@ export default async function RecapPage() {
         situation={situation}
         date={date}
         dateLabel={dateLabel}
-        name={situation === "A" ? stripLeadingEmoji(seance) : seance ? stripLeadingEmoji(seance) : "Activité"}
+        name={situation === "A" ? stripLeadingEmoji(seance) : seance ? stripLeadingEmoji(seance) : t("sp.recap.activityFallback")}
         icon={situation === "A" ? "⚡" : leadingEmoji(seance) || "🥊"}
         durationSec={durationSec}
         percent={percent}
         energy={energy}
-        mental={mentalLabel(checkin?.mental)}
+        mental={mentalLabel(checkin?.mental, t)}
         feeling={session.sessionFeeling}
         note={session.sessionNote}
         blocs={recapBlocs}
@@ -125,7 +131,7 @@ export default async function RecapPage() {
         coachText={coachText}
         watch={hasWatch ? watch : null}
         chainProposals={chainProposals}
-        recovery={situation === "B" && recup ? recoveryBlocks((output?.output as { advice?: StoredAdvice } | null)?.advice) : null}
+        recovery={situation === "B" && recup ? recoveryBlocks((output?.output as { advice?: StoredAdvice } | null)?.advice, t) : null}
       />
     </div>
   );

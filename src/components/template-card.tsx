@@ -2,8 +2,10 @@ import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { ProgramIcon } from "@/components/program-icon";
 import { type ProgramTemplate } from "@/lib/programming";
+import { tc } from "@/lib/i18n/content";
+import type { Lang } from "@/lib/i18n";
 
-export function TemplateCard({ template }: { template: ProgramTemplate }) {
+export function TemplateCard({ template, lang = "fr" }: { template: ProgramTemplate; lang?: Lang }) {
   return (
     <Link
       href={`/training/${template.slug}`}
@@ -24,11 +26,11 @@ export function TemplateCard({ template }: { template: ProgramTemplate }) {
         </div>
         {template.tagline && (
           <div className="mt-1 text-xs italic text-[color:var(--color-mute)]">
-            {template.tagline}
+            {tc(lang, template.tagline)}
           </div>
         )}
         <p className="mt-4 line-clamp-3 text-sm text-[color:var(--color-mute)]">
-          {template.summary}
+          {tc(lang, template.summary)}
         </p>
       </div>
     </Link>

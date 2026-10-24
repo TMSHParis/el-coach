@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { ArrowUpRight, Star } from "lucide-react";
 import { type Coach } from "@/lib/data";
+import { getT } from "@/lib/i18n/server";
 
-export function CoachCard({ coach }: { coach: Coach }) {
+export async function CoachCard({ coach }: { coach: Coach }) {
+  const { t } = await getT();
   return (
     <Link href={`/coach/${coach.slug}`} className="card grain flex flex-col p-6">
       <div className="flex items-start justify-between">
@@ -30,9 +32,9 @@ export function CoachCard({ coach }: { coach: Coach }) {
         ))}
       </div>
       <div className="mt-6 grid grid-cols-3 gap-3 border-t border-[color:var(--color-line)] pt-4">
-        <Stat label="NOTE" value={`${coach.rating}`} icon={<Star size={12} />} />
-        <Stat label="ATHLÈTES" value={`${coach.athletes}`} />
-        <Stat label="EXP." value={`${coach.yearsExp}a`} />
+        <Stat label={t("app.coach.rating")} value={`${coach.rating}`} icon={<Star size={12} />} />
+        <Stat label={t("app.coach.athletes")} value={`${coach.athletes}`} />
+        <Stat label={t("app.coach.exp")} value={t("app.coach.years", { n: coach.yearsExp })} />
       </div>
     </Link>
   );

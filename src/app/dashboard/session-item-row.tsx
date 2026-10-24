@@ -3,6 +3,8 @@
 import { useState } from "react";
 import styles from "./dashboard.module.css";
 import { VideoModal } from "./session/video-modal";
+import { useT, useLang } from "@/lib/i18n/provider";
+import { tc } from "@/lib/i18n/content";
 
 export function SessionItemRow({
   name,
@@ -22,23 +24,25 @@ export function SessionItemRow({
   /** La vidéo est affichée ailleurs (ligne d'actions « Remplacer »). */
   hideVideo?: boolean;
 }) {
+  const t = useT();
+  const { lang } = useLang();
   const [open, setOpen] = useState(false);
 
   return (
     <div className={styles.item}>
       <div className={styles.idot} />
       <div className={styles.iname}>
-        {name}
-        {detail && <em>{detail}</em>}
+        {tc(lang, name)}
+        {detail && <em>{tc(lang, detail)}</em>}
       </div>
-      <div className={styles.idetail}>{qty}</div>
+      <div className={styles.idetail}>{tc(lang, qty)}</div>
       {!noVideo && !hideVideo && (
         <>
           <button
             type="button"
             className={styles.ytBtn}
             onClick={() => setOpen(true)}
-            aria-label={`Vidéo ${movementName}`}
+            aria-label={t("dash.videoAria", { name: movementName })}
           >
             ▶
           </button>

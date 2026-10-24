@@ -1,12 +1,14 @@
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { clerkEnabled } from "@/lib/clerk";
+import { getT } from "@/lib/i18n/server";
 
 export async function GET() {
-  if (!clerkEnabled) return Response.json({ error: "Connexion requise." }, { status: 401 });
+  const { t } = await getT();
+  if (!clerkEnabled) return Response.json({ error: t("app.api.signinRequired") }, { status: 401 });
   const session = await auth();
   const userId = session.userId;
-  if (!userId) return Response.json({ error: "Connecte-toi d'abord." }, { status: 401 });
+  if (!userId) return Response.json({ error: t("app.api.signinFirst") }, { status: 401 });
 
   const [profile, checkins, dashboardOutputs, sessions] = await Promise.all([
     prisma.profile.findUnique({ where: { userId } }),

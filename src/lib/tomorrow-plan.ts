@@ -10,6 +10,7 @@ import { WEEK_DAYS, isEmptyCycle } from "./week-cycle";
 import { buildCheckinPlan } from "./checkin-plan";
 import { SPORT_LABEL_TO_SLUG } from "./ecm-programs";
 import { getTemplate } from "./programming";
+import { tc } from "./i18n/content";
 import { nextPositionAfter, pickFromSequence, sequenceFor, sessionsPerWeek } from "./program-sequence";
 import { fmtDurationH } from "./recap-text";
 import { resolveProgramTips, resolveSportTips, zoneTip, TIP_MAX_CHARS } from "./tips-table";
@@ -68,7 +69,7 @@ export async function buildTomorrow(input: {
   ]);
   const dayKey = WEEK_DAYS[(tomorrow.getDay() + 6) % 7];
   const todayKeyDay = WEEK_DAYS[(todayD.getDay() + 6) % 7];
-  const plan = buildCheckinPlan(tomCycle, dayKey, {});
+  const plan = buildCheckinPlan(tomCycle, dayKey, {}, input.lang);
   if (plan.kind === "none") return null;
 
   if (plan.kind === "rest") {
@@ -115,7 +116,7 @@ export async function buildTomorrow(input: {
       }
       ahead.set(slug, offset + 1);
       const day = days.find((d) => d.day === dayNumber);
-      sub = [day?.focus, day?.estimatedMinutes ? fmtDurationH(day.estimatedMinutes * 60) : ""].filter(Boolean).join(" · ");
+      sub = [day?.focus ? tc(input.lang, day.focus) : day?.focus, day?.estimatedMinutes ? fmtDurationH(day.estimatedMinutes * 60) : ""].filter(Boolean).join(" · ");
       const r = resolveProgramTips(slug, dayNumber, input.lang);
       warm = r.warmup;
       sportTip = r.tip;

@@ -4,6 +4,8 @@ import { useState, type Dispatch, type SetStateAction } from "react";
 import { useRouter } from "next/navigation";
 import { useSignUp } from "@clerk/nextjs";
 import { clerkEnabledClient } from "@/lib/clerk";
+import { useT } from "@/lib/i18n/provider";
+import { dv } from "./display";
 import { submitEcmSignup, type EcmProfileCookie } from "./actions";
 import {
   cx,
@@ -29,11 +31,11 @@ import styles from "./ecm-signup.module.css";
 // ============================================================================
 
 const LANDING_STEPS = [
-  { n: "01", name: "Check-in du matin", desc: "2 minutes. Énergie, sommeil, corps, mental. Le Coaching Adaptatif lit ton état réel." },
-  { n: "02", name: "Analyse instantanée", desc: "En moins de 5 secondes, le système croise tes données et génère ton plan du jour." },
-  { n: "03", name: "Plan sur mesure", desc: "Séance adaptée, stack compléments, en-cas, récupération ciblée. Zéro générique." },
-  { n: "04", name: "Aperçu demain", desc: "Prépare ta prochaine séance, ton en-cas et ton heure de coucher recommandée." },
-];
+  { n: "01", name: "su.guide.step1.name", desc: "su.form.landingStep1.desc" },
+  { n: "02", name: "su.guide.step2.name", desc: "su.form.landingStep2.desc" },
+  { n: "03", name: "su.guide.step3.name", desc: "su.form.landingStep3.desc" },
+  { n: "04", name: "su.form.landingStep4.name", desc: "su.form.landingStep4.desc" },
+] as const;
 
 type FormState = {
   firstName: string;
@@ -55,6 +57,7 @@ type FormState = {
 
 export function EcmSignupForm({ defaultProgramSlug }: { defaultProgramSlug: string }) {
   const router = useRouter();
+  const t = useT();
   const preselectedProgramme = SLUG_TO_SPORT_LABEL[defaultProgramSlug] ?? "";
 
   const [phase, setPhase] = useState<"landing" | "form">("landing");
@@ -86,15 +89,15 @@ export function EcmSignupForm({ defaultProgramSlug }: { defaultProgramSlug: stri
   const setProfile = (patch: Partial<EcmProfileCookie>) =>
     setData((d) => ({ ...d, profile: { ...d.profile, ...patch } }));
 
-  const titles = ["Créer un compte", "Ton profil athlète", "Free Trial — 7 jours"];
+  const titles = [t("su.form.title1"), t("su.form.title2"), t("su.form.title3")];
   const subs = [
     <>
-      Déjà inscrit ? <a href="#">Se connecter</a>
+      {t("su.form.alreadyMember")} <a href="#">{t("su.form.signIn")}</a>
     </>,
-    "Personnalise ton expérience EL COACH.",
-    "Aucun débit avant la fin de ton essai.",
+    t("su.form.sub2"),
+    t("su.form.sub3"),
   ];
-  const ecmLabels = ["Profil personnel", "Profil sportif", "Nutrition & Jeûne", "Santé & Compléments"];
+  const ecmLabels = [t("su.form.sub.personal"), t("su.form.sub.sport"), t("su.form.sub.nutrition"), t("su.form.sub.health")];
 
   function goToStep1to2() {
     const okFirst = data.firstName.trim().length > 0;
@@ -169,18 +172,18 @@ export function EcmSignupForm({ defaultProgramSlug }: { defaultProgramSlug: stri
       setSubmitError(result.error);
       return;
     }
-    const firstName = result.firstName || data.firstName || "Athlète";
+    const firstName = result.firstName || data.firstName || dv(t, "Athlète");
     router.push(`/welcome?firstName=${encodeURIComponent(firstName)}&programme=${encodeURIComponent(matchedSlug)}`);
   }
 
   if (phase === "landing") {
     return (
       <div className={cx(styles.ecmRoot, styles.landing)}>
-        <div className={styles.landingBadge}>Free Trial — 7 jours offerts</div>
+        <div className={styles.landingBadge}>{t("su.form.badge")}</div>
 
         <div className={cx(styles.accordion, accordionOpen && styles.open)}>
           <button className={styles.accordionToggle} type="button" onClick={() => setAccordionOpen((v) => !v)}>
-            Cliquer pour en savoir plus
+            {t("su.form.learnMore")}
             <span className={styles.accordionIcon}>▾</span>
           </button>
           <div className={styles.accordionContent}>
@@ -188,8 +191,8 @@ export function EcmSignupForm({ defaultProgramSlug }: { defaultProgramSlug: stri
               <div key={s.n} className={styles.stepItem}>
                 <div className={styles.stepNum}>{s.n}</div>
                 <div>
-                  <div className={styles.stepName}>{s.name}</div>
-                  <div className={styles.stepDesc}>{s.desc}</div>
+                  <div className={styles.stepName}>{t(s.name)}</div>
+                  <div className={styles.stepDesc}>{t(s.desc)}</div>
                 </div>
               </div>
             ))}
@@ -201,7 +204,7 @@ export function EcmSignupForm({ defaultProgramSlug }: { defaultProgramSlug: stri
         </button>
 
         <p className={styles.landingSecure}>
-          🔒 Carte enregistrée en garantie · Aucun débit avant J+7 · Annulation en un clic
+          {t("su.form.secure")}
         </p>
       </div>
     );
@@ -221,7 +224,7 @@ export function EcmSignupForm({ defaultProgramSlug }: { defaultProgramSlug: stri
                 <div key={n} className={cx(styles.stepDot, n <= mainStep && styles.active)} />
               ))}
             </div>
-            <span>Étape {mainStep} sur 3</span>
+            <span>{t("su.form.stepOf", { n: mainStep })}</span>
           </div>
           <h2 className={styles.formTitle}>{titles[mainStep - 1]}</h2>
           <p className={styles.formSubtitle}>{subs[mainStep - 1]}</p>
@@ -280,13 +283,13 @@ export function EcmSignupForm({ defaultProgramSlug }: { defaultProgramSlug: stri
           <div className={cx(styles.ecmStep, ecmSubStep === 1 && styles.active)}>
             <div className={styles.qc}>
               <div className={styles.ql}>
-                <i>👤</i> Prénom &amp; date de naissance
+                <i>👤</i> {t("su.form.nameBirth")}
               </div>
               <div className={styles.nr} style={{ gap: 8, marginBottom: 8 }}>
                 <input
                   className={styles.ecmInput}
                   type="text"
-                  placeholder="Ton prénom..."
+                  placeholder={t("su.form.namePh")}
                   style={{ flex: 2 }}
                   value={profile.prenom}
                   onChange={(e) => setProfile({ prenom: e.target.value })}
@@ -303,7 +306,7 @@ export function EcmSignupForm({ defaultProgramSlug }: { defaultProgramSlug: stri
             </div>
             <div className={styles.qc}>
               <div className={styles.ql}>
-                <i>📏</i> Morphologie
+                <i>📏</i> {t("su.form.morpho")}
               </div>
               <div className={styles.nr} style={{ gap: 8 }}>
                 <input
@@ -340,13 +343,13 @@ export function EcmSignupForm({ defaultProgramSlug }: { defaultProgramSlug: stri
               onPickOtherProgramme={() => ecmGo(1)}
             />
             {objError && (
-              <div style={{ marginTop: 6, fontSize: "0.8rem", color: "var(--error)" }}>2 objectifs maximum</div>
+              <div style={{ marginTop: 6, fontSize: "0.8rem", color: "var(--error)" }}>{t("su.form.maxGoals")}</div>
             )}
             <button className={styles.btnSubNext} type="button" onClick={() => ecmGo(1)}>
-              Suivant → Profil sportif
+              {t("su.form.nextSport")}
             </button>
             <button className={styles.btnSubBack} type="button" onClick={() => setMainStep(1)}>
-              ← Retour compte
+              {t("su.form.backAccount")}
             </button>
           </div>
 
@@ -364,16 +367,16 @@ export function EcmSignupForm({ defaultProgramSlug }: { defaultProgramSlug: stri
 
             <div className={styles.qc}>
               <div className={styles.ql}>
-                <i>🏗️</i> Accès équipement
+                <i>🏗️</i> {t("su.form.equip")}
               </div>
               <MoSolo options={EQUIPEMENTS} value={profile.equip} onChange={(v) => setProfile({ equip: v })} />
             </div>
 
             <button className={styles.btnSubNext} type="button" onClick={() => ecmGo(2)}>
-              Suivant → Nutrition
+              {t("su.form.nextNutrition")}
             </button>
             <button className={styles.btnSubBack} type="button" onClick={() => ecmBack(2)}>
-              ← Retour
+              {t("su.back")}
             </button>
           </div>
 
@@ -381,12 +384,12 @@ export function EcmSignupForm({ defaultProgramSlug }: { defaultProgramSlug: stri
           <div className={cx(styles.ecmStep, ecmSubStep === 3 && styles.active)}>
             <div className={styles.qc}>
               <div className={styles.ql}>
-                <i>⏱️</i> Jeûne intermittent ?
+                <i>⏱️</i> {t("su.form.fasting")}
               </div>
               <YesNo value={profile.jeune} onChange={(v) => setProfile({ jeune: v })} />
               {profile.jeune && (
                 <div style={{ marginTop: 10 }}>
-                  <div className={styles.dl}>Type de jeûne</div>
+                  <div className={styles.dl}>{t("su.form.fastType")}</div>
                   <div className={styles.opts} style={{ marginBottom: 10 }}>
                     {["16:8", "18:6", "20:4", "Autre"].map((o) => (
                       <button
@@ -395,11 +398,11 @@ export function EcmSignupForm({ defaultProgramSlug }: { defaultProgramSlug: stri
                         className={cx(styles.opt, profile.tj === o && styles.sel)}
                         onClick={() => setProfile({ tj: o })}
                       >
-                        {o}
+                        {dv(t, o)}
                       </button>
                     ))}
                   </div>
-                  <div className={styles.dl}>Fenêtre alimentaire</div>
+                  <div className={styles.dl}>{t("su.form.eatWindow")}</div>
                   <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                     <input
                       className={styles.mi}
@@ -425,13 +428,13 @@ export function EcmSignupForm({ defaultProgramSlug }: { defaultProgramSlug: stri
 
             <div className={styles.qc}>
               <div className={styles.ql}>
-                🚫 Restrictions / Allergies <span className={styles.hint}>(plusieurs choix)</span>
+                🚫 {t("su.form.restrictions")} <span className={styles.hint}>{t("su.form.multi")}</span>
               </div>
               <MoMulti options={RESTRICTIONS} values={profile.rest} onToggle={(v) => toggleMulti("rest", v)} />
             </div>
 
             <div className={styles.qc}>
-              <div className={styles.ql}>💧 Hydratation quotidienne</div>
+              <div className={styles.ql}>💧 {t("su.form.hydration")}</div>
               <div className={styles.opts}>
                 {["Moins de 1.5L", "1.5 - 2L", "2 - 3L", "Plus de 3L"].map((o) => (
                   <button
@@ -440,30 +443,30 @@ export function EcmSignupForm({ defaultProgramSlug }: { defaultProgramSlug: stri
                     className={cx(styles.opt, profile.hydra === o && styles.sel)}
                     onClick={() => setProfile({ hydra: o })}
                   >
-                    {o}
+                    {dv(t, o)}
                   </button>
                 ))}
               </div>
             </div>
 
             <button className={styles.btnSubNext} type="button" onClick={() => ecmGo(3)}>
-              Suivant → Santé &amp; Compléments
+              {t("su.form.nextHealth")}
             </button>
             <button className={styles.btnSubBack} type="button" onClick={() => ecmBack(3)}>
-              ← Retour
+              {t("su.back")}
             </button>
           </div>
 
           {/* Sous-étape 4 — Santé & Compléments */}
           <div className={cx(styles.ecmStep, ecmSubStep === 4 && styles.active)}>
             <div className={styles.qc}>
-              <div className={styles.ql}>🤕 Blessures chroniques ?</div>
+              <div className={styles.ql}>🤕 {t("su.form.injuries")}</div>
               <YesNo value={profile.bles} onChange={(v) => setProfile({ bles: v })} />
               {profile.bles && (
                 <div style={{ marginTop: 8 }}>
                   <textarea
                     className={styles.ecmTa}
-                    placeholder="Décris tes blessures... (ex: tendinite épaule, lombaires...)"
+                    placeholder={t("su.form.injuriesPh")}
                     value={profile.bt}
                     onChange={(e) => setProfile({ bt: e.target.value })}
                   />
@@ -473,15 +476,15 @@ export function EcmSignupForm({ defaultProgramSlug }: { defaultProgramSlug: stri
 
             <div className={styles.qc}>
               <div className={styles.ql}>
-                💊 Compléments alimentaires <span className={styles.hint}>(plusieurs choix)</span>
+                💊 {t("su.form.supplements")} <span className={styles.hint}>{t("su.form.multi")}</span>
               </div>
               <MoMulti options={COMPLEMENTS} values={profile.comp} onToggle={(v) => toggleMulti("comp", v)} />
               <div style={{ marginTop: 8 }}>
-                <div className={styles.dl}>➕ Autres</div>
+                <div className={styles.dl}>{t("su.form.others")}</div>
                 <input
                   className={styles.ecmInput}
                   type="text"
-                  placeholder="ex: Curcuma, Rhodiola..."
+                  placeholder={t("su.form.othersPh")}
                   value={profile.ca}
                   onChange={(e) => setProfile({ ca: e.target.value })}
                 />
@@ -489,7 +492,7 @@ export function EcmSignupForm({ defaultProgramSlug }: { defaultProgramSlug: stri
             </div>
 
             <div className={styles.qc}>
-              <div className={styles.ql}>😴 Qualité de sommeil</div>
+              <div className={styles.ql}>😴 {t("su.form.sleepQuality")}</div>
               <div className={styles.opts}>
                 {["😴 Très bonne", "🌤 Correcte", "😓 Difficile", "😫 Très mauvaise"].map((o) => (
                   <button
@@ -498,14 +501,14 @@ export function EcmSignupForm({ defaultProgramSlug }: { defaultProgramSlug: stri
                     className={cx(styles.opt, profile.qs === o && styles.sel)}
                     onClick={() => setProfile({ qs: o })}
                   >
-                    {o}
+                    {dv(t, o)}
                   </button>
                 ))}
               </div>
             </div>
 
             <div className={styles.qc}>
-              <div className={styles.ql}>⏰ Durée de sommeil moyenne</div>
+              <div className={styles.ql}>⏰ {t("su.form.sleepDuration")}</div>
               <div className={styles.opts}>
                 {["Moins de 6h", "6h - 7h", "7h - 8h", "Plus de 8h"].map((o) => (
                   <button
@@ -514,17 +517,17 @@ export function EcmSignupForm({ defaultProgramSlug }: { defaultProgramSlug: stri
                     className={cx(styles.opt, profile.ds === o && styles.sel)}
                     onClick={() => setProfile({ ds: o })}
                   >
-                    {o}
+                    {dv(t, o)}
                   </button>
                 ))}
               </div>
             </div>
 
             <button className={styles.btnNext} type="button" style={{ marginTop: 16 }} onClick={() => setMainStep(3)}>
-              Continuer vers le paiement <span className={styles.arrow}>→</span>
+              {t("su.form.toPayment")} <span className={styles.arrow}>→</span>
             </button>
             <button className={styles.btnSubBack} type="button" onClick={() => ecmBack(4)}>
-              ← Retour
+              {t("su.back")}
             </button>
           </div>
         </div>
@@ -534,14 +537,14 @@ export function EcmSignupForm({ defaultProgramSlug }: { defaultProgramSlug: stri
           <div className={styles.trialReminder}>
             <div className={styles.trialReminderIcon}>⚡</div>
             <div className={styles.trialReminderText}>
-              <strong>Free Trial — 7 jours gratuits.</strong>
+              <strong>{t("su.form.trialTitle")}</strong>
               <br />
-              Carte enregistrée en garantie. Aucun débit avant J+7. Annulation en un clic.
+              {t("su.form.trialDesc")}
             </div>
           </div>
 
           <div className={styles.cardSection}>
-            <span className={styles.cardLabel}>Informations de paiement</span>
+            <span className={styles.cardLabel}>{t("su.form.payInfo")}</span>
             <div className={styles.cardMock}>
               <div className={styles.cardRowTop}>
                 <div className={styles.cardChip} />
@@ -562,21 +565,21 @@ export function EcmSignupForm({ defaultProgramSlug }: { defaultProgramSlug: stri
               />
               <div className={styles.cardRowBottom}>
                 <div className={styles.cardMiniField}>
-                  <span className={styles.cardMiniLabel}>Titulaire</span>
+                  <span className={styles.cardMiniLabel}>{t("su.form.cardholder")}</span>
                   <input
                     className={styles.cardMiniInput}
                     type="text"
-                    placeholder="NOM PRÉNOM"
+                    placeholder={t("su.form.cardholderPh")}
                     value={data.cardholder}
                     onChange={(e) => setData((d) => ({ ...d, cardholder: e.target.value }))}
                   />
                 </div>
                 <div className={styles.cardMiniField}>
-                  <span className={styles.cardMiniLabel}>Expiration</span>
+                  <span className={styles.cardMiniLabel}>{t("su.form.expiry")}</span>
                   <input
                     className={styles.cardMiniInput}
                     type="text"
-                    placeholder="MM/AA"
+                    placeholder={t("su.form.expiryPh")}
                     maxLength={5}
                     value={data.expiry}
                     onChange={(e) => setData((d) => ({ ...d, expiry: formatExpiry(e.target.value) }))}
@@ -595,7 +598,7 @@ export function EcmSignupForm({ defaultProgramSlug }: { defaultProgramSlug: stri
                 </div>
               </div>
             </div>
-            <div className={styles.secureNote}>Paiement sécurisé SSL 256-bit — aucun débit pendant 7 jours</div>
+            <div className={styles.secureNote}>{t("su.form.ssl")}</div>
           </div>
 
           <label className={styles.checkField}>
@@ -606,7 +609,7 @@ export function EcmSignupForm({ defaultProgramSlug }: { defaultProgramSlug: stri
             />
             <div className={styles.checkBox} style={cgvError ? { borderColor: "var(--error)" } : undefined} />
             <span className={styles.checkText}>
-              J&apos;accepte les <a href="#">conditions générales</a> et la <a href="#">politique de confidentialité</a>.
+              {t("su.form.accept")} <a href="#">{t("su.form.terms")}</a> {t("su.form.and")} <a href="#">{t("su.form.privacy")}</a>.
             </span>
           </label>
 
@@ -617,14 +620,14 @@ export function EcmSignupForm({ defaultProgramSlug }: { defaultProgramSlug: stri
               onChange={(e) => setData((d) => ({ ...d, remind: e.target.checked }))}
             />
             <div className={styles.checkBox} />
-            <span className={styles.checkText}>Me rappeler 24h avant la fin de mon essai gratuit.</span>
+            <span className={styles.checkText}>{t("su.form.remind")}</span>
           </label>
 
           <button className={styles.btnNext} type="button" disabled={submitting} onClick={handleSubmit}>
-            {submitting ? "Création en cours…" : "Démarrer mon Free Trial"} <span className={styles.arrow}>→</span>
+            {submitting ? t("su.form.creating") : t("su.form.start")} <span className={styles.arrow}>→</span>
           </button>
           <button className={styles.btnBack} type="button" onClick={() => setMainStep(2)}>
-            ← Retour profil
+            {t("su.form.backProfile")}
           </button>
         </div>
       </div>
@@ -637,6 +640,7 @@ export function EcmSignupForm({ defaultProgramSlug }: { defaultProgramSlug: stri
 // ============================================================================
 
 function LeftPanel() {
+  const t = useT();
   return (
     <div className={styles.left}>
       <div className={styles.logo}>
@@ -644,15 +648,15 @@ function LeftPanel() {
       </div>
 
       <div className={styles.leftHero}>
-        <div className={styles.leftBadge}>Free Trial — 7 jours offerts</div>
+        <div className={styles.leftBadge}>{t("su.form.badge")}</div>
         <h1 className={styles.leftTitle}>
-          Commence
-          <span className={styles.accentLine}>maintenant.</span>
+          {t("su.form.left.start")}
+          <span className={styles.accentLine}>{t("su.form.left.now")}</span>
         </h1>
         <p className={styles.leftSub}>
-          Ton Coaching Adaptatif, ta séance du jour — <strong>tout de suite.</strong>
+          {t("su.form.left.sub")} <strong>{t("su.form.left.right")}</strong>
           <br />
-          Aucun débit avant la fin de ton essai. Annulation en un clic.
+          {t("su.form.left.noCharge")}
         </p>
 
         <div className={styles.programsList}>
@@ -660,7 +664,7 @@ function LeftPanel() {
             <div key={p.name} className={styles.progItem}>
               <div className={styles.progDot} />
               <span className={styles.progItemName}>{p.name}</span>
-              <span className={styles.progItemTag}>{p.tag}</span>
+              <span className={styles.progItemTag}>{dv(t, p.tag)}</span>
             </div>
           ))}
         </div>
@@ -671,9 +675,9 @@ function LeftPanel() {
         <div>
           <div className={styles.trialTitle}>FREE TRIAL</div>
           <div className={styles.trialDesc}>
-            7 jours gratuits · Carte enregistrée en garantie
+            {t("su.form.left.banner1")}
             <br />
-            Aucun débit · Annulation en un clic
+            {t("su.form.left.banner2")}
           </div>
         </div>
       </div>
@@ -689,7 +693,7 @@ function AccountFields({
   showPassword,
   setShowPassword,
   strength,
-  passwordPlaceholder = "15 caractères min. · 1 chiffre · 1 symbole",
+  passwordPlaceholder,
   passwordError,
 }: {
   data: FormState;
@@ -702,52 +706,53 @@ function AccountFields({
   passwordPlaceholder?: string;
   passwordError?: string | null;
 }) {
+  const t = useT();
   return (
     <>
       <div className={styles.fieldRow}>
         <div className={styles.field}>
-          <label>Prénom</label>
+          <label>{t("su.form.firstName")}</label>
           <input
             type="text"
-            placeholder="Prénom"
+            placeholder={t("su.form.firstName")}
             value={data.firstName}
             onChange={(e) => setData((d) => ({ ...d, firstName: e.target.value }))}
             className={firstNameError ? styles.fieldError : undefined}
           />
-          {firstNameError && <span className={cx(styles.fieldHint, styles.errorMsg, styles.show)}>Champ requis</span>}
+          {firstNameError && <span className={cx(styles.fieldHint, styles.errorMsg, styles.show)}>{t("su.form.required")}</span>}
         </div>
         <div className={styles.field}>
-          <label>Nom</label>
+          <label>{t("su.form.lastName")}</label>
           <input
             type="text"
-            placeholder="Nom"
+            placeholder={t("su.form.lastName")}
             value={data.lastName}
             onChange={(e) => setData((d) => ({ ...d, lastName: e.target.value }))}
           />
         </div>
       </div>
       <div className={styles.field}>
-        <label>Email</label>
+        <label>{t("su.email")}</label>
         <input
           type="email"
-          placeholder="email@exemple.com"
+          placeholder={t("su.emailPh")}
           value={data.email}
           onChange={(e) => setData((d) => ({ ...d, email: e.target.value }))}
           className={emailError ? styles.fieldError : undefined}
         />
-        {emailError && <span className={cx(styles.fieldHint, styles.errorMsg, styles.show)}>Email invalide</span>}
+        {emailError && <span className={cx(styles.fieldHint, styles.errorMsg, styles.show)}>{t("su.emailInvalid")}</span>}
       </div>
       <div className={styles.field}>
-        <label>Mot de passe</label>
+        <label>{t("su.form.password")}</label>
         <div className={styles.fieldPw}>
           <input
             type={showPassword ? "text" : "password"}
-            placeholder={passwordPlaceholder}
+            placeholder={passwordPlaceholder ?? t("su.pwPlaceholder")}
             value={data.password}
             onChange={(e) => setData((d) => ({ ...d, password: e.target.value }))}
           />
           <button className={styles.pwToggle} type="button" onClick={() => setShowPassword((v) => !v)}>
-            {showPassword ? "CACHER" : "VOIR"}
+            {showPassword ? t("su.pwHide") : t("su.pwShow")}
           </button>
         </div>
         <div className={styles.pwStrength}>
@@ -788,6 +793,7 @@ function AccountStepDemo({
   strength: "weak" | "medium" | "strong" | null;
   onContinue: () => void;
 }) {
+  const t = useT();
   return (
     <>
       <AccountFields
@@ -800,7 +806,7 @@ function AccountStepDemo({
         strength={strength}
       />
       <button className={styles.btnNext} type="button" onClick={onContinue}>
-        Continuer <span className={styles.arrow}>→</span>
+        {t("su.form.continue")} <span className={styles.arrow}>→</span>
       </button>
     </>
   );
@@ -836,6 +842,7 @@ function AccountStepClerk({
 }) {
   const { signUp } = useSignUp();
   const router = useRouter();
+  const t = useT();
   const [verifying, setVerifying] = useState(false);
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -866,7 +873,7 @@ function AccountStepClerk({
   async function handleContinue() {
     const okFirst = data.firstName.trim().length > 0;
     const okEmail = data.email.includes("@");
-    const pwError = validatePassword(data.password);
+    const pwError = validatePassword(data.password, t);
     setFirstNameError(!okFirst);
     setEmailError(!okEmail);
     setPasswordError(pwError);
@@ -882,7 +889,7 @@ function AccountStepClerk({
         password: data.password,
       });
       if (signUpError) {
-        setError(signUpError.message ?? "Impossible de créer le compte.");
+        setError(signUpError.message ?? t("su.form.createFail"));
         return;
       }
       if (signUp.status === "complete") {
@@ -894,10 +901,10 @@ function AccountStepClerk({
         setVerifying(true);
         return;
       }
-      setError("Cet email est peut-être déjà utilisé — essaie de te connecter.");
+      setError(t("su.form.emailUsed"));
     } catch (err) {
       console.error("AccountStepClerk.handleContinue:", err);
-      setError("Erreur technique — réessaie.");
+      setError(t("su.techError"));
     } finally {
       setBusy(false);
     }
@@ -909,7 +916,7 @@ function AccountStepClerk({
     try {
       const { error: verifyError } = await signUp.verifications.verifyEmailCode({ code });
       if (verifyError) {
-        setError(verifyError.message ?? "Code invalide.");
+        setError(verifyError.message ?? t("su.reset.codeInvalid"));
         return;
       }
       if (signUp.status === "complete") {
@@ -917,7 +924,7 @@ function AccountStepClerk({
       }
     } catch (err) {
       console.error("AccountStepClerk.handleVerify:", err);
-      setError("Erreur technique — réessaie.");
+      setError(t("su.techError"));
     } finally {
       setBusy(false);
     }
@@ -927,10 +934,10 @@ function AccountStepClerk({
     return (
       <>
         <p className={styles.formSubtitle} style={{ marginBottom: 16 }}>
-          Code envoyé à <strong>{data.email}</strong>.
+          {t("su.codeSentTo")} <strong>{data.email}</strong>.
         </p>
         <div className={styles.field}>
-          <label>Code de vérification</label>
+          <label>{t("su.form.verifyLabel")}</label>
           <input
             type="text"
             inputMode="numeric"
@@ -944,7 +951,7 @@ function AccountStepClerk({
           <div className="mb-4 border-l-2 border-red-400 bg-red-500/5 px-4 py-3 text-sm text-red-400">{error}</div>
         )}
         <button className={styles.btnNext} type="button" disabled={busy || code.length < 6} onClick={handleVerify}>
-          {busy ? "Vérification…" : "Vérifier"} <span className={styles.arrow}>→</span>
+          {busy ? t("su.form.verifying") : t("su.form.verify")} <span className={styles.arrow}>→</span>
         </button>
         <button
           className={styles.pwToggle}
@@ -952,7 +959,7 @@ function AccountStepClerk({
           onClick={() => signUp.verifications.sendEmailCode()}
           style={{ marginTop: 12 }}
         >
-          Renvoyer le code
+          {t("su.form.resend")}
         </button>
       </>
     );
@@ -974,7 +981,7 @@ function AccountStepClerk({
         <div className="mb-4 border-l-2 border-red-400 bg-red-500/5 px-4 py-3 text-sm text-red-400">{error}</div>
       )}
       <button className={styles.btnNext} type="button" disabled={busy} onClick={handleContinue}>
-        {busy ? "Création…" : "Continuer"} <span className={styles.arrow}>→</span>
+        {busy ? t("su.form.creatingShort") : t("su.form.continue")} <span className={styles.arrow}>→</span>
       </button>
       <div id="clerk-captcha" />
     </>

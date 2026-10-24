@@ -6,8 +6,17 @@ import { prisma } from "@/lib/prisma";
 import { SPORT_LABEL_TO_SLUG } from "@/lib/ecm-programs";
 import { COOKIE_KEYS } from "@/lib/demo-session";
 import { clerkEnabled } from "@/lib/clerk";
+import { LANG_COOKIE, isLang } from "@/lib/i18n/lang";
+import { THEME_COOKIE, isTheme } from "@/lib/theme";
+import { addDays, localParts } from "@/lib/notifications/time";
+import { makeT } from "@/lib/i18n";
+import { getLang } from "@/lib/i18n/server";
 
 const YEAR = 60 * 60 * 24 * 365;
+
+async function genericError(): Promise<string> {
+  return makeT(await getLang())("err.generic");
+}
 
 async function requireUserId(): Promise<string> {
   if (!clerkEnabled) throw new Error("Connexion requise.");
@@ -31,7 +40,7 @@ export async function updateRecordsRm(records: RecordsRm): Promise<{ ok: true } 
     await prisma.profile.update({ where: { userId }, data: { recordsRm: records } });
     return { ok: true };
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : "Erreur inattendue." };
+    return { ok: false, error: err instanceof Error ? err.message : await genericError() };
   }
 }
 
@@ -57,7 +66,7 @@ export async function updateProgrammes(names: string[]): Promise<{ ok: true } | 
     jar.set(COOKIE_KEYS.startDate, new Date().toISOString(), { path: "/", maxAge: YEAR, sameSite: "lax" });
     return { ok: true };
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : "Erreur inattendue." };
+    return { ok: false, error: err instanceof Error ? err.message : await genericError() };
   }
 }
 
@@ -69,23 +78,92 @@ export type NotifPrefs = {
   notifRecap: boolean;
 };
 
-export async function updateNotifPrefs(prefs: NotifPrefs): Promise<{ ok: true } | { ok: false; error: string }> {
+const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+/** Date « YYYY-MM-DD » de demain dans le fuseau de l'appareil de l'utilisateur. */
+function tomorrowKey(tz: string | null): string {
+  return addDays(localParts(new Date(), tz || "Europe/Paris").dateKey, 1);
+}
+
+/**
+ * Réglages de notifications. Changer l'heure du rappel check-in s'applique dès le lendemain :
+ * l'ancienne heure reste valable jusqu'à `notifCheckinTimeFrom`.
+ */
+export async function updateNotifPrefs(prefs: NotifPrefs, timezone?: string): Promise<{ ok: true } | { ok: false; error: string }> {
   try {
     const userId = await requireUserId();
-    await prisma.profile.update({ where: { userId }, data: prefs });
+    const current = await prisma.profile.findUnique({ where: { userId }, select: { notifCheckinTime: true, timezone: true } });
+    if (!TIME_RE.test(prefs.notifCheckinTime)) throw new Error("Heure invalide.");
+    const tz = timezone || current?.timezone || null;
+    const timeChanged = !!current && (current.notifCheckinTime ?? "07:00") !== prefs.notifCheckinTime;
+    await prisma.profile.update({
+      where: { userId },
+      data: {
+        ...prefs,
+        ...(tz ? { timezone: tz } : {}),
+        ...(timeChanged
+          ? { notifCheckinTimePrev: current?.notifCheckinTime ?? "07:00", notifCheckinTimeFrom: tomorrowKey(tz) }
+          : {}),
+      },
+    });
     return { ok: true };
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : "Erreur inattendue." };
+    return { ok: false, error: err instanceof Error ? err.message : await genericError() };
+  }
+}
+
+export type PushSubscriptionInput = { endpoint: string; p256dh: string; auth: string; userAgent?: string; timezone?: string };
+
+/** Enregistre l'abonnement push de cet appareil dans le profil. */
+export async function savePushSubscription(sub: PushSubscriptionInput): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    const userId = await requireUserId();
+    if (!sub.endpoint || !sub.p256dh || !sub.auth) throw new Error("Abonnement invalide.");
+    await prisma.pushSubscription.upsert({
+      where: { endpoint: sub.endpoint },
+      create: { userId, endpoint: sub.endpoint, p256dh: sub.p256dh, auth: sub.auth, userAgent: sub.userAgent?.slice(0, 300) },
+      update: { userId, p256dh: sub.p256dh, auth: sub.auth, userAgent: sub.userAgent?.slice(0, 300) },
+    });
+    if (sub.timezone) await prisma.profile.update({ where: { userId }, data: { timezone: sub.timezone } });
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : await genericError() };
+  }
+}
+
+export async function removePushSubscription(endpoint: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    const userId = await requireUserId();
+    await prisma.pushSubscription.deleteMany({ where: { userId, endpoint } });
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : await genericError() };
   }
 }
 
 export async function updateLangue(langue: string): Promise<{ ok: true } | { ok: false; error: string }> {
   try {
+    if (!isLang(langue)) throw new Error("Langue inconnue.");
     const userId = await requireUserId();
     await prisma.profile.update({ where: { userId }, data: { langue } });
+    const jar = await cookies();
+    jar.set(LANG_COOKIE, langue, { path: "/", maxAge: YEAR, sameSite: "lax" });
     return { ok: true };
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : "Erreur inattendue." };
+    return { ok: false, error: err instanceof Error ? err.message : await genericError() };
+  }
+}
+
+export async function updateTheme(theme: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    if (!isTheme(theme)) throw new Error("Thème inconnu.");
+    const userId = await requireUserId();
+    await prisma.profile.update({ where: { userId }, data: { theme } });
+    const jar = await cookies();
+    jar.set(THEME_COOKIE, theme, { path: "/", maxAge: YEAR, sameSite: "lax" });
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : await genericError() };
   }
 }
 
@@ -108,6 +186,6 @@ export async function deleteAccount(): Promise<{ ok: true } | { ok: false; error
     await client.users.deleteUser(userId);
     return { ok: true };
   } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : "Erreur inattendue." };
+    return { ok: false, error: err instanceof Error ? err.message : await genericError() };
   }
 }

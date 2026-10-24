@@ -19,7 +19,6 @@ import {
   X,
 } from "lucide-react";
 import {
-  blockNumber,
   formatExerciseLine,
   resolveExerciseMovement,
   type Block,
@@ -28,6 +27,7 @@ import {
 } from "@/lib/programming";
 import { BlockHeader } from "@/components/block-header";
 import { VideoModal } from "./video-modal";
+import { useT } from "@/lib/i18n/provider";
 
 type Props = {
   initialBlocks: Block[];
@@ -72,6 +72,7 @@ export default function SessionRunner({
   focus,
   estimatedMinutes,
 }: Props) {
+  const t = useT();
   const [blocks, setBlocks] = useState<Block[]>(initialBlocks);
   const [focusIdx, setFocusIdx] = useState<number | null>(null);
   const [completed, setCompleted] = useState<Set<number>>(new Set());
@@ -148,7 +149,7 @@ export default function SessionRunner({
           href="/dashboard"
           className="label inline-flex items-center gap-2 text-[color:var(--color-mute)] hover:text-white"
         >
-          <ArrowLeft size={14} /> Quitter la séance
+          <ArrowLeft size={14} /> {t("lg.run.leave")}
         </Link>
 
         <header className="mt-8 grid gap-4 md:grid-cols-[1fr_auto] md:items-end">
@@ -160,12 +161,12 @@ export default function SessionRunner({
               {focus}
             </h1>
             <div className="mono mt-2 text-xs text-[color:var(--color-mute)]">
-              {totalCount} blocs · {completedCount}/{totalCount} fait
-              {estimatedMinutes > 0 && <> · estimé {estimatedMinutes}min</>}
+              {t("lg.run.blocksDone", { total: totalCount, done: completedCount })}
+              {estimatedMinutes > 0 && <>{t("lg.run.estimated", { n: estimatedMinutes })}</>}
             </div>
           </div>
           <div className="card px-4 py-3 text-right">
-            <div className="label">CHRONO SÉANCE</div>
+            <div className="label">{t("lg.run.sessionClock")}</div>
             <div className="mono mt-1 text-2xl font-semibold tabular-nums">
               {formatClock(sessionElapsed)}
             </div>
@@ -191,10 +192,10 @@ export default function SessionRunner({
 
         <div className="mt-10 grid gap-3 md:grid-cols-2">
           <Link href="/dashboard" className="btn-ghost justify-center">
-            <ArrowLeft size={14} /> Retour dashboard
+            <ArrowLeft size={14} /> {t("lg.backDashboard")}
           </Link>
           <button onClick={() => setDone(true)} className="btn-primary justify-center">
-            Terminer la séance <Check size={14} />
+            {t("lg.run.finish")} <Check size={14} />
           </button>
         </div>
       </section>
@@ -267,6 +268,7 @@ function BlockSummary({
   onMoveUp: () => void;
   onMoveDown: () => void;
 }) {
+  const t = useT();
   const isFirst = index === 0;
   const isLast = index === totalCount - 1;
 
@@ -280,7 +282,7 @@ function BlockSummary({
         type="button"
         onClick={onOpen}
         className="block w-full p-5 text-left md:p-6"
-        aria-label={`Ouvrir ${blockNumber(index)} · ${block.name}`}
+        aria-label={t("lg.run.open", { block: t("lg.block", { n: index + 1 }), name: block.name })}
       >
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1">
@@ -288,7 +290,7 @@ function BlockSummary({
           </div>
           {isCompleted && (
             <span className="inline-flex shrink-0 items-center gap-1.5 text-xs text-emerald-400">
-              <Check size={14} /> Fait
+              <Check size={14} /> {t("lg.run.done")}
             </span>
           )}
         </div>
@@ -306,9 +308,9 @@ function BlockSummary({
         )}
 
         <div className="mono mt-5 flex items-center justify-between border-t border-[color:var(--color-line)] pt-4 text-xs text-[color:var(--color-mute)]">
-          <span>Tap pour ouvrir · timer + perf</span>
+          <span>{t("lg.run.tapToOpen")}</span>
           <span>
-            {blockNumber(index)}/{totalCount}
+            {t("lg.block", { n: index + 1 })}/{totalCount}
           </span>
         </div>
       </button>
@@ -336,6 +338,7 @@ function BlockMenu({
   onMoveUp: () => void;
   onMoveDown: () => void;
 }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   return (
     <div className="relative">
@@ -346,7 +349,7 @@ function BlockMenu({
           setOpen((o) => !o);
         }}
         className="border border-[color:var(--color-line)] bg-[color:var(--color-ash)] p-2 text-[color:var(--color-mute)] hover:text-white"
-        aria-label="Options du bloc"
+        aria-label={t("lg.run.blockOptions")}
       >
         <MoreHorizontal size={14} />
       </button>
@@ -364,7 +367,7 @@ function BlockMenu({
             disabled={isFirst}
             className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-[color:var(--color-mute)] hover:bg-black hover:text-white disabled:opacity-30"
           >
-            <ArrowUp size={12} /> Monter d&apos;un cran
+            <ArrowUp size={12} /> {t("lg.run.moveUp")}
           </button>
           <button
             type="button"
@@ -372,7 +375,7 @@ function BlockMenu({
             disabled={isLast}
             className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-[color:var(--color-mute)] hover:bg-black hover:text-white disabled:opacity-30"
           >
-            <ArrowDown size={12} /> Descendre d&apos;un cran
+            <ArrowDown size={12} /> {t("lg.run.moveDown")}
           </button>
         </div>
       )}
@@ -403,6 +406,7 @@ function BlockFocus({
   onComplete: (i: number) => void;
   onUpdatePerf: (i: number, patch: Partial<PerfEntry>) => void;
 }) {
+  const t = useT();
   const total = blocks.length;
   const block = blocks[index];
   const isCompleted = completed.has(index);
@@ -467,10 +471,10 @@ function BlockFocus({
           onClick={onClose}
           className="label inline-flex items-center gap-2 text-[color:var(--color-mute)] hover:text-white"
         >
-          <X size={14} /> Fermer
+          <X size={14} /> {t("lg.run.close")}
         </button>
         <div className="mono text-xs tracking-[0.3em] text-[color:var(--color-mute)]">
-          {blockNumber(index)} / {total}
+          {t("lg.block", { n: index + 1 })} / {total}
         </div>
       </header>
 
@@ -479,7 +483,7 @@ function BlockFocus({
           type="button"
           onClick={goPrev}
           disabled={index === 0}
-          aria-label="Bloc précédent"
+          aria-label={t("lg.run.prevBlock")}
           className="absolute left-2 top-1/2 hidden -translate-y-1/2 border border-[color:var(--color-line)] bg-[color:var(--color-ash)] p-2 text-[color:var(--color-mute)] hover:text-white disabled:opacity-30 md:block"
         >
           <ChevronLeft size={18} />
@@ -488,7 +492,7 @@ function BlockFocus({
           type="button"
           onClick={goNext}
           disabled={index === total - 1}
-          aria-label="Bloc suivant"
+          aria-label={t("lg.run.nextBlock")}
           className="absolute right-2 top-1/2 hidden -translate-y-1/2 border border-[color:var(--color-line)] bg-[color:var(--color-ash)] p-2 text-[color:var(--color-mute)] hover:text-white disabled:opacity-30 md:block"
         >
           <ChevronRight size={18} />
@@ -529,7 +533,7 @@ function BlockFocus({
             onClick={goPrev}
             disabled={index === 0}
             className="btn-ghost justify-center disabled:opacity-30"
-            aria-label="Bloc précédent"
+            aria-label={t("lg.run.prevBlock")}
           >
             <ChevronLeft size={14} />
           </button>
@@ -544,11 +548,11 @@ function BlockFocus({
           >
             {isCompleted ? (
               <>
-                <Check size={14} /> Bloc déjà fait — suivant
+                <Check size={14} /> {t("lg.run.alreadyDone")}
               </>
             ) : (
               <>
-                <Check size={14} /> Bloc fini
+                <Check size={14} /> {t("lg.run.blockDone")}
               </>
             )}
           </button>
@@ -557,13 +561,13 @@ function BlockFocus({
             onClick={goNext}
             disabled={index === total - 1}
             className="btn-ghost justify-center disabled:opacity-30"
-            aria-label="Bloc suivant"
+            aria-label={t("lg.run.nextBlock")}
           >
             <ChevronRight size={14} />
           </button>
         </div>
         <div className="mono mt-3 text-center text-[10px] tracking-[0.3em] text-[color:var(--color-mute)]">
-          {blockNumber(index)} / {total} · swipe pour naviguer
+          {t("lg.run.swipe", { n: t("lg.block", { n: index + 1 }), total })}
         </div>
       </footer>
     </div>
@@ -588,6 +592,7 @@ function ExerciseRow({
   const movement = resolveExerciseMovement(exercise);
   const name = movement?.name ?? exercise.movementId;
   const { primary, secondary } = formatExerciseLine(exercise, name);
+  const t = useT();
   const [videoOpen, setVideoOpen] = useState(false);
 
   const content = (
@@ -617,7 +622,7 @@ function ExerciseRow({
           type="button"
           onClick={() => setVideoOpen(true)}
           className="flex flex-1 items-start gap-2 text-left hover:underline"
-          aria-label={`Vidéo démo · ${name}`}
+          aria-label={t("lg.run.videoDemo", { name })}
         >
           {content}
         </button>
@@ -625,8 +630,8 @@ function ExerciseRow({
           type="button"
           onClick={() => setVideoOpen(true)}
           className="mt-1 shrink-0 text-[color:var(--color-mute)] hover:text-white"
-          aria-label={`Vidéo démo · ${name}`}
-          title="Vidéo démo"
+          aria-label={t("lg.run.videoDemo", { name })}
+          title={t("lg.run.videoDemoTitle")}
         >
           <Video size={16} />
         </button>
@@ -693,6 +698,7 @@ function CountTimer({
   seconds: number | null;
   label: string;
 }) {
+  const t = useT();
   const [running, setRunning] = useState(false);
   const [elapsed, setElapsed] = useState(0);
 
@@ -714,7 +720,7 @@ function CountTimer({
   return (
     <div className="grid gap-3 border border-[color:var(--color-line)] bg-black/30 p-4 md:grid-cols-[1fr_auto] md:items-center">
       <div>
-        <div className="label">TIMER · {label}</div>
+        <div className="label">{t("lg.run.timer", { label })}</div>
         <div
           className={`mono mt-1 text-5xl font-semibold tabular-nums ${
             isOver ? "text-emerald-400" : ""
@@ -731,7 +737,7 @@ function CountTimer({
           disabled={isOver}
         >
           {running ? <Pause size={14} /> : <Play size={14} />}
-          {running ? "Pause" : elapsed === 0 ? "Démarrer" : "Reprendre"}
+          {running ? t("lg.run.pause") : elapsed === 0 ? t("lg.run.start") : t("lg.run.resume")}
         </button>
         <button
           type="button"
@@ -757,6 +763,7 @@ function IntervalTimer({
   totalSec: number | null;
   label: string;
 }) {
+  const t = useT();
   const [running, setRunning] = useState(false);
   const [elapsed, setElapsed] = useState(0);
 
@@ -782,7 +789,7 @@ function IntervalTimer({
     <div className="grid gap-3 border border-[color:var(--color-line)] bg-black/30 p-4 md:grid-cols-[1fr_auto] md:items-center">
       <div>
         <div className="label">
-          TIMER · {label} · INTERVALLE {currentInterval}
+          {t("lg.run.timerInterval", { label, n: currentInterval })}
           {totalIntervals && ` / ${totalIntervals}`}
         </div>
         <div
@@ -794,7 +801,7 @@ function IntervalTimer({
         </div>
         {totalSec !== null && (
           <div className="mono mt-1 text-xs text-[color:var(--color-mute)]">
-            Total : {formatClock(elapsed)} / {formatClock(totalSec)}
+            {t("lg.run.total", { a: formatClock(elapsed), b: formatClock(totalSec) })}
           </div>
         )}
       </div>
@@ -806,7 +813,7 @@ function IntervalTimer({
           disabled={isOver}
         >
           {running ? <Pause size={14} /> : <Play size={14} />}
-          {running ? "Pause" : elapsed === 0 ? "Démarrer" : "Reprendre"}
+          {running ? t("lg.run.pause") : elapsed === 0 ? t("lg.run.start") : t("lg.run.resume")}
         </button>
         <button
           type="button"
@@ -834,6 +841,7 @@ function TabataTimer({
 }) {
   const cycleSec = workSec + restSec;
   const totalSec = cycleSec * rounds;
+  const t = useT();
   const [running, setRunning] = useState(false);
   const [elapsed, setElapsed] = useState(0);
 
@@ -858,7 +866,7 @@ function TabataTimer({
     <div className="grid gap-3 border border-[color:var(--color-line)] bg-black/30 p-4 md:grid-cols-[1fr_auto] md:items-center">
       <div>
         <div className="label">
-          TABATA · ROUND {currentRound} / {rounds} · {isWork ? "WORK" : "REST"}
+          TABATA · ROUND {currentRound} / {rounds} · {isWork ? t("lg.run.work") : t("lg.run.rest")}
         </div>
         <div
           className={`mono mt-1 text-5xl font-semibold tabular-nums ${
@@ -868,7 +876,7 @@ function TabataTimer({
           {formatClock(remaining)}
         </div>
         <div className="mono mt-1 text-xs text-[color:var(--color-mute)]">
-          {workSec}s work · {restSec}s rest · {rounds} rounds
+          {t("lg.run.tabataLine", { w: workSec, r: restSec, n: rounds })}
         </div>
       </div>
       <div className="flex gap-2">
@@ -879,7 +887,7 @@ function TabataTimer({
           disabled={isOver}
         >
           {running ? <Pause size={14} /> : <Play size={14} />}
-          {running ? "Pause" : elapsed === 0 ? "Démarrer" : "Reprendre"}
+          {running ? t("lg.run.pause") : elapsed === 0 ? t("lg.run.start") : t("lg.run.resume")}
         </button>
         <button
           type="button"
@@ -909,6 +917,7 @@ function PerfInput({
   perf?: PerfEntry;
   onChange: (patch: Partial<PerfEntry>) => void;
 }) {
+  const t = useT();
   const fmt = block.format;
   const showRounds = fmt === "AMRAP";
   const showReps = fmt === "AMRAP" || fmt === "EMOM" || fmt === "E2MOM" || fmt === "E3MOM";
@@ -916,44 +925,44 @@ function PerfInput({
 
   return (
     <div className="border-t border-[color:var(--color-line)] pt-4">
-      <div className="label">PERFORMANCES</div>
+      <div className="label">{t("lg.run.perfTitle")}</div>
       <div className="mt-3 grid gap-3 md:grid-cols-3">
         {showRounds && (
           <NumberField
-            label="Rounds complets"
+            label={t("lg.run.rounds")}
             value={perf?.rounds}
             onChange={(v) => onChange({ rounds: v })}
-            placeholder="ex: 6"
+            placeholder={t("lg.run.roundsPh")}
           />
         )}
         {showReps && (
           <NumberField
-            label="Reps additionnelles"
+            label={t("lg.run.extraReps")}
             value={perf?.reps}
             onChange={(v) => onChange({ reps: v })}
-            placeholder="ex: 12"
+            placeholder={t("lg.run.extraRepsPh")}
           />
         )}
         {showTime && (
           <TimeField
-            label="Temps final (mm:ss)"
+            label={t("lg.run.finalTime")}
             value={perf?.timeSeconds}
             onChange={(v) => onChange({ timeSeconds: v })}
           />
         )}
         {!showRounds && !showReps && !showTime && (
           <NumberField
-            label="Charge / RPE / notes (reps)"
+            label={t("lg.run.loadRpe")}
             value={perf?.reps}
             onChange={(v) => onChange({ reps: v })}
-            placeholder="reps"
+            placeholder={t("lg.run.repsPh")}
           />
         )}
       </div>
       <textarea
         value={perf?.notes ?? ""}
         onChange={(e) => onChange({ notes: e.target.value })}
-        placeholder="Notes : sensation, charge, scaling…"
+        placeholder={t("lg.run.notesPh")}
         rows={2}
         className="mt-3 w-full border border-[color:var(--color-line)] bg-transparent p-2 text-sm placeholder:text-[color:var(--color-mute)] focus:border-white focus:outline-none"
       />
@@ -1044,6 +1053,7 @@ function SessionDoneScreen({
   completed: Set<number>;
   estimatedMinutes: number;
 }) {
+  const t = useT();
   const summary = useMemo(() => {
     return blocks
       .map((b, i) => {
@@ -1051,29 +1061,29 @@ function SessionDoneScreen({
         const isDone = completed.has(i);
         if (!p && !isDone) return null;
         const parts: string[] = [];
-        if (p?.rounds !== undefined) parts.push(`${p.rounds} rd`);
-        if (p?.reps !== undefined) parts.push(`${p.reps} reps`);
+        if (p?.rounds !== undefined) parts.push(t("lg.run.sumRounds", { n: p.rounds }));
+        if (p?.reps !== undefined) parts.push(t("lg.run.sumReps", { n: p.reps }));
         if (p?.timeSeconds !== undefined) parts.push(formatClock(p.timeSeconds));
         if (p?.notes) parts.push(p.notes);
-        if (parts.length === 0 && isDone) parts.push("✓ fait");
+        if (parts.length === 0 && isDone) parts.push(t("lg.run.sumDone"));
         return { name: b.name, line: parts.join(" · ") };
       })
       .filter((x): x is { name: string; line: string } => x !== null);
-  }, [blocks, perf, completed]);
+  }, [blocks, perf, completed, t]);
 
   return (
     <section className="mx-auto max-w-2xl px-6 py-24 text-center">
       <Dumbbell size={40} className="mx-auto opacity-80" />
-      <div className="label mt-8">[ SÉANCE TERMINÉE ]</div>
-      <h1 className="mt-4 text-4xl font-semibold tracking-tight md:text-5xl">Bien joué.</h1>
+      <div className="label mt-8">{t("lg.run.doneLabel")}</div>
+      <h1 className="mt-4 text-4xl font-semibold tracking-tight md:text-5xl">{t("lg.run.doneTitle")}</h1>
       <p className="mt-4 text-[color:var(--color-mute)]">
-        {focus} · {blocks.length} blocs · {formatClock(sessionElapsed)}
-        {estimatedMinutes > 0 && <> (estimé {estimatedMinutes}min)</>}.
+        {t("lg.run.doneLine", { focus, n: blocks.length, clock: formatClock(sessionElapsed) })}
+        {estimatedMinutes > 0 && <>{t("lg.run.doneEst", { n: estimatedMinutes })}</>}.
       </p>
 
       {summary.length > 0 && (
         <div className="mt-8 text-left card p-6">
-          <div className="label">[ PERFORMANCES ]</div>
+          <div className="label">{t("lg.run.perfLabel")}</div>
           <ul className="mt-3 space-y-2">
             {summary.map((s, i) => (
               <li
@@ -1090,10 +1100,10 @@ function SessionDoneScreen({
 
       <div className="mt-10 flex flex-wrap justify-center gap-3">
         <Link href="/dashboard" className="btn-primary">
-          <PlayCircle size={14} /> Retour au dashboard
+          <PlayCircle size={14} /> {t("lg.run.backDash")}
         </Link>
         <Link href="/training" className="btn-ghost">
-          Voir la semaine
+          {t("lg.run.seeWeek")}
         </Link>
       </div>
     </section>

@@ -2,6 +2,7 @@
 
 import { startTransition, useEffect, useMemo, useRef, useState } from "react";
 import { Loader2, Video as VideoIcon, X } from "lucide-react";
+import { useT } from "@/lib/i18n/provider";
 import { extractYoutubeId, youtubeSearchUrl } from "@/lib/movements";
 
 type Props = {
@@ -13,6 +14,7 @@ type Props = {
 };
 
 export function VideoModal({ open, onClose, title, searchQuery, videoUrl }: Props) {
+  const t = useT();
   const dialogRef = useRef<HTMLDialogElement>(null);
   const directId = useMemo(() => extractYoutubeId(videoUrl), [videoUrl]);
   const [searchedId, setSearchedId] = useState<string | null>(null);
@@ -73,13 +75,13 @@ export function VideoModal({ open, onClose, title, searchQuery, videoUrl }: Prop
       <div className="card relative overflow-hidden">
         <div className="flex items-center justify-between gap-4 border-b border-[color:var(--color-line)] p-4">
           <div className="min-w-0">
-            <div className="label">VIDÉO DÉMO</div>
+            <div className="label">{t("lg.video.label")}</div>
             <h3 className="mt-1 truncate text-lg font-semibold">{title}</h3>
           </div>
           <button
             onClick={onClose}
             className="shrink-0 text-[color:var(--color-mute)] hover:text-white"
-            aria-label="Fermer"
+            aria-label={t("lg.run.close")}
           >
             <X size={20} />
           </button>
@@ -88,13 +90,13 @@ export function VideoModal({ open, onClose, title, searchQuery, videoUrl }: Prop
           {open && loading && (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
               <Loader2 size={28} className="animate-spin text-[color:var(--color-mute)]" />
-              <div className="label">RECHERCHE EN COURS</div>
+              <div className="label">{t("lg.video.searching")}</div>
             </div>
           )}
           {open && !loading && embedSrc && (
             <iframe
               src={embedSrc}
-              title={`Démo · ${title}`}
+              title={t("lg.video.iframeTitle", { title })}
               className="absolute inset-0 h-full w-full border-0"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
               allowFullScreen
@@ -104,9 +106,9 @@ export function VideoModal({ open, onClose, title, searchQuery, videoUrl }: Prop
           {open && !loading && !embedSrc && (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-6 text-center">
               <VideoIcon size={36} className="text-[color:var(--color-mute)]" />
-              <div className="label">PAS DE VIDÉO INTÉGRÉE</div>
+              <div className="label">{t("lg.video.none")}</div>
               <p className="max-w-sm text-sm text-[color:var(--color-mute)]">
-                Aucun résultat direct pour <span className="text-white">{title}</span>.
+                {t("lg.video.noResult")} <span className="text-white">{title}</span>.
               </p>
               <a
                 href={youtubeSearchUrl(searchQuery)}
@@ -114,7 +116,7 @@ export function VideoModal({ open, onClose, title, searchQuery, videoUrl }: Prop
                 rel="noopener noreferrer"
                 className="btn-primary"
               >
-                Rechercher sur YouTube ↗
+                {t("lg.video.youtube")}
               </a>
             </div>
           )}

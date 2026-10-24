@@ -1,44 +1,44 @@
 .heading { font-family: var(--font-barlow-condensed); font-size: 0.65rem; letter-spacing: 2px; text-transform: uppercase; color: var(--dim); margin: 12px 0 8px; display: block; }
 .tabs { display: flex; gap: 6px; margin-bottom: 10px; overflow-x: auto; }
-.tab, .tabOn { flex: 1; min-height: 40px; padding: 0 10px; border-radius: 12px; border: 1px solid var(--border); background: #0f0f0f; color: var(--dim); font-family: var(--font-barlow-condensed); font-size: 0.8rem; letter-spacing: 0.5px; cursor: pointer; }
-.tabOn { border-color: var(--accent); color: var(--accent); background: rgba(232,255,0,0.06); font-weight: 700; }
+.tab, .tabOn { flex: 1; min-height: 40px; padding: 0 10px; border-radius: 12px; border: 1px solid var(--border); background: var(--c-0f0f0f); color: var(--dim); font-family: var(--font-barlow-condensed); font-size: 0.8rem; letter-spacing: 0.5px; cursor: pointer; }
+.tabOn { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--c-e8ff00) 6%, transparent); font-weight: 700; }
 .list { display: flex; flex-direction: column; gap: 6px; }
-.row, .rowOn { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 0 14px; border-radius: 12px; border: 1px solid var(--border); background: #0f0f0f; cursor: pointer; color: var(--white); }
-.rowOn { border-color: var(--accent); background: rgba(232,255,0,0.05); }
+.row, .rowOn { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 0 14px; border-radius: 12px; border: 1px solid var(--border); background: var(--c-0f0f0f); cursor: pointer; color: var(--white); }
+.rowOn { border-color: var(--accent); background: color-mix(in srgb, var(--c-e8ff00) 5%, transparent); }
 .rowIcon { font-size: 18px; width: 24px; text-align: center; }
 .rowName { flex: 1; font-size: 15px; }
-.radio, .radioOn { width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid #6a6a6a; box-sizing: border-box; flex-shrink: 0; }
+.radio, .radioOn { width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid var(--c-6a6a6a); box-sizing: border-box; flex-shrink: 0; }
 .radioOn { border-color: var(--accent); background: radial-gradient(circle, var(--accent) 0 5px, transparent 6px); }
-.fiche { margin-top: 14px; padding: 14px; border: 1px solid var(--border); border-radius: 14px; background: #0c0c0c; max-width: 100%; box-sizing: border-box; }
+.fiche { margin-top: 14px; padding: 14px; border: 1px solid var(--border); border-radius: 14px; background: var(--c-0c0c0c); max-width: 100%; box-sizing: border-box; }
 .familyTag { font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--dim); }
 .sportName { font-size: 26px; font-weight: 700; color: var(--white); margin: 2px 0 6px; font-family: var(--font-barlow-condensed); }
 .field { padding: 12px 0; border-top: 1px solid var(--border); }
-.fieldLabel { font-size: 12.5px; color: #b5b5b5; margin-bottom: 8px; }
+.fieldLabel { font-size: 12.5px; color: var(--c-b5b5b5); margin-bottom: 8px; }
 .dateRow { display: flex; align-items: center; gap: 10px; min-width: 0; }
-.dateInput { flex: 1; min-width: 0; max-width: 100%; box-sizing: border-box; background: #0f0f0f; border: 1px solid var(--border); color: var(--white); padding: 10px 12px; border-radius: 10px; font-size: 15px; color-scheme: dark; }
+.dateInput { flex: 1; min-width: 0; max-width: 100%; box-sizing: border-box; background: var(--c-0f0f0f); border: 1px solid var(--border); color: var(--white); padding: 10px 12px; border-radius: 10px; font-size: 15px; color-scheme: dark; }
 .remaining { font-size: 12.5px; color: var(--accent); white-space: nowrap; }
-.textInput { width: 100%; box-sizing: border-box; background: #0f0f0f; border: 1px solid var(--border); color: var(--white); padding: 10px 12px; border-radius: 10px; font-size: 15px; outline: none; }
+.textInput { width: 100%; box-sizing: border-box; background: var(--c-0f0f0f); border: 1px solid var(--border); color: var(--white); padding: 10px 12px; border-radius: 10px; font-size: 15px; outline: none; }
 .numRow { display: flex; align-items: center; gap: 8px; }
 .unit { color: var(--dim); font-size: 14px; }
 .pills { display: flex; flex-wrap: wrap; gap: 8px; }
-.pill, .pillOn, .programBtn, .programBtnGhost { padding: 9px 14px; border-radius: 999px; border: 1px solid var(--border); background: #0f0f0f; color: #c8c8c8; font-size: 13px; cursor: pointer; min-height: 40px; }
-.pillOn { border-color: var(--accent); color: var(--accent); background: rgba(232,255,0,0.06); font-weight: 700; }
-.error { margin-top: 6px; font-size: 12.5px; color: var(--error, #ff6b6b); }
-.note { margin-top: 6px; font-size: 12px; color: #a0a0a0; }
+.pill, .pillOn, .programBtn, .programBtnGhost { padding: 9px 14px; border-radius: 999px; border: 1px solid var(--border); background: var(--c-0f0f0f); color: var(--c-c8c8c8); font-size: 13px; cursor: pointer; min-height: 40px; }
+.pillOn { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--c-e8ff00) 6%, transparent); font-weight: 700; }
+.error { margin-top: 6px; font-size: 12.5px; color: var(--error, var(--c-ff6b6b)); }
+.note { margin-top: 6px; font-size: 12px; color: var(--c-a0a0a0); }
 .shortNote { margin-top: 10px; font-size: 12.5px; color: var(--accent); }
-.program { margin-top: 14px; padding: 12px; border-radius: 12px; border: 1px solid rgba(232,255,0,0.3); background: rgba(232,255,0,0.04); }
+.program { margin-top: 14px; padding: 12px; border-radius: 12px; border: 1px solid color-mix(in srgb, var(--c-e8ff00) 30%, transparent); background: color-mix(in srgb, var(--c-e8ff00) 4%, transparent); }
 .programTitle { font-size: 14px; font-weight: 700; color: var(--white); }
 .programActions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
-.programBtn { border-color: var(--accent); color: #0a0a0a; background: var(--accent); font-weight: 700; }
+.programBtn { border-color: var(--accent); color: var(--c-0a0a0a); background: var(--accent); font-weight: 700; }
 .programBtnGhost { background: transparent; }
 
 /* Axes de progression (mission 1) et deadline / priorité en boutons arrondis */
 .axisHead { display: flex; justify-content: space-between; align-items: baseline; }
 .axisCount { font-size: 12.5px; color: var(--accent); font-weight: 700; margin-top: 12px; }
-.axisHelp { font-size: 12px; color: #a0a0a0; margin-bottom: 10px; }
+.axisHelp { font-size: 12px; color: var(--c-a0a0a0); margin-bottom: 10px; }
 .axisGrid { display: flex; flex-wrap: wrap; gap: 8px; }
-.axis, .axisOn { display: inline-flex; align-items: center; gap: 8px; min-height: 42px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--border); background: #0f0f0f; color: #d0d0d0; font-size: 14px; cursor: pointer; }
-.axisOn { border-color: var(--accent); background: rgba(232,255,0,0.07); color: var(--white); font-weight: 600; }
+.axis, .axisOn { display: inline-flex; align-items: center; gap: 8px; min-height: 42px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--border); background: var(--c-0f0f0f); color: var(--c-d0d0d0); font-size: 14px; cursor: pointer; }
+.axisOn { border-color: var(--accent); background: color-mix(in srgb, var(--c-e8ff00) 7%, transparent); color: var(--white); font-weight: 600; }
 .axisCheck { color: var(--accent); font-weight: 700; }
 .axisDim { opacity: 0.4; }
 .axisMsg { margin-top: 8px; font-size: 12.5px; color: var(--accent); }

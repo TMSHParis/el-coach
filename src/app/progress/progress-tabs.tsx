@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { LineChartCard, TimelineChart, TimelineLegend, type TimelineDay } from "./progress-charts";
+import { useLang, useT } from "@/lib/i18n/provider";
+import { formatNumber, type DictKey } from "@/lib/i18n";
 import styles from "./progress.module.css";
 
 const cx = (...c: (string | false | undefined)[]) => c.filter(Boolean).join(" ");
@@ -25,14 +27,14 @@ export type Badge = { threshold: number; icon: string; label: string; unlocked: 
 export type WeekRow = { label: string; sub: string; status: "ok" | "partial" };
 
 const TABS = [
-  { key: "overview", label: "VUE D'ENSEMBLE" },
-  { key: "sessions", label: "SÉANCES" },
-  { key: "programs", label: "PROGRAMME" },
-  { key: "streak", label: "ASSIDUITÉ" },
-] as const;
+  { key: "overview", label: "app.progress.tab.overview" },
+  { key: "sessions", label: "app.progress.tab.sessions" },
+  { key: "programs", label: "app.progress.tab.programs" },
+  { key: "streak", label: "app.progress.tab.streak" },
+] as const satisfies readonly { key: string; label: DictKey }[];
 type TabKey = (typeof TABS)[number]["key"];
 
-const ZONE_COLORS: Record<number, string> = { 1: "#5b7590", 2: "#5FA97E", 3: "#C9A84C", 4: "#E07B39", 5: "#C9605A" };
+const ZONE_COLORS: Record<number, string> = { 1: "var(--c-5b7590)", 2: "var(--c-5fa97e)", 3: "var(--c-c9a84c)", 4: "var(--c-e07b39)", 5: "var(--c-c9605a)" };
 const VOLUME_ICONS: Record<string, string> = { upper: "💪", lower: "🦵", full: "🔄" };
 
 function fmtDuration(sec: number): string {
@@ -42,6 +44,7 @@ function fmtDuration(sec: number): string {
 }
 
 function ZoneBreakdown({ zones }: { zones: { zone: number; minutes: number }[] }) {
+  const t = useT();
   const total = zones.reduce((s, z) => s + z.minutes, 0);
   if (total <= 0) return null;
   return (
@@ -54,7 +57,7 @@ function ZoneBreakdown({ zones }: { zones: { zone: number; minutes: number }[] }
             <div
               key={z.zone}
               className={styles.zoneSeg}
-              style={{ width: `${(z.minutes / total) * 100}%`, background: ZONE_COLORS[z.zone] ?? "#555" }}
+              style={{ width: `${(z.minutes / total) * 100}%`, background: ZONE_COLORS[z.zone] ?? "var(--c-555555)" }}
             />
           ))}
       </div>
@@ -64,8 +67,8 @@ function ZoneBreakdown({ zones }: { zones: { zone: number; minutes: number }[] }
           .sort((a, b) => a.zone - b.zone)
           .map((z) => (
             <span key={z.zone}>
-              <i style={{ background: ZONE_COLORS[z.zone] ?? "#555" }} />
-              Zone {z.zone} · {Math.round(z.minutes)} min
+              <i style={{ background: ZONE_COLORS[z.zone] ?? "var(--c-555555)" }} />
+              {t("app.progress.zone", { n: z.zone, min: Math.round(z.minutes) })}
             </span>
           ))}
       </div>
@@ -74,6 +77,7 @@ function ZoneBreakdown({ zones }: { zones: { zone: number; minutes: number }[] }
 }
 
 function SessionAccordionCard({ session, defaultOpen }: { session: SessionCard; defaultOpen: boolean }) {
+  const t = useT();
   const [open, setOpen] = useState(defaultOpen);
   const hasDetail = session.durationSec || session.calories || session.bpmMoyen;
   return (
@@ -95,19 +99,19 @@ function SessionAccordionCard({ session, defaultOpen }: { session: SessionCard; 
               {session.durationSec != null && (
                 <div className={styles.mini}>
                   <b>{fmtDuration(session.durationSec)}</b>
-                  <span>Durée</span>
+                  <span>{t("app.progress.duration")}</span>
                 </div>
               )}
               {session.calories != null && (
                 <div className={styles.mini}>
                   <b>{session.calories}</b>
-                  <span>Kcal</span>
+                  <span>{t("app.progress.kcal")}</span>
                 </div>
               )}
               {session.bpmMoyen != null && (
                 <div className={styles.mini}>
                   <b>{session.bpmMoyen}</b>
-                  <span>BPM moy.</span>
+                  <span>{t("app.progress.avgBpm")}</span>
                 </div>
               )}
             </div>
@@ -150,6 +154,8 @@ export function ProgressTabs({
   badges: Badge[];
   weeks: WeekRow[];
 }) {
+  const t = useT();
+  const { lang } = useLang();
   const [tab, setTab] = useState<TabKey>(defaultTab);
   const [celebrate, setCelebrate] = useState<Badge | null>(null);
 
@@ -174,9 +180,9 @@ export function ProgressTabs({
   return (
     <div>
       <div className={styles.tabs}>
-        {TABS.map((t) => (
-          <button key={t.key} type="button" className={cx(styles.tab, tab === t.key && styles.active)} onClick={() => setTab(t.key)}>
-            <span className={styles.tabLabel}>{t.label}</span>
+        {TABS.map((tb) => (
+          <button key={tb.key} type="button" className={cx(styles.tab, tab === tb.key && styles.active)} onClick={() => setTab(tb.key)}>
+            <span className={styles.tabLabel}>{t(tb.label)}</span>
           </button>
         ))}
       </div>
@@ -184,30 +190,30 @@ export function ProgressTabs({
       <div className={styles.fw}>
         {tab === "overview" && (
           <div className={styles.panel}>
-            <div className={styles.sl}>Évolution du poids · 30 derniers jours</div>
-            <LineChartCard title="Poids actuel" data={weightData} dataKey="weight" unit=" kg" betterWhenDown />
+            <div className={styles.sl}>{t("app.progress.weightEvolution")}</div>
+            <LineChartCard title={t("app.progress.currentWeight")} data={weightData} dataKey="weight" unit=" kg" betterWhenDown />
 
-            <div className={styles.sl}>Score ECM · 30 derniers jours</div>
-            <LineChartCard title="Score moyen" data={scoreData} dataKey="score" unit="" betterWhenDown={false} />
+            <div className={styles.sl}>{t("app.progress.eqmScore")}</div>
+            <LineChartCard title={t("app.progress.avgScore")} data={scoreData} dataKey="score" unit="" betterWhenDown={false} />
 
-            <div className={styles.sl}>Résumé</div>
+            <div className={styles.sl}>{t("app.progress.summary")}</div>
             <div className={styles.statGrid}>
               <div className={styles.stat}>
                 <b>{stats.checkinsTotal}</b>
-                <span>Check-ins</span>
+                <span>{t("app.progress.checkins")}</span>
               </div>
               <div className={styles.stat}>
                 <b>{stats.sessionsCompleted}</b>
-                <span>Séances</span>
+                <span>{t("app.progress.workouts")}</span>
               </div>
               <div className={cx(styles.stat, styles.statStreak)}>
                 <span className={styles.statStreakFire}>🔥</span>
                 <b>{stats.currentStreak}</b>
-                <span>Streak</span>
+                <span>{t("app.progress.streak")}</span>
               </div>
               <div className={styles.stat}>
                 <b>{stats.bestStreak}</b>
-                <span>Record</span>
+                <span>{t("app.progress.record")}</span>
               </div>
             </div>
           </div>
@@ -215,15 +221,15 @@ export function ProgressTabs({
 
         {tab === "sessions" && (
           <div className={styles.panel}>
-            <div className={styles.sl}>Dernières séances</div>
+            <div className={styles.sl}>{t("app.progress.lastWorkouts")}</div>
             {sessions.length === 0 ? (
-              <div className={styles.emptyChart}>Pas encore de séance enregistrée</div>
+              <div className={styles.emptyChart}>{t("app.progress.noWorkout")}</div>
             ) : (
               sessions.map((s) => <SessionAccordionCard key={s.date} session={s} defaultOpen={s.date === expandDate} />)
             )}
             {sessionsHasMore && (
               <Link href={sessionsMoreHref} className={styles.moreBtn}>
-                VOIR PLUS
+                {t("app.progress.more")}
               </Link>
             )}
           </div>
@@ -231,16 +237,16 @@ export function ProgressTabs({
 
         {tab === "programs" && (
           <div className={styles.panel}>
-            <div className={styles.sl}>Programmes actifs</div>
+            <div className={styles.sl}>{t("app.progress.activePrograms")}</div>
             {programs.length === 0 ? (
-              <div className={styles.emptyChart}>Aucun programme actif</div>
+              <div className={styles.emptyChart}>{t("app.progress.noProgram")}</div>
             ) : (
               programs.map((p) => (
                 <div key={p.label} className={styles.progCard}>
                   <div className={styles.pn}>{p.label}</div>
                   <div className={styles.ps}>
-                    {p.seances} séance{p.seances > 1 ? "s" : ""}
-                    {p.dernierWod ? ` · dernier WOD : ${p.dernierWod}${p.dernierWodDate ? ` (${p.dernierWodDate})` : ""}` : ""}
+                    {t(p.seances > 1 ? "app.progress.sessionCount.many" : "app.progress.sessionCount.one", { n: p.seances })}
+                    {p.dernierWod ? `${t("app.progress.lastWod", { wod: p.dernierWod })}${p.dernierWodDate ? ` (${p.dernierWodDate})` : ""}` : ""}
                   </div>
                 </div>
               ))
@@ -248,7 +254,7 @@ export function ProgressTabs({
 
             {volumeStats.some((v) => v.seances > 0) && (
               <>
-                <div className={styles.sl}>Volume Block par focus</div>
+                <div className={styles.sl}>{t("app.progress.volumeByFocus")}</div>
                 <div className={styles.volumeList}>
                   {volumeStats.map((v) => {
                     const max = Math.max(1, ...volumeStats.map((x) => x.seances));
@@ -263,7 +269,7 @@ export function ProgressTabs({
                           <div className={styles.volumeTrack}>
                             <div className={styles.volumeFill} style={{ width: `${(v.seances / max) * 100}%` }} />
                           </div>
-                          {v.meilleureCharge && <div className={styles.volumeBest}>Meilleur résultat : {v.meilleureCharge} kg</div>}
+                          {v.meilleureCharge && <div className={styles.volumeBest}>{t("app.progress.bestResult", { n: formatNumber(lang, v.meilleureCharge) })}</div>}
                         </div>
                       </div>
                     );
@@ -276,41 +282,41 @@ export function ProgressTabs({
 
         {tab === "streak" && (
           <div className={styles.panel}>
-            <div className={styles.sl}>Régularité</div>
+            <div className={styles.sl}>{t("app.progress.regularity")}</div>
             <div className={styles.streakCard}>
               <div className={styles.streakFire}>🔥</div>
               <div className={styles.streakNum}>{streak.current}</div>
-              <div className={styles.streakLbl}>Jours consécutifs</div>
+              <div className={styles.streakLbl}>{t("app.progress.consecutiveDays")}</div>
               <div className={styles.streakTiles}>
                 <div className={cx(styles.streakTile, styles.streakTileHighlight)}>
                   <b>{streak.best}</b>
-                  <span>Record actuel</span>
+                  <span>{t("app.progress.currentRecord")}</span>
                 </div>
                 <div className={styles.streakTile}>
                   <b>{streak.nextThreshold ?? "—"}</b>
-                  <span>Prochain palier</span>
+                  <span>{t("app.progress.nextMilestone")}</span>
                 </div>
                 <div className={styles.streakTile}>
                   <b>{streak.nextThreshold ? `${Math.min(100, Math.round((streak.current / streak.nextThreshold) * 100))}%` : "—"}</b>
-                  <span>Progression</span>
+                  <span>{t("app.progress.progression")}</span>
                 </div>
               </div>
             </div>
 
-            <div className={styles.sl}>30 derniers jours</div>
+            <div className={styles.sl}>{t("app.progress.last30")}</div>
             <div className={styles.timelineCard}>
               <TimelineLegend />
               <TimelineChart data={timeline} />
             </div>
 
-            <div className={styles.sl}>Paliers</div>
+            <div className={styles.sl}>{t("app.progress.milestones")}</div>
             <div className={styles.badgeRow}>
               {badges.map((b) => (
                 <div key={b.threshold} className={cx(styles.badge, b.unlocked && styles.unlocked, b.current && styles.current)}>
                   <span className={styles.badgeCheck}>✓</span>
                   <div className={styles.badgeIcon}>{b.icon}</div>
                   <div className={styles.bn}>{b.threshold}</div>
-                  <div className={styles.bl}>jours</div>
+                  <div className={styles.bl}>{t("app.progress.daysUnit")}</div>
                   {b.current && streak.nextThreshold && (
                     <div className={styles.badgeProgressTrack}>
                       <div
@@ -325,7 +331,7 @@ export function ProgressTabs({
             {streak.nextThreshold && (
               <div className={styles.nextMilestone}>
                 <div className={styles.nmHead}>
-                  <span>Prochain palier — {streak.nextThreshold} jours</span>
+                  <span>{t("app.progress.nextMilestoneDays", { n: streak.nextThreshold })}</span>
                   <span>
                     {streak.current} / {streak.nextThreshold}
                   </span>
@@ -336,10 +342,10 @@ export function ProgressTabs({
               </div>
             )}
 
-            <div className={styles.sl}>Historique des semaines</div>
+            <div className={styles.sl}>{t("app.progress.weeksHistory")}</div>
             <div className={styles.card} style={{ padding: "4px 16px" }}>
               {weeks.length === 0 ? (
-                <div className={styles.emptyChart}>Pas encore d&apos;historique</div>
+                <div className={styles.emptyChart}>{t("app.progress.noHistory")}</div>
               ) : (
                 weeks.map((w) => (
                   <div key={w.label} className={styles.weekRow}>
@@ -348,7 +354,7 @@ export function ProgressTabs({
                       <div className={styles.weekSub}>{w.sub}</div>
                     </div>
                     <span className={cx(styles.weekBadge, w.status === "ok" ? styles.ok : styles.partial)}>
-                      {w.status === "ok" ? "RÉUSSIE" : "PARTIELLE"}
+                      {w.status === "ok" ? t("app.progress.weekSuccess") : t("app.progress.weekPartial")}
                     </span>
                   </div>
                 ))
@@ -360,7 +366,7 @@ export function ProgressTabs({
 
       {celebrate && (
         <div className={styles.celebToast}>
-          {celebrate.icon} Palier {celebrate.threshold} jours débloqué !
+          {celebrate.icon} {t("app.progress.milestoneUnlocked", { n: celebrate.threshold })}
         </div>
       )}
     </div>

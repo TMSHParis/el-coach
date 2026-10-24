@@ -10,10 +10,16 @@ import {
   submitRmStep,
   submitConfirmStep,
 } from "../actions";
+import { getT } from "@/lib/i18n/server";
+import { dv } from "../display";
+import type { Translate } from "@/lib/i18n";
 
-export const metadata = { title: "Profil athlète — EL COACH METHOD" };
+export async function generateMetadata() {
+  const { t } = await getT();
+  return { title: t("su.meta.athleteProfile") };
+}
 
-const STEP_LABELS = ["Profil", "Niveau", "Records", "Confirmation"];
+const STEP_LABELS = ["su.prof.step.profile", "su.prof.step.level", "su.prof.step.records", "su.prof.step.confirm"] as const;
 
 export default async function ProfileOnboardingPage({
   searchParams,
@@ -26,6 +32,7 @@ export default async function ProfileOnboardingPage({
 
   const profile = await getProfileState();
   const step = clampStep(stepParam);
+  const { t } = await getT();
 
   return (
     <section className="mx-auto max-w-2xl px-6 py-16">
@@ -33,25 +40,25 @@ export default async function ProfileOnboardingPage({
         href="/dashboard"
         className="label inline-flex items-center gap-2 text-[color:var(--color-mute)] hover:text-white"
       >
-        <ArrowLeft size={14} /> Compléter plus tard
+        <ArrowLeft size={14} /> {t("su.prof.later")}
       </Link>
 
       <header className="mt-8">
         <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">
-          On finalise ton profil.
+          {t("su.prof.title")}
         </h1>
         <p className="mt-3 text-sm text-[color:var(--color-mute)]">
-          Quelques infos rapides pour personnaliser ta programmation.
+          {t("su.prof.sub")}
         </p>
       </header>
 
-      <Stepper step={step} />
+      <Stepper step={step} t={t} />
 
       <div className="mt-8">
-        {step === 1 && <ProfileStep initial={profile} />}
-        {step === 2 && <LevelStep initial={profile} />}
-        {step === 3 && <RmStep programSlug={signup.programSlug} initial={profile?.rm} />}
-        {step === 4 && <ConfirmStep firstName={signup.firstName} programSlug={signup.programSlug} />}
+        {step === 1 && <ProfileStep initial={profile} t={t} />}
+        {step === 2 && <LevelStep initial={profile} t={t} />}
+        {step === 3 && <RmStep programSlug={signup.programSlug} initial={profile?.rm} t={t} />}
+        {step === 4 && <ConfirmStep firstName={signup.firstName} programSlug={signup.programSlug} t={t} />}
       </div>
     </section>
   );
@@ -64,7 +71,7 @@ function clampStep(stepParam: string | undefined): 1 | 2 | 3 | 4 {
   return raw as 1 | 2 | 3 | 4;
 }
 
-function Stepper({ step }: { step: 1 | 2 | 3 | 4 }) {
+function Stepper({ step, t }: { step: 1 | 2 | 3 | 4; t: Translate }) {
   return (
     <div className="mt-10 grid grid-cols-4 gap-2">
       {STEP_LABELS.map((label, i) => {
@@ -82,7 +89,7 @@ function Stepper({ step }: { step: 1 | 2 | 3 | 4 }) {
                     : "text-[color:var(--color-mute)]"
               }`}
             >
-              {n} · {label.toUpperCase()}
+              {n} · {t(label).toUpperCase()}
             </div>
             <div
               className={`h-1 w-full ${
@@ -104,20 +111,22 @@ function Stepper({ step }: { step: 1 | 2 | 3 | 4 }) {
 
 function ProfileStep({
   initial,
+  t,
 }: {
   initial: Awaited<ReturnType<typeof getProfileState>>;
+  t: Translate;
 }) {
   return (
     <form action={submitProfileStep} className="card grid gap-5 p-6 md:p-8">
-      <Field label="Date de naissance" name="birthDate" type="date" defaultValue={initial?.birthDate} required />
+      <Field label={t("su.prof.birth")} name="birthDate" type="date" defaultValue={initial?.birthDate} required />
 
       <div>
-        <span className="label">Sexe</span>
+        <span className="label">{t("su.prof.sex")}</span>
         <div className="mt-2 grid grid-cols-3 gap-2">
           {[
-            { value: "M", label: "Homme" },
-            { value: "F", label: "Femme" },
-            { value: "X", label: "Autre" },
+            { value: "M", label: dv(t, "Homme") },
+            { value: "F", label: dv(t, "Femme") },
+            { value: "X", label: dv(t, "Autre") },
           ].map((opt) => (
             <label
               key={opt.value}
@@ -139,7 +148,7 @@ function ProfileStep({
 
       <div className="grid gap-4 md:grid-cols-2">
         <Field
-          label="Poids (kg)"
+          label={t("su.prof.weight")}
           name="weightKg"
           type="number"
           step="0.1"
@@ -149,7 +158,7 @@ function ProfileStep({
           required
         />
         <Field
-          label="Taille (cm)"
+          label={t("su.prof.height")}
           name="heightCm"
           type="number"
           min="120"
@@ -160,7 +169,7 @@ function ProfileStep({
       </div>
 
       <button type="submit" className="btn-primary mt-2 justify-center">
-        Continuer →
+        {t("su.continue")}
       </button>
     </form>
   );
@@ -170,24 +179,18 @@ function ProfileStep({
 // Étape 2 — Niveau
 // ============================================================================
 
-const LEVELS: Array<{ value: NonNullable<Awaited<ReturnType<typeof getProfileState>>>["level"]; label: string; desc: string }> = [
-  { value: "beginner", label: "Débutant", desc: "Je commence ou je reprends." },
-  {
-    value: "intermediate",
-    label: "Intermédiaire",
-    desc: "J'ai de l'expérience, je cherche à progresser.",
-  },
-  {
-    value: "expert",
-    label: "Expert",
-    desc: "Je m'entraîne régulièrement depuis plusieurs années.",
-  },
+const LEVELS: Array<{ value: NonNullable<Awaited<ReturnType<typeof getProfileState>>>["level"]; label: string; desc: "su.prof.lvl.beginner" | "su.prof.lvl.intermediate" | "su.prof.lvl.expert" }> = [
+  { value: "beginner", label: "Débutant", desc: "su.prof.lvl.beginner" },
+  { value: "intermediate", label: "Intermédiaire", desc: "su.prof.lvl.intermediate" },
+  { value: "expert", label: "Expert", desc: "su.prof.lvl.expert" },
 ];
 
 function LevelStep({
   initial,
+  t,
 }: {
   initial: Awaited<ReturnType<typeof getProfileState>>;
+  t: Translate;
 }) {
   return (
     <form action={submitLevelStep} className="space-y-3">
@@ -221,8 +224,8 @@ function LevelStep({
                 {checked && <Check size={12} className="text-black" strokeWidth={3} />}
               </div>
               <div>
-                <div className="text-lg font-semibold">{opt.label}</div>
-                <div className="mt-1 text-sm text-[color:var(--color-mute)]">{opt.desc}</div>
+                <div className="text-lg font-semibold">{dv(t, opt.label)}</div>
+                <div className="mt-1 text-sm text-[color:var(--color-mute)]">{t(opt.desc)}</div>
               </div>
             </label>
           );
@@ -230,10 +233,10 @@ function LevelStep({
       </div>
       <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
         <Link href="/signup/profile?step=1" className="label text-[color:var(--color-mute)] hover:text-white">
-          ← Retour
+          {t("su.back")}
         </Link>
         <button type="submit" className="btn-primary justify-center">
-          Continuer →
+          {t("su.continue")}
         </button>
       </div>
     </form>
@@ -269,9 +272,11 @@ function getRmLifts(programSlug: string): Array<{ key: string; label: string; un
 function RmStep({
   programSlug,
   initial,
+  t,
 }: {
   programSlug: string;
   initial?: Record<string, number>;
+  t: Translate;
 }) {
   const lifts = getRmLifts(programSlug);
 
@@ -279,14 +284,14 @@ function RmStep({
     return (
       <form action={submitRmStep} className="card p-6 md:p-8">
         <p className="text-sm text-[color:var(--color-mute)]">
-          Programme bodyweight — aucun RM à renseigner. Tu peux passer cette étape.
+          {t("su.prof.bodyweight")}
         </p>
         <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
           <Link href="/signup/profile?step=2" className="label text-[color:var(--color-mute)] hover:text-white">
-            ← Retour
+            {t("su.back")}
           </Link>
           <button type="submit" className="btn-primary justify-center">
-            Passer →
+            {t("su.prof.skip")}
           </button>
         </div>
       </form>
@@ -296,7 +301,7 @@ function RmStep({
   return (
     <form action={submitRmStep} className="card grid gap-5 p-6 md:p-8">
       <p className="text-sm text-[color:var(--color-mute)]">
-        Champs optionnels — tu peux passer et renseigner plus tard depuis ton profil.
+        {t("su.prof.optional")}
       </p>
       <div className="grid gap-4 md:grid-cols-2">
         {lifts.map((lift) => (
@@ -309,16 +314,16 @@ function RmStep({
             min="0"
             max="500"
             defaultValue={initial?.[lift.key]}
-            placeholder="ex: 120"
+            placeholder={t("su.prof.rmPh")}
           />
         ))}
       </div>
       <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
         <Link href="/signup/profile?step=2" className="label text-[color:var(--color-mute)] hover:text-white">
-          ← Retour
+          {t("su.back")}
         </Link>
         <button type="submit" className="btn-primary justify-center">
-          Continuer →
+          {t("su.continue")}
         </button>
       </div>
     </form>
@@ -332,25 +337,27 @@ function RmStep({
 function ConfirmStep({
   firstName,
   programSlug,
+  t,
 }: {
   firstName: string;
   programSlug: string;
+  t: Translate;
 }) {
   const template = getTemplate(programSlug);
   return (
     <form action={submitConfirmStep} className="space-y-6">
       <div className="card p-6 md:p-8">
-        <div className="label">RÉCAPITULATIF</div>
+        <div className="label">{t("su.prof.recap")}</div>
         <h2 className="mt-3 text-2xl font-semibold">
-          {firstName}, ton profil est prêt.
+          {t("su.prof.ready", { name: firstName })}
         </h2>
         {template && (
           <p className="mono mt-3 text-sm text-[color:var(--color-mute)]">
-            Programmation : <span className="text-white">{template.name} · by El Coach Method</span>
+            {t("su.prof.programming")} <span className="text-white">{template.name} · by El Coach Method</span>
           </p>
         )}
         <p className="mt-6 text-sm text-[color:var(--color-mute)]">
-          Tu peux modifier ces informations à tout moment depuis ton profil.
+          {t("su.prof.editAnytime")}
         </p>
       </div>
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -358,10 +365,10 @@ function ConfirmStep({
           href="/signup/profile?step=3"
           className="label text-[color:var(--color-mute)] hover:text-white"
         >
-          ← Retour
+          {t("su.back")}
         </Link>
         <button type="submit" className="btn-primary justify-center">
-          Accéder à mon programme →
+          {t("su.prof.goProgram")}
         </button>
       </div>
     </form>

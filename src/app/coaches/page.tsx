@@ -1,17 +1,22 @@
 import { coaches } from "@/lib/data";
 import { CoachCard } from "@/components/coach-card";
+import { getT } from "@/lib/i18n/server";
 
-export const metadata = { title: "Coachs — EL COACH METHOD" };
+export async function generateMetadata() {
+  const { t } = await getT();
+  return { title: t("lg.coaches.meta") };
+}
 
-export default function CoachesPage() {
+export default async function CoachesPage() {
+  const { t } = await getT();
   return (
     <section className="mx-auto max-w-7xl px-6 py-16">
-      <div className="label">[ COACHS ]</div>
+      <div className="label">{t("lg.coaches.label")}</div>
       <h1 className="mt-3 text-4xl font-semibold tracking-tight md:text-6xl">
-        L&apos;équipe complète
+        {t("lg.coaches.h1")}
       </h1>
       <p className="mt-4 max-w-xl text-[color:var(--color-mute)]">
-        Athlètes confirmés, kinés, programmeurs périodiques. Sélectionnés, pas recrutés.
+        {t("lg.coaches.sub")}
       </p>
       <div className="mt-10 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {coaches.map((c) => (

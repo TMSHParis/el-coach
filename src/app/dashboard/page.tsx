@@ -18,6 +18,7 @@ import {
   buildWeightInsight,
   computeEcmScore,
   recommendVariant,
+  localizeStored,
 } from "@/lib/coaching-adaptatif-mock";
 
 type EcmDashboardOutput = {
@@ -81,23 +82,30 @@ import { freeActivityMessage } from "@/lib/recap-text";
 import { loadsLine } from "@/lib/hyrox-reference";
 import { applyBlockToDay, themeLabel } from "@/lib/training-themes";
 import { effectiveWeekCycle } from "@/lib/week-overrides";
-import { VARIANT_HINT, VARIANT_LABEL, parseVariant, resolveModularDay, type ModularVariant } from "@/lib/session-modular";
+import { variantHint, variantLabel, parseVariant, resolveModularDay, type ModularVariant } from "@/lib/session-modular";
 import { SessionPreviewToggle } from "./session-preview-toggle";
 import { ApercuCards } from "./apercu-panel";
 import { blocksToApercuCards } from "./apercu-cards";
 import { TomorrowSection } from "./tomorrow-section";
 import { buildTomorrow, reportedZone } from "@/lib/tomorrow-plan";
-import { getLang } from "@/lib/i18n/server";
-import { makeT } from "@/lib/i18n";
+import { getT } from "@/lib/i18n/server";
+import { tc } from "@/lib/i18n/content";
+import { formatDate, formatNumber, type Translate } from "@/lib/i18n";
 import type { TomorrowPreview } from "@/lib/ecm-engine";
 import styles from "./dashboard.module.css";
 
-export const metadata = { title: "Dashboard — EL COACH METHOD" };
+export async function generateMetadata() {
+  const { t } = await getT();
+  return { title: t("dash.meta.title") };
+}
 
 const cx = (...classes: (string | false | undefined)[]) => classes.filter(Boolean).join(" ");
 
 export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ v?: string; d?: string }> }) {
   const { v: modularParam, d: dayParam } = await searchParams;
+  const { t, lang } = await getT();
+  // Textes des builders déterministes (ou stockés en français en base) : traduits à l'affichage.
+  const L = (text: string) => localizeStored(lang, text);
   const demo = await getDemoState();
   const userId = await getUserId();
 
@@ -126,16 +134,16 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const programSlug = demo.programSlug || (profile?.programme ? SPORT_LABEL_TO_SLUG[profile.programme] : null) || null;
 
   if (!programSlug) {
-    return <EmptyState />;
+    return <EmptyState t={t} />;
   }
 
   if (!(await isCheckinDoneToday())) {
     const everCheckedIn = userId ? (await prisma.checkin.count({ where: { userId } })) > 0 : false;
-    return <CheckinPendingState userFirstName={userFirstName} everCheckedIn={everCheckedIn} />;
+    return <CheckinPendingState userFirstName={userFirstName} everCheckedIn={everCheckedIn} t={t} />;
   }
 
   const weekdayToday = resolveTodaySession(programSlug, demo.fatigueScore);
-  if (!weekdayToday) return <EmptyState />;
+  if (!weekdayToday) return <EmptyState t={t} />;
   // Suite ordonnée (1.4) : la séance suivante de la suite, sinon le jour de la semaine.
   const effCycle = userId ? await effectiveWeekCycle(userId, profile?.weekCycle, todayKey()) : profile?.weekCycle;
   const seq = userId
@@ -174,7 +182,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
   // Sport hors ECM ou repos : même dashboard, seul le bloc séance change.
   const advice = real?.mode === "advice" ? real.advice : null;
-  const adviceSession = advice ? buildAdviceSession(todayCheckin?.seance ?? null, advice) : null;
+  const adviceSession = advice ? buildAdviceSession(todayCheckin?.seance ?? null, advice, t) : null;
   const generatedDay = real?.mode === "advice" ? undefined : real?.generatedDay;
 
   const checkinDates = recentCheckinRows.map((c) => c.date);
@@ -193,7 +201,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   // des blocs — contrairement au check-in (resolvePlannedToday, demo-session.ts),
   // cette carte a besoin d'un Day complet pour Aperçu/Démarrer.
   const baseDay = generatedDay ?? today.day;
-  const sessionTitle = generatedDay ? baseDay.focus : `${today.template.name} — ${baseDay.focus}`;
+  const sessionTitle = generatedDay ? tc(lang, baseDay.focus) : `${today.template.name} — ${tc(lang, baseDay.focus)}`;
   // Bloc d'entraînement en cours : thème, puis décharge sur la dernière semaine (1.6, 1.12).
   const activeBlock = userId ? await getOrCreateActiveBlock(userId, programSlug, todayKey()) : null;
   const themedBase = activeBlock
@@ -203,17 +211,21 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
         week: activeBlock.info,
         weakPoints: activeBlock.weakPoints,
         dayNumber: today.dayNumber,
+        t,
       })
     : baseDay;
   // Mode compétition (partie 3) : préparation de l'événement d'après la date (Hyrox : phases dédiées).
-  const competition = applyCompetition(themedBase, profile, programSlug, todayKey());
+  const competition = applyCompetition(themedBase, profile, programSlug, todayKey(), t);
   const hyroxPrep = competition.hyroxPrep;
   const prepBase = competition.day;
   const competitionPlan = competitionPlanFor(profile, todayKey());
   const weekDaysForCard = today.template.weeks[0].days
     .slice()
     .sort((x, y) => x.day - y.day)
-    .map((d) => ({ jour: ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"][d.day - 1] ?? `Jour ${d.day}`, titre: d.blocks.length > 0 ? d.focus : "Repos" }));
+    .map((d) => ({
+      jour: d.day >= 1 && d.day <= 7 ? t(`dash.day.${d.day as 1 | 2 | 3 | 4 | 5 | 6 | 7}`) : t("dash.dayN", { n: d.day }),
+      titre: d.blocks.length > 0 ? tc(lang, d.focus) : t("dash.rest"),
+    }));
   const leveledBase = applyLevel(prepBase, levelForToday(effCycle as Parameters<typeof levelForToday>[0], programSlug, profile?.niveau, today.dayNumber));
   // At Home : cran actuel des chaînes de progression et niveau de matériel du jour (2.7).
   const homeBase =
@@ -224,7 +236,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           homeLevelForToday(todayCheckin?.seanceEquipement, profile?.equipement),
         )
       : leveledBase;
-  const adapted = adaptDayForInjuries(homeBase, injuryAreas);
+  const adapted = adaptDayForInjuries(homeBase, injuryAreas, t);
   const jar = await cookies();
   const injurySafeDay = applyDaySubstitutions(adapted.day, {
     zone: jar.get(ZONE_COOKIE)?.value ? decodeURIComponent(jar.get(ZONE_COOKIE)!.value) : null,
@@ -248,6 +260,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     format: todayCheckin?.seanceFormat,
     isDeload: activeBlock?.info.isDeload,
     nextDayFocus: nextTemplateDay?.focus,
+    t,
   });
   const safeDay = modular.day;
   const lightDay = reduceVolume(safeDay);
@@ -257,10 +270,12 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const baseAlerts = real?.alerts ?? buildAlerts(fatigueScore, sleep);
   // Une alerte par problème : on retire les doublons de message et celle déjà
   // affichée dans la carte sommeil (elle y apparaissait une 2e fois ici).
-  const sleepCardAlert = sleep.alerts[0];
+  const sleepCardAlert = sleep.alerts[0] ? L(sleep.alerts[0]) : undefined;
   const seenMessages = new Set<string>(sleepCardAlert ? [sleepCardAlert] : []);
   const alerts: Alert[] = [
-    ...baseAlerts.filter((a) => {
+    ...baseAlerts
+      .map((a) => ({ ...a, message: L(a.message), hint: a.hint ? L(a.hint) : a.hint }))
+      .filter((a) => {
       if (seenMessages.has(a.message)) return false;
       seenMessages.add(a.message);
       return true;
@@ -279,8 +294,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       : recommendVariant(ecm);
   // Deux séances ressenties "difficile" de suite → on allège, quel que soit le score.
   const variant = shouldRecommendLightSession(recentSessions.map((s) => s.sessionFeeling))
-    ? { recommended: "B" as const, reason: "deux séances difficiles d'affilée" }
-    : baseVariant;
+    ? { recommended: "B" as const, reason: t("dash.reasonTwoHard") }
+    : { ...baseVariant, reason: L(baseVariant.reason) };
   const etat = ETAT_LABELS[ecm.state];
   const isRestDay = (!generatedDay && today.needsFatigueInput) || baseDay.blocks.length === 0;
 
@@ -307,13 +322,13 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           ? "repos"
           : "ecm";
   const todaySessionLabel = checkinIsRest
-    ? "Repos complet"
+    ? t("dash.restFull")
     : checkinSeance && !checkinIsEcmProgram
       ? (adviceSession?.titre ?? stripLeadingEmoji(checkinSeance))
       : adviceSession
         ? adviceSession.titre
         : isRestDay
-          ? "Repos complet"
+          ? t("dash.restFull")
           : sessionTitle;
   const todaySessionIcon = todaySessionKind === "repos" ? "🛌" : todaySessionKind === "horsEcm" ? "🥊" : "⚡";
 
@@ -334,7 +349,6 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   // La semaine type prime : l'aperçu généré au check-in tient compte de l'état
   // du jour et des blessures. Sinon, repli sur le programme fixe hebdomadaire.
   // Section « Demain » (partie 5, mission 1) : uniquement la semaine enregistrée dans le profil, lue pour demain.
-  const lang = await getLang();
   const tomorrowCards = userId
     ? await buildTomorrow({
         userId,
@@ -354,8 +368,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   // séance principale, empilée en dessous, statut indépendant par activité.
   // Cartes « Activité du jour » (partie 4, mission 1) : A séance ECM, B autre activité, C repos.
   const dateLabel = (() => {
-    const t = new Date().toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" });
-    return t.charAt(0).toUpperCase() + t.slice(1);
+    const label = formatDate(lang, new Date(), { weekday: "short", day: "numeric", month: "short" });
+    return label.charAt(0).toUpperCase() + label.slice(1);
   })();
   const plannedRestToday = (() => {
     const day = (effCycle as Record<string, { repos?: boolean; slots?: unknown[] }> | null | undefined)?.[WEEK_DAYS[todayDayNumber() - 1]];
@@ -363,9 +377,9 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   })();
   const feelingOf = (v: string | null) => {
     const f = SESSION_FEELINGS.find((x) => x.value === v);
-    return f ? { emoji: f.emoji, label: f.label } : null;
+    return f ? { emoji: f.emoji, label: t(`dash.feeling.${f.value}`) } : null;
   };
-  const freeDetail = (restLike: boolean) => (restLike || plannedRestToday ? "Jour de repos · activité libre" : "Sport hors ECM");
+  const freeDetail = (restLike: boolean) => (restLike || plannedRestToday ? t("dash.freeRest") : t("dash.nonEcm"));
   const mainProgramSlug = (todaySession?.data as { programSlug?: string } | null)?.programSlug;
   const seanceNumber =
     mainProgramSlug && userId
@@ -382,7 +396,9 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     name: todaySessionKind === "ecm" ? (checkinSeance ? stripLeadingEmoji(checkinSeance) : today.template.name) : todaySessionLabel,
     detail:
       todaySessionKind === "ecm"
-        ? `${baseDay.focus}${seanceNumber > 0 ? ` · séance ${seanceNumber}` : ""}`
+        ? seanceNumber > 0
+          ? t("dash.sessionNo", { focus: tc(lang, baseDay.focus), n: seanceNumber })
+          : tc(lang, baseDay.focus)
         : freeDetail(todaySessionKind === "repos"),
     percent: Math.round((todaySession?.completionRate ?? 0) * 100),
     energy: mainEnergy,
@@ -414,7 +430,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
       durationSec: a.durationSec ?? 0,
       icon: isRestDaySeance(a.seance) ? "🛌" : a.seance in SPORT_LABEL_TO_SLUG ? "⚡" : "🥊",
       name: stripLeadingEmoji(a.seance),
-      detail: a.seance in SPORT_LABEL_TO_SLUG ? "Séance ajoutée" : freeDetail(isRestDaySeance(a.seance)),
+      detail: a.seance in SPORT_LABEL_TO_SLUG ? t("dash.sessionAdded") : freeDetail(isRestDaySeance(a.seance)),
       percent: Math.round((a.completionRate ?? 0) * 100),
       energy: (a.data as { energie?: number } | null)?.energie ?? todayCheckin?.energie ?? null,
       feeling: feelingOf(a.sessionFeeling),
@@ -446,6 +462,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   );
   const notDoneExtras = extraActivityCards.filter((a) => !a.completed);
 
+  const blocksLabel = (n: number) => t(n > 1 ? "dash.blocks.many" : "dash.blocks.one", { n });
+
   return (
     <div className={dashboardFontVariables}>
       <div className={styles.dashRoot}>
@@ -453,52 +471,52 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           {/* Retour toujours vers l'accueil (pas d'historique : /session/recap
               renvoie ici, un retour "intelligent" y repartirait en boucle). */}
           <Link href="/" className={styles.backLink}>
-            ← Accueil
+            {t("dash.back")}
           </Link>
-          <div className={styles.salut}>Salut {userFirstName ?? "Athlète"}.</div>
+          <div className={styles.salut}>{t("dash.hello", { name: userFirstName ?? t("dash.helloAthlete") })}</div>
         </div>
 
         <div className={styles.wrap}>
           <CalendarWeek checkinDates={checkinDates} />
           <Link href="/progress" className={styles.progressLink}>
-            📈 Voir ma progression →
+            {t("dash.progress")}
           </Link>
 
           {/* SCORE ECM */}
           <div className={cx(styles.ecmCard, styles[etat.cls])}>
             <div className={styles.ecmLabel}>
-              [ SCORE ECM · {etat.label} ]
+              {t("dash.ecm.label", { state: t(etat.label) })}
             </div>
             <div className={styles.ecmTop}>
               <div className={styles.ecmDot} />
               <div className={styles.ecmGrade}>{ecm.letter}</div>
             </div>
-            <div className={styles.ecmPhrase}>{ecm.headline}</div>
-            <div className={styles.ecmDesc}>{ecm.summary}</div>
+            <div className={styles.ecmPhrase}>{L(ecm.headline)}</div>
+            <div className={styles.ecmDesc}>{L(ecm.summary)}</div>
             <div className={styles.ecmBottom}>
               <div>
-                <div className={styles.ecmScoreLabel}>SCORE /100</div>
+                <div className={styles.ecmScoreLabel}>{t("dash.ecm.score")}</div>
                 <div className={styles.ecmScoreVal}>{ecm.numeric}</div>
               </div>
             </div>
           </div>
 
           {/* POIDS */}
-          <div className={styles.sl}>Suivi poids</div>
+          <div className={styles.sl}>{t("dash.weight.title")}</div>
           <div className={styles.weightCard}>
             <div>
-              <div className={styles.wLabel}>Poids ce matin</div>
+              <div className={styles.wLabel}>{t("dash.weight.morning")}</div>
               <div className={styles.wValRow}>
-                <div className={styles.wVal}>{weight.today}</div>
+                <div className={styles.wVal}>{formatNumber(lang, weight.today)}</div>
                 <div className={styles.wUnit}>kg</div>
               </div>
               <div className={cx(styles.wTrend, weight.deltaWeek > 0 ? styles.up : styles.down)}>
-                {weight.deltaWeek > 0 ? "▲" : "▼"} {Math.abs(weight.deltaWeek)} kg sur 7 jours
+                {t("dash.weight.delta", { arrow: weight.deltaWeek > 0 ? "▲" : "▼", n: formatNumber(lang, Math.abs(weight.deltaWeek)) })}
               </div>
             </div>
             <div className={styles.wHistory}>
               <div className={styles.wLabel} style={{ textAlign: "right", marginBottom: 4 }}>
-                Historique
+                {t("dash.weight.history")}
               </div>
               {weight.history
                 .slice()
@@ -506,52 +524,52 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                 .slice(0, 3)
                 .map((h) => (
                   <div key={h.label} className={styles.whRow}>
-                    <span className={styles.whDate}>{h.label}</span>
-                    <span className={styles.whVal}>{h.kg} kg</span>
+                    <span className={styles.whDate}>{L(h.label)}</span>
+                    <span className={styles.whVal}>{formatNumber(lang, h.kg)} kg</span>
                   </div>
                 ))}
             </div>
           </div>
 
           {/* SOMMEIL */}
-          <div className={styles.sl}>Analyse sommeil</div>
+          <div className={styles.sl}>{t("dash.sleep.title")}</div>
           <div className={styles.sleepCard}>
             <div className={styles.sleepHdr}>
               <div>
-                <div className={styles.wLabel}>Durée totale estimée</div>
+                <div className={styles.wLabel}>{t("dash.sleep.total")}</div>
                 <div className={styles.sleepTotal}>{minutesToHM(sleep.lastNight.totalMinutes)}</div>
               </div>
               <div style={{ textAlign: "right" }}>
-                <div className={styles.wLabel}>Éveil</div>
+                <div className={styles.wLabel}>{t("dash.sleep.awake")}</div>
                 <div className={styles.sleepEveil} style={{ color: sleep.lastNight.awakeMinutes > 120 ? "var(--red)" : "var(--yellow)" }}>
                   {minutesToHM(sleep.lastNight.awakeMinutes)}
                 </div>
               </div>
             </div>
             <div className={styles.phases}>
-              <SleepPhaseRow color="#3B82F6" name="Sommeil lent" minutes={sleep.lastNight.lightMinutes} totalMinutes={sleep.lastNight.totalMinutes} kind="lent" />
-              <SleepPhaseRow color="#38bdf8" name="Paradoxal (REM)" minutes={sleep.lastNight.remMinutes} totalMinutes={sleep.lastNight.totalMinutes} kind="rem" />
-              <SleepPhaseRow color="#818cf8" name="Profond" minutes={sleep.lastNight.deepMinutes} totalMinutes={sleep.lastNight.totalMinutes} kind="profond" />
-              <SleepPhaseRow color="#ef4444" name="Éveil" minutes={sleep.lastNight.awakeMinutes} totalMinutes={sleep.lastNight.totalMinutes} kind="eveil" />
+              <SleepPhaseRow color="var(--c-3b82f6)" name={t("dash.sleep.phase.lent")} minutes={sleep.lastNight.lightMinutes} totalMinutes={sleep.lastNight.totalMinutes} kind="lent" t={t} />
+              <SleepPhaseRow color="var(--c-38bdf8)" name={t("dash.sleep.phase.rem")} minutes={sleep.lastNight.remMinutes} totalMinutes={sleep.lastNight.totalMinutes} kind="rem" t={t} />
+              <SleepPhaseRow color="var(--c-818cf8)" name={t("dash.sleep.phase.profond")} minutes={sleep.lastNight.deepMinutes} totalMinutes={sleep.lastNight.totalMinutes} kind="profond" t={t} />
+              <SleepPhaseRow color="var(--c-ef4444)" name={t("dash.sleep.awake")} minutes={sleep.lastNight.awakeMinutes} totalMinutes={sleep.lastNight.totalMinutes} kind="eveil" t={t} />
             </div>
             {sleep.alerts.length > 0 && (
               <div className={styles.sleepAlert}>
                 <span>⚠️</span>
-                <span>{sleep.alerts[0]}</span>
+                <span>{L(sleep.alerts[0])}</span>
               </div>
             )}
           </div>
 
           {/* TENDANCE */}
           <div className={styles.trendCard}>
-            <div className={styles.trendTitle}>📈 Tendance sommeil — 7 nuits</div>
+            <div className={styles.trendTitle}>{t("dash.trend.title")}</div>
             <div>
               {sleep.nights.map((n, i) => {
                 const isToday = i === sleep.nights.length - 1;
                 return (
                   <div key={n.label} className={cx(styles.tr, isToday && styles.trToday)}>
                     <span className={styles.trDate} style={{ color: isToday ? "var(--g)" : "var(--m)" }}>
-                      {n.label}
+                      {L(n.label)}
                       {isToday ? " ★" : ""}
                     </span>
                     <span className={styles.trTotal}>{minutesToHM(n.totalMinutes)}</span>
@@ -559,7 +577,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                       {minutesToHM(n.awakeMinutes)}
                     </span>
                     <span className={styles.trProfond} style={{ color: trendColor(n.deepMinutes, "profond") }}>
-                      {minutesToHM(n.deepMinutes)} profond
+                      {t("dash.trend.deep", { time: minutesToHM(n.deepMinutes) })}
                     </span>
                   </div>
                 );
@@ -570,7 +588,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           {/* ALERTES */}
           {alerts.length > 0 && (
             <>
-              <div className={styles.sl}>Alertes du jour</div>
+              <div className={styles.sl}>{t("dash.alerts.title")}</div>
               <div>
                 {alerts.map((a, i) => (
                   <div key={i} className={cx(styles.alertCard, styles[alertCls(a.level)])}>
@@ -586,18 +604,18 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           )}
 
           {/* STACK */}
-          <div className={styles.sl}>Stack du jour</div>
-          <StackGroup label="🌅 Matin à jeun" items={stack[0].items} />
-          <StackGroup label="🍽️ Avec repas midi" items={stack[1].items} />
-          <StackGroup label="⚡ Pré-séance" items={stack[2].items} />
-          <StackGroup label="🌙 Soir" items={stack[3].items} />
+          <div className={styles.sl}>{t("dash.stack.title")}</div>
+          <StackGroup label={t("dash.stack.morning")} items={stack[0].items} L={L} />
+          <StackGroup label={t("dash.stack.noon")} items={stack[1].items} L={L} />
+          <StackGroup label={t("dash.stack.pre")} items={stack[2].items} L={L} />
+          <StackGroup label={t("dash.stack.evening")} items={stack[3].items} L={L} />
 
           {/* EN-CAS */}
-          <div className={styles.sl}>En-cas du jour</div>
+          <div className={styles.sl}>{t("dash.snack.title")}</div>
           <div className={styles.snackCard}>
-            <div className={styles.snackTitle}>{snack.titre}</div>
-            <div className={styles.snackContent}>{snack.contenu}</div>
-            <div className={styles.snackNote}>{snack.note}</div>
+            <div className={styles.snackTitle}>{L(snack.titre)}</div>
+            <div className={styles.snackContent}>{L(snack.contenu)}</div>
+            <div className={styles.snackNote}>{L(snack.note)}</div>
           </div>
 
           {/* ACTIVITÉ DU JOUR — titre de section (doc H.2), bloc "Prévu aujourd'hui" inchangé */}
@@ -610,6 +628,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
               objectifTemps={objectifsOf(profile).find((o) => o.event === competitionPlan.event)?.fiche.objectifTemps}
               weekDays={weekDaysForCard}
               loads={competitionPlan.event === "Hyrox" ? loadsLine(profile?.genre, competitionPlan.categorie) : undefined}
+              lang={lang}
             />
           )}
           <ActivitySectionTitle />
@@ -629,25 +648,23 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
               <div className={styles.upcomingHead}>
                 <div className={styles.l}>
                   <span>⏳</span>
-                  <span className={styles.txt}>{adviceSession.repos ? "REPOS ACTIF" : "PRÉVU AUJOURD'HUI"}</span>
+                  <span className={styles.txt}>{adviceSession.repos ? t("dash.upcoming.activeRest") : t("dash.upcoming.today")}</span>
                 </div>
               </div>
               <div className={styles.upcomingSub}>
                 <span>{adviceSession.emoji || (adviceSession.repos ? "🛌" : "🥊")}</span>
                 <span className={styles.name}>
-                  {adviceSession.titre} · {adviceSession.dureeEstimee} · {adviceSession.blocks.length} blocs
+                  {adviceSession.titre} · {adviceSession.dureeEstimee} · {blocksLabel(adviceSession.blocks.length)}
                 </span>
               </div>
-              <div className={styles.upcomingNote}>Pas encore réalisée</div>
+              <div className={styles.upcomingNote}>{t("dash.upcoming.notDone")}</div>
               <SessionPreviewToggle
                 startHref="/session"
                 programTitle={adviceSession.titre}
-                subtitle={adviceSession.repos ? "EL COACH METHOD" : "HORS PROGRAMME"}
+                subtitle={adviceSession.repos ? "EL COACH METHOD" : t("dash.upcoming.offProgram")}
                 summaryIcon={adviceSession.emoji || (adviceSession.repos ? "🛌" : "🥊")}
                 summaryTitle={adviceSession.titre}
-                summaryLine={`${adviceSession.dureeEstimee} · ${adviceSession.blocks.length} bloc${
-                  adviceSession.blocks.length > 1 ? "s" : ""
-                } · pas encore réalisée`}
+                summaryLine={`${adviceSession.dureeEstimee} · ${blocksLabel(adviceSession.blocks.length)} · ${t("dash.upcoming.notDone").toLowerCase()}`}
                 durationLabel={adviceSession.dureeEstimee}
               >
                 <ApercuCards cards={blocksToApercuCards(adviceSession.blocks)} />
@@ -658,26 +675,23 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
               <div className={styles.upcomingHead}>
                 <div className={styles.l}>
                   <span>⏳</span>
-                  <span className={styles.txt}>PRÉVU AUJOURD&apos;HUI</span>
+                  <span className={styles.txt}>{t("dash.upcoming.today")}</span>
                 </div>
               </div>
               <div className={styles.upcomingSub}>
                 <span>⚡</span>
                 <span className={styles.name}>
-                  {baseDay.focus} · {minutesToHM(baseDay.estimatedMinutes)} · {baseDay.blocks.length} bloc
-                  {baseDay.blocks.length > 1 ? "s" : ""}
+                  {tc(lang, baseDay.focus)} · {minutesToHM(baseDay.estimatedMinutes)} · {blocksLabel(baseDay.blocks.length)}
                 </span>
               </div>
-              <div className={styles.upcomingNote}>Pas encore réalisée</div>
+              <div className={styles.upcomingNote}>{t("dash.upcoming.notDone")}</div>
               <SessionPreviewToggle
                 startHref={`/session?variant=${variant.recommended === "A" ? "a" : "b"}&v=${modular.variant}${seq?.manual ? `&d=${seq.dayNumber}` : ""}`}
                 programTitle={today.template.name}
                 subtitle="EL COACH METHOD"
                 summaryIcon="⚡"
-                summaryTitle={baseDay.focus}
-                summaryLine={`${minutesToHM(baseDay.estimatedMinutes)} · ${baseDay.blocks.length} bloc${
-                  baseDay.blocks.length > 1 ? "s" : ""
-                } · pas encore réalisée`}
+                summaryTitle={tc(lang, baseDay.focus)}
+                summaryLine={`${minutesToHM(baseDay.estimatedMinutes)} · ${blocksLabel(baseDay.blocks.length)} · ${t("dash.upcoming.notDone").toLowerCase()}`}
                 durationLabel={minutesToHM(safeDay.estimatedMinutes)}
               >
                 <div
@@ -695,17 +709,17 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                   }}
                 >
                   <span>▶️</span>
-                  <span>Appuie sur le bouton vidéo pour voir la démo YouTube du mouvement</span>
+                  <span>{t("dash.videoHint")}</span>
                 </div>
                 {activeBlock && (
                   <div className={styles.modularPicker}>
                     <div className={styles.modularTitle}>
-                      Bloc : {themeLabel(programSlug, activeBlock.theme)} · semaine {activeBlock.info.week} sur {activeBlock.info.weeks}
-                      {activeBlock.info.isDeload && <span className={styles.modularWhy}> · décharge</span>}
+                      {t("dash.block.title", { theme: themeLabel(programSlug, activeBlock.theme, t), week: activeBlock.info.week, weeks: activeBlock.info.weeks })}
+                      {activeBlock.info.isDeload && <span className={styles.modularWhy}>{t("dash.block.deload")}</span>}
                     </div>
                     {activeBlock.info.finished && (
                       <Link href="/profile/theme" className={styles.modularBtn}>
-                        <span>BLOC TERMINÉ : choisir le bloc suivant</span>
+                        <span>{t("dash.block.finished")}</span>
                       </Link>
                     )}
                   </div>
@@ -713,7 +727,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                 {seq && seq.sequence.length > 1 && (
                   <details className={styles.modularPicker}>
                     <summary className={styles.modularTitle}>
-                      Séance {(seq.position % seq.sequence.length) + 1} sur {seq.sequence.length} de ta suite · changer
+                      {t("dash.seq.title", { n: (seq.position % seq.sequence.length) + 1, total: seq.sequence.length })}
                     </summary>
                     <div className={styles.modularRow}>
                       {Array.from(new Set(seq.sequence)).map((n) => {
@@ -721,7 +735,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                         if (!d) return null;
                         return (
                           <Link key={n} href={`/dashboard?d=${n}`} replace scroll={false} className={cx(styles.modularBtn, seq.dayNumber === n && styles.modularBtnOn)}>
-                            <span>{d.focus}</span>
+                            <span>{tc(lang, d.focus)}</span>
                           </Link>
                         );
                       })}
@@ -731,9 +745,9 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                 {baseDay.blocks.length >= 4 && (
                   <div className={styles.modularPicker}>
                     <div className={styles.modularTitle}>
-                      Format du jour
+                      {t("dash.format.title")}
                       {modular.suggestion.reasons.length > 0 && (
-                        <span className={styles.modularWhy}> · proposé : {modular.suggestion.reasons.join(", ")}</span>
+                        <span className={styles.modularWhy}>{t("dash.format.suggested", { reasons: modular.suggestion.reasons.join(", ") })}</span>
                       )}
                     </div>
                     <div className={styles.modularRow}>
@@ -745,8 +759,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                           scroll={false}
                           className={cx(styles.modularBtn, modular.variant === v && styles.modularBtnOn)}
                         >
-                          <span>{VARIANT_LABEL[v]}</span>
-                          <small>{VARIANT_HINT[v]}</small>
+                          <span>{variantLabel(v, t)}</span>
+                          <small>{variantHint(v, t)}</small>
                         </Link>
                       ))}
                     </div>
@@ -754,13 +768,13 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
                 )}
                 <SessionTabs
                   recommended={variant.recommended === "A" ? "a" : "b"}
-                  recoText={`Recommandée : ${variant.recommended} · ${variant.reason}`}
-                  labelA="SÉANCE A"
-                  labelB="SÉANCE B"
-                  subA="Standard"
-                  subB="Adaptée"
-                  panelA={<ApercuCards cards={blocksToApercuCards(toDisplayBlocks(safeDay.blocks), "a-")} />}
-                  panelB={<ApercuCards cards={blocksToApercuCards(toDisplayBlocks(lightDay.blocks), "b-")} />}
+                  recoText={t("dash.tabs.reco", { v: variant.recommended, reason: variant.reason })}
+                  labelA={t("dash.tabs.labelA")}
+                  labelB={t("dash.tabs.labelB")}
+                  subA={t("dash.tabs.subA")}
+                  subB={t("dash.tabs.subB")}
+                  panelA={<ApercuCards cards={blocksToApercuCards(toDisplayBlocks(safeDay.blocks, t), "a-")} />}
+                  panelB={<ApercuCards cards={blocksToApercuCards(toDisplayBlocks(lightDay.blocks, t), "b-")} />}
                 />
               </SessionPreviewToggle>
             </div>
@@ -779,7 +793,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
               <div className={styles.upcomingHead}>
                 <div className={styles.l}>
                   <span>⏳</span>
-                  <span className={styles.txt}>2E ACTIVITÉ</span>
+                  <span className={styles.txt}>{t("dash.second.title")}</span>
                 </div>
               </div>
               <div className={styles.upcomingSub}>
@@ -788,7 +802,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
               </div>
               <div className={styles.upcomingCtaRow}>
                 <Link href={`/session/extra/${a.id}`} className={styles.upcomingStartBtn} style={{ flex: 1 }}>
-                  REPRENDRE →
+                  {t("dash.second.resume")}
                 </Link>
               </div>
             </div>
@@ -796,13 +810,13 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
           {extraActivityCards.length > 0 && (
             <div className={styles.multiActivityNote}>
-              {extraActivityCards.length + 1} activités · compte pour 1 jour de streak
+              {t("dash.multi", { n: extraActivityCards.length + 1 })}
             </div>
           )}
           {!(finishedSession || adviceSession?.repos || (!adviceSession && isRestDay)) || notDoneExtras.length > 0 ? <AddActivityLink /> : null}
 
           {/* DEMAIN */}
-          {tomorrowCards && <TomorrowSection title={makeT(lang)("tomorrow.title")} cards={tomorrowCards} />}
+          {tomorrowCards && <TomorrowSection title={t("tomorrow.title")} cards={tomorrowCards} />}
 
           <div className={styles.spacer} />
         </div>
@@ -811,19 +825,17 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   );
 }
 
-function EmptyState() {
+function EmptyState({ t }: { t: Translate }) {
   return (
     <section className={`relative mx-auto max-w-3xl px-6 py-24 text-center ${dashboardFontVariables}`}>
-      <BackHomeButton label="← Accueil" style={{ position: "absolute", top: 16, left: 16 }} />
-      <div className="label">[ DASHBOARD ]</div>
+      <BackHomeButton label={t("dash.back")} style={{ position: "absolute", top: 16, left: 16 }} />
+      <div className="label">{t("dash.label")}</div>
       <h1 className="mt-4 text-4xl font-semibold" style={{ fontFamily: "var(--font-bebas, sans-serif)", letterSpacing: 1 }}>
-        Pas encore de programme
+        {t("dash.empty.title")}
       </h1>
-      <p className="mt-4 text-[color:var(--color-mute)]">
-        Choisis une programmation pour activer ton dashboard, ta semaine et ta séance du jour.
-      </p>
+      <p className="mt-4 text-[color:var(--color-mute)]">{t("dash.empty.text")}</p>
       <Link href="/onboarding" className="btn-primary mt-8 inline-flex">
-        Choisir mon programme
+        {t("dash.empty.cta")}
       </Link>
     </section>
   );
@@ -832,27 +844,23 @@ function EmptyState() {
 function CheckinPendingState({
   userFirstName,
   everCheckedIn,
+  t,
 }: {
   userFirstName: string | null;
   everCheckedIn: boolean;
+  t: Translate;
 }) {
-  const salut = userFirstName ? `Salut ${userFirstName}.` : "Salut.";
+  const salut = userFirstName ? t("dash.hello", { name: userFirstName }) : t("dash.helloAnon");
   return (
     <section className={`relative mx-auto max-w-3xl px-6 py-24 text-center ${dashboardFontVariables}`}>
-      <BackHomeButton label="← Accueil" style={{ position: "absolute", top: 16, left: 16 }} />
-      <div className="label">[ DASHBOARD ]</div>
+      <BackHomeButton label={t("dash.back")} style={{ position: "absolute", top: 16, left: 16 }} />
+      <div className="label">{t("dash.label")}</div>
       <h1 className="mt-4 text-4xl font-semibold" style={{ fontFamily: "var(--font-bebas, sans-serif)", letterSpacing: 1 }}>
         {salut}
       </h1>
-      {everCheckedIn ? (
-        <p className="mt-4 text-[color:var(--color-mute)]">Ton plan du jour n&apos;est pas encore généré.</p>
-      ) : (
-        <p className="mt-4 text-[color:var(--color-mute)]">
-          Un check-in chaque matin suffit à générer ton plan sur mesure — séance, stack, récupération.
-        </p>
-      )}
+      <p className="mt-4 text-[color:var(--color-mute)]">{everCheckedIn ? t("dash.pending.noPlan") : t("dash.pending.first")}</p>
       <Link href="/checkin" className="btn-gold mt-8 inline-flex">
-        {everCheckedIn ? "Faire mon check-in maintenant" : "Commencer mon premier check-in"}
+        {everCheckedIn ? t("dash.pending.ctaNow") : t("dash.pending.ctaFirst")}
       </Link>
     </section>
   );
@@ -864,14 +872,16 @@ function SleepPhaseRow({
   minutes,
   totalMinutes,
   kind,
+  t,
 }: {
   color: string;
   name: string;
   minutes: number;
   totalMinutes: number;
   kind: "lent" | "rem" | "profond" | "eveil";
+  t: Translate;
 }) {
-  const { badge, cls } = sleepPhaseBadge(minutes, kind);
+  const { badge, cls } = sleepPhaseBadge(minutes, kind, t);
   const pct = totalMinutes > 0 ? Math.min(100, Math.round((minutes / totalMinutes) * 100)) : 0;
   return (
     <div className={styles.ph}>
@@ -923,7 +933,7 @@ const STACK_EMOJI: Record<string, string> = {
   Collagène: "🧴",
 };
 
-function StackGroup({ label, items }: { label: string; items: { name: string; dose?: string; active: boolean; note?: string }[] }) {
+function StackGroup({ label, items, L }: { label: string; items: { name: string; dose?: string; active: boolean; note?: string }[]; L: (text: string) => string }) {
   return (
     <>
       <div className={styles.sm}>{label}</div>
@@ -933,8 +943,8 @@ function StackGroup({ label, items }: { label: string; items: { name: string; do
           const type = !it.active ? "pillOff" : it.note ? "pillKey" : "pillOn";
           return (
             <div key={it.name} className={cx(styles.pill, styles[type])}>
-              {emoji} {it.name}
-              {it.dose ? ` · ${it.dose}` : ""}
+              {emoji} {L(it.name)}
+              {it.dose ? ` · ${L(it.dose)}` : ""}
             </div>
           );
         })}

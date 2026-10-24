@@ -1,3 +1,4 @@
+import { getT } from "@/lib/i18n/server";
 import { getUserId } from "@/lib/user-id";
 import { prisma } from "@/lib/prisma";
 import { BackHomeButton } from "@/components/back-home-button";
@@ -5,9 +6,13 @@ import { ecmFontVariables } from "@/app/signup/ecm-fonts";
 import { ActivityPicker } from "./activity-picker";
 import styles from "./add.module.css";
 
-export const metadata = { title: "Ajouter une activité — EL COACH METHOD" };
+export async function generateMetadata() {
+  const { t } = await getT();
+  return { title: t("sp.add.title") };
+}
 
 export default async function AddActivityPage() {
+  const { t } = await getT();
   const userId = await getUserId();
   const profile = userId
     ? await prisma.profile.findUnique({ where: { userId }, select: { programme: true, programmes: true } })
@@ -24,9 +29,9 @@ export default async function AddActivityPage() {
         <div style={{ marginBottom: 14 }}>
           <BackHomeButton />
         </div>
-        <div className={styles.kickerTop}>Nouvelle activité</div>
-        <div className={styles.title}>AJOUTER UNE ACTIVITÉ</div>
-        <div className={styles.sub}>Une 2e séance pour aujourd&apos;hui — ton check-in du matin reste inchangé.</div>
+        <div className={styles.kickerTop}>{t("sp.add.kicker")}</div>
+        <div className={styles.title}>{t("sp.add.h1")}</div>
+        <div className={styles.sub}>{t("sp.add.sub")}</div>
       </div>
       <div className={styles.fw}>
         <ActivityPicker programmes={programmes} />

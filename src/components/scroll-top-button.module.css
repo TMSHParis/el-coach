@@ -7,9 +7,9 @@
   min-width: 48px;
   min-height: 48px;
   border-radius: 50%;
-  border: 1.5px solid var(--scroll-top-accent, var(--t-accent, #e8ff00));
-  background: color-mix(in srgb, var(--t-overlay-bg, #0e0f12) 92%, transparent);
-  color: var(--scroll-top-accent, var(--t-accent, #e8ff00));
+  border: 1.5px solid var(--scroll-top-accent, var(--c-e8ff00));
+  background: color-mix(in srgb, var(--c-0e0f12) 92%, transparent);
+  color: var(--scroll-top-accent, var(--c-e8ff00));
   font-size: 22px;
   line-height: 1;
   display: flex;

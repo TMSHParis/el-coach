@@ -4,6 +4,7 @@
 import type { DisplayBlock } from "./session-format";
 import type { LegacyNonEcmAdvice, NonEcmAdvice } from "./ecm-engine";
 import { isRestDay } from "./ecm-engine";
+import { makeT, type Translate } from "./i18n";
 
 export type StoredAdvice = NonEcmAdvice | LegacyNonEcmAdvice;
 
@@ -38,16 +39,16 @@ export type AdviceSession = {
   blocks: DisplayBlock[];
 };
 
-export function buildAdviceSession(seance: string | null, advice: StoredAdvice): AdviceSession {
+export function buildAdviceSession(seance: string | null, advice: StoredAdvice, t: Translate = makeT("fr")): AdviceSession {
   const a = normalizeAdvice(advice);
   const repos = isRestDay(seance);
-  const titre = repos ? "Récupération" : stripLeadingEmoji(seance ?? "Séance du jour");
+  const titre = repos ? t("srv.adv.recovery") : stripLeadingEmoji(seance ?? t("srv.adv.sessionOfDay"));
 
   const blocks: DisplayBlock[] = [
     {
       lettre: "1",
-      titre: repos ? "Récupération active" : "Échauffement",
-      badge: repos ? "Facultatif" : "Not For Time",
+      titre: repos ? t("srv.adv.activeRecovery") : t("srv.adv.warmup"),
+      badge: repos ? t("srv.adv.optional") : "Not For Time",
       badgeCls: "nft",
       // "warmup" / "cooldown" : pas de saisie de résultats sur /session (ni charge, ni score).
       type: repos ? "cooldown" : "warmup",
@@ -59,8 +60,8 @@ export function buildAdviceSession(seance: string | null, advice: StoredAdvice):
     },
     {
       lettre: "2",
-      titre: repos ? "Points de vigilance" : "Prévention des blessures",
-      badge: "Conseils",
+      titre: repos ? t("srv.adv.watchPoints") : t("srv.adv.injuryPrevention"),
+      badge: t("srv.adv.tips"),
       badgeCls: "nft",
       type: "cooldown",
       // Pas de démo vidéo sur un conseil — seul le bloc 1 a des mouvements.
@@ -68,8 +69,8 @@ export function buildAdviceSession(seance: string | null, advice: StoredAdvice):
     },
     {
       lettre: "3",
-      titre: repos ? "Mindset récupération" : "Mindset",
-      badge: "Mental",
+      titre: repos ? t("srv.adv.mindsetRecovery") : t("srv.adv.mindset"),
+      badge: t("srv.adv.mental"),
       badgeCls: "nft",
       type: "cooldown",
       items: [{ name: a.mindset, qty: "", movementName: a.mindset, noVideo: true }],
@@ -80,26 +81,26 @@ export function buildAdviceSession(seance: string | null, advice: StoredAdvice):
 }
 
 /** Contenu de récupération par défaut quand aucun conseil n'a été généré pour la journée (partie 4, mission 4). */
-export const DEFAULT_RECOVERY_ADVICE: NonEcmAdvice = {
-  dureeEstimee: "20-30 min",
-  warmup: [
-    { nom: "Marche tranquille", duree: "15 min" },
-    { nom: "Rotations de hanches", duree: "2 min" },
-    { nom: "Cat-Cow", duree: "10 reps" },
-    { nom: "Fente basse (mobilité)", duree: "8 reps / côté" },
-    { nom: "Respiration diaphragmatique", duree: "3 min" },
-  ],
-  prevention: [
-    "Reste à une intensité où tu peux parler sans t'essouffler.",
-    "Hydrate-toi régulièrement, même sans effort.",
-    "Évite toute position qui provoque une douleur vive.",
-  ],
-  mindset: "Aujourd'hui, ton corps se reconstruit. Respire, bouge doucement, n'ajoute rien de plus.",
-};
+export function defaultRecoveryAdvice(t: Translate = makeT("fr")): NonEcmAdvice {
+  return {
+    dureeEstimee: "20-30 min",
+    warmup: [
+      { nom: t("srv.adv.def.w1"), duree: "15 min" },
+      { nom: t("srv.adv.def.w2"), duree: "2 min" },
+      { nom: "Cat-Cow", duree: "10 reps" },
+      { nom: t("srv.adv.def.w3"), duree: t("srv.adv.def.d3") },
+      { nom: t("srv.adv.def.w4"), duree: "3 min" },
+    ],
+    prevention: [t("srv.adv.def.p1"), t("srv.adv.def.p2"), t("srv.adv.def.p3")],
+    mindset: t("srv.adv.def.mindset"),
+  };
+}
+
+export const DEFAULT_RECOVERY_ADVICE: NonEcmAdvice = defaultRecoveryAdvice();
 
 /** Blocs de récupération en consultation : conseils du jour s'ils existent, sinon contenu par défaut. */
-export function recoveryBlocks(advice: StoredAdvice | null | undefined): DisplayBlock[] {
-  return buildAdviceSession("😴 Repos total", advice ?? DEFAULT_RECOVERY_ADVICE).blocks;
+export function recoveryBlocks(advice: StoredAdvice | null | undefined, t: Translate = makeT("fr")): DisplayBlock[] {
+  return buildAdviceSession("😴 Repos total", advice ?? defaultRecoveryAdvice(t), t).blocks;
 }
 
 /** Durée indiquée par le contenu (« 20-30 min »). */

@@ -1,17 +1,17 @@
 .root {
-  --bg: #080808;
-  --s: #111;
-  --s2: #161616;
-  --bd: #232323;
-  --g: #C9A84C;
-  --gl: #E8C96A;
-  --gd: rgba(201, 168, 76, 0.10);
-  --w: #fff;
-  --m: #6b6b6b;
-  --t: #d8d8d8;
-  --t2: #9a9a9a;
-  --red: #C9605A;
-  --green: #5FA97E;
+  --bg: var(--c-080808);
+  --s: var(--c-111111);
+  --s2: var(--c-161616);
+  --bd: var(--c-232323);
+  --g: var(--c-c9a84c);
+  --gl: var(--c-e8c96a);
+  --gd: color-mix(in srgb, var(--c-c9a84c) 10%, transparent);
+  --w: var(--c-ffffff);
+  --m: var(--ct-6b6b6b);
+  --t: var(--c-d8d8d8);
+  --t2: var(--c-9a9a9a);
+  --red: var(--c-c9605a);
+  --green: var(--c-5fa97e);
 
   background: var(--bg);
   color: var(--t);
@@ -52,8 +52,8 @@
 .stat span { font-size: 8px; color: var(--m); text-transform: uppercase; letter-spacing: .4px; }
 
 /* Tuile Streak du résumé — même traitement que la carte streak de l'onglet Assiduité (doc H.6). */
-.statStreak { background: radial-gradient(circle at 25% 15%, rgba(201, 168, 76, .18), var(--s) 65%); border-color: rgba(201, 168, 76, .35); }
-.statStreak b { color: var(--gl); text-shadow: 0 0 10px rgba(232, 201, 106, .4); }
+.statStreak { background: radial-gradient(circle at 25% 15%, color-mix(in srgb, var(--c-c9a84c) 18%, transparent), var(--s) 65%); border-color: color-mix(in srgb, var(--c-c9a84c) 35%, transparent); }
+.statStreak b { color: var(--gl); text-shadow: 0 0 10px color-mix(in srgb, var(--c-e8c96a) 40%, transparent); }
 .statStreakFire { display: block; font-size: 13px; margin-bottom: 1px; }
 
 /* Volume Block par focus — liste à barres (doc H.6, remplace le statGrid à 3 cases) */
@@ -97,7 +97,7 @@
 
 /* Onglet Assiduité */
 .streakCard {
-  background: radial-gradient(circle at 18% 12%, rgba(201, 168, 76, .18), var(--s) 65%);
+  background: radial-gradient(circle at 18% 12%, color-mix(in srgb, var(--c-c9a84c) 18%, transparent), var(--s) 65%);
   border: 1px solid var(--bd);
   border-radius: 10px;
   padding: 22px 18px;
@@ -105,13 +105,13 @@
   text-align: center;
 }
 .streakFire { font-size: 24px; line-height: 1; margin-bottom: 2px; }
-.streakNum { font-family: var(--font-bebas, sans-serif); font-size: 50px; color: var(--gl); line-height: 1; text-shadow: 0 0 20px rgba(232, 201, 106, .5); }
+.streakNum { font-family: var(--font-bebas, sans-serif); font-size: 50px; color: var(--gl); line-height: 1; text-shadow: 0 0 20px color-mix(in srgb, var(--c-e8c96a) 50%, transparent); }
 .streakLbl { font-size: 10px; color: var(--m); text-transform: uppercase; letter-spacing: 1px; margin-top: 4px; }
 .streakTiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 16px; }
 .streakTile { background: var(--s2); border: 1px solid var(--bd); border-radius: 9px; padding: 10px 6px; }
 .streakTile b { display: block; font-family: var(--font-bebas, sans-serif); font-size: 17px; color: var(--w); }
 .streakTile span { font-size: 8px; color: var(--m); text-transform: uppercase; letter-spacing: .4px; }
-.streakTileHighlight b { color: var(--gl); text-shadow: 0 0 10px rgba(232, 201, 106, .35); }
+.streakTileHighlight b { color: var(--gl); text-shadow: 0 0 10px color-mix(in srgb, var(--c-e8c96a) 35%, transparent); }
 
 .heatLegend { display: flex; gap: 14px; font-size: 10px; color: var(--m); margin-bottom: 10px; flex-wrap: wrap; }
 .heatLegend span { display: flex; align-items: center; gap: 5px; }
@@ -121,12 +121,12 @@
 
 .badgeRow { display: flex; gap: 9px; }
 .badge { flex: 1; text-align: center; padding: 16px 4px 12px; border-radius: 12px; background: var(--s); border: 1px solid var(--bd); position: relative; overflow: hidden; }
-.badge.unlocked { border-color: rgba(201, 168, 76, .55); background: linear-gradient(160deg, rgba(201, 168, 76, .14), var(--s) 70%); box-shadow: 0 0 0 1px rgba(201, 168, 76, .12), 0 4px 16px rgba(201, 168, 76, .08); }
-.badge.current { border-color: rgba(201, 168, 76, .3); border-style: dashed; }
+.badge.unlocked { border-color: color-mix(in srgb, var(--c-c9a84c) 55%, transparent); background: linear-gradient(160deg, color-mix(in srgb, var(--c-c9a84c) 14%, transparent), var(--s) 70%); box-shadow: 0 0 0 1px color-mix(in srgb, var(--c-c9a84c) 12%, transparent), 0 4px 16px color-mix(in srgb, var(--c-c9a84c) 8%, transparent); }
+.badge.current { border-color: color-mix(in srgb, var(--c-c9a84c) 30%, transparent); border-style: dashed; }
 .badgeIcon { font-size: 22px; line-height: 1; margin-bottom: 6px; filter: grayscale(1); }
 .badge.unlocked .badgeIcon { filter: none; }
 .bn { font-family: var(--font-bebas, sans-serif); font-size: 19px; color: var(--m); letter-spacing: .5px; }
-.badge.unlocked .bn { color: var(--gl); text-shadow: 0 0 14px rgba(232, 201, 106, .5); }
+.badge.unlocked .bn { color: var(--gl); text-shadow: 0 0 14px color-mix(in srgb, var(--c-e8c96a) 50%, transparent); }
 .bl { font-size: 8px; color: var(--m); margin-top: 3px; text-transform: uppercase; letter-spacing: .5px; font-weight: 600; }
 .badge.unlocked .bl { color: var(--g); }
 .badgeCheck {
@@ -137,7 +137,7 @@
   height: 15px;
   border-radius: 50%;
   background: var(--g);
-  color: #1a1200;
+  color: var(--c-1a1200);
   font-size: 8px;
   font-weight: 700;
   display: flex;
@@ -161,7 +161,7 @@
 .weekLbl { font-size: 12px; color: var(--t); }
 .weekSub { font-size: 10px; color: var(--m); margin-top: 1px; }
 .weekBadge { font-size: 11px; font-weight: 600; padding: 3px 11px; border-radius: 20px; letter-spacing: .3px; }
-.weekBadge.ok { background: rgba(95, 169, 126, .12); color: var(--green); }
-.weekBadge.partial { background: rgba(201, 168, 76, .12); color: var(--g); }
+.weekBadge.ok { background: color-mix(in srgb, var(--c-5fa97e) 12%, transparent); color: var(--green); }
+.weekBadge.partial { background: color-mix(in srgb, var(--c-c9a84c) 12%, transparent); color: var(--g); }
 
-.celebToast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--s); border: 1px solid rgba(201, 168, 76, .5); border-radius: 10px; padding: 12px 18px; font-size: 12px; color: var(--gl); box-shadow: 0 8px 24px rgba(0, 0, 0, .4); z-index: 50; }
+.celebToast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: var(--s); border: 1px solid color-mix(in srgb, var(--c-c9a84c) 50%, transparent); border-radius: 10px; padding: 12px 18px; font-size: 12px; color: var(--gl); box-shadow: 0 8px 24px rgba(0, 0, 0, .4); z-index: 50; }

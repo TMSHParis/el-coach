@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import { getT } from "@/lib/i18n/server";
 
 export type CoachApplication = {
   id: string;
@@ -52,6 +53,7 @@ export async function submitCoachApplication(
   _prev: ApplyFormState | undefined,
   fd: FormData,
 ): Promise<ApplyFormState> {
+  const { t } = await getT();
   const errors: Record<string, string> = {};
   const fullName = req(fd, "fullName");
   const handle = req(fd, "handle");
@@ -62,15 +64,15 @@ export async function submitCoachApplication(
   const yearsExp = Number(req(fd, "yearsExp") || "0");
   const specialties = csv(fd, "specialties");
 
-  if (fullName.length < 2) errors.fullName = "Nom requis";
-  if (!/^@?[\w.-]{2,}$/.test(handle)) errors.handle = "Handle invalide";
-  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) errors.email = "Email invalide";
-  if (title.length < 3) errors.title = "Titre requis";
-  if (bio.length < 40) errors.bio = "Bio trop courte (40 caractères min)";
-  if (location.length < 2) errors.location = "Localisation requise";
+  if (fullName.length < 2) errors.fullName = t("lg.apply.err.fullName");
+  if (!/^@?[\w.-]{2,}$/.test(handle)) errors.handle = t("lg.apply.err.handle");
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) errors.email = t("lg.apply.err.email");
+  if (title.length < 3) errors.title = t("lg.apply.err.title");
+  if (bio.length < 40) errors.bio = t("lg.apply.err.bio");
+  if (location.length < 2) errors.location = t("lg.apply.err.location");
   if (!Number.isFinite(yearsExp) || yearsExp < 0 || yearsExp > 60)
-    errors.yearsExp = "Années d'expérience invalide";
-  if (specialties.length === 0) errors.specialties = "Au moins une spécialité";
+    errors.yearsExp = t("lg.apply.err.yearsExp");
+  if (specialties.length === 0) errors.specialties = t("lg.apply.err.specialties");
 
   const pTitle = req(fd, "pTitle");
   const pCategory = req(fd, "pCategory");
@@ -85,15 +87,15 @@ export async function submitCoachApplication(
   const cats = ["STRENGTH", "HYPERTROPHY", "CONDITIONING", "ENDURANCE", "MOBILITY"];
   const levels = ["BEGINNER", "INTERMEDIATE", "ADVANCED"];
 
-  if (pTitle.length < 3) errors.pTitle = "Titre programme requis";
-  if (!cats.includes(pCategory)) errors.pCategory = "Catégorie invalide";
-  if (!levels.includes(pLevel)) errors.pLevel = "Niveau invalide";
-  if (pWeeks < 1 || pWeeks > 52) errors.pWeeks = "Durée invalide (1-52)";
-  if (pSessions < 1 || pSessions > 14) errors.pSessions = "Fréquence invalide (1-14)";
-  if (pPrice < 5 || pPrice > 500) errors.pPrice = "Prix invalide (5€-500€)";
-  if (pDescription.length < 60) errors.pDescription = "Description trop courte (60 car. min)";
-  if (pOutcomes.length === 0) errors.pOutcomes = "Au moins un résultat attendu";
-  if (pEquipment.length === 0) errors.pEquipment = "Au moins un matériel";
+  if (pTitle.length < 3) errors.pTitle = t("lg.apply.err.pTitle");
+  if (!cats.includes(pCategory)) errors.pCategory = t("lg.apply.err.pCategory");
+  if (!levels.includes(pLevel)) errors.pLevel = t("lg.apply.err.pLevel");
+  if (pWeeks < 1 || pWeeks > 52) errors.pWeeks = t("lg.apply.err.pWeeks");
+  if (pSessions < 1 || pSessions > 14) errors.pSessions = t("lg.apply.err.pSessions");
+  if (pPrice < 5 || pPrice > 500) errors.pPrice = t("lg.apply.err.pPrice");
+  if (pDescription.length < 60) errors.pDescription = t("lg.apply.err.pDescription");
+  if (pOutcomes.length === 0) errors.pOutcomes = t("lg.apply.err.pOutcomes");
+  if (pEquipment.length === 0) errors.pEquipment = t("lg.apply.err.pEquipment");
 
   if (Object.keys(errors).length > 0) return { ok: false, errors };
 

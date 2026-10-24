@@ -1,8 +1,12 @@
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { WODS, WOD_CATEGORY_LABEL, type WodCategory } from "@/lib/wods";
+import { getT } from "@/lib/i18n/server";
 
-export const metadata = { title: "WOD Library — EL COACH METHOD" };
+export async function generateMetadata() {
+  const { t } = await getT();
+  return { title: t("lg.wods.meta") };
+}
 
 const CATEGORIES: WodCategory[] = ["girls", "heroes", "benchmark"];
 
@@ -12,23 +16,23 @@ export default async function WodsPage({
   searchParams: Promise<{ cat?: string }>;
 }) {
   const { cat } = await searchParams;
+  const { t } = await getT();
   const filtered = cat
     ? WODS.filter((w) => w.category === cat)
     : WODS;
 
   return (
     <section className="mx-auto max-w-7xl px-6 py-16">
-      <div className="label">[ WOD LIBRARY ]</div>
+      <div className="label">{t("lg.wods.label")}</div>
       <h1 className="mt-3 text-4xl font-semibold tracking-tight md:text-6xl">
-        Tous les WODs nommés.
+        {t("lg.wods.h1")}
       </h1>
       <p className="mt-4 max-w-2xl text-[color:var(--color-mute)]">
-        {WODS.length} WODs benchmarks et hommages. Chaque WOD a son histoire,
-        son scheme, son time cap. Lance n&apos;importe lequel comme séance one-shot.
+        {t("lg.wods.intro", { n: WODS.length })}
       </p>
 
       <div className="mt-10 hairline grid grid-cols-2 divide-x divide-[color:var(--color-line)] md:grid-cols-4">
-        <FilterLink label="TOUS" href="/wods" active={!cat} />
+        <FilterLink label={t("lg.wods.all")} href="/wods" active={!cat} />
         {CATEGORIES.map((c) => (
           <FilterLink
             key={c}
@@ -61,7 +65,7 @@ export default async function WodsPage({
             </p>
             {wod.timeCap && (
               <div className="mono mt-auto text-[10px] uppercase tracking-[0.2em] text-[color:var(--color-mute)]">
-                Time cap · {wod.timeCap}
+                {t("lg.wods.timeCap", { x: wod.timeCap })}
               </div>
             )}
           </Link>

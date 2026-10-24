@@ -1,9 +1,11 @@
 "use client";
 
 import { useClerk } from "@clerk/nextjs";
+import { useT } from "@/lib/i18n/provider";
 
 export function AccountSignOutButton() {
   const { signOut } = useClerk();
+  const t = useT();
   return (
     <button
       type="button"
@@ -11,7 +13,7 @@ export function AccountSignOutButton() {
       className="btn-home-secondary"
       style={{ maxWidth: 420, cursor: "pointer" }}
     >
-      Déconnexion
+      {t("su.account.signOut")}
     </button>
   );
 }

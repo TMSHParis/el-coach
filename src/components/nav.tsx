@@ -3,8 +3,10 @@ import { clerkEnabled } from "@/lib/clerk";
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { MobileDrawer } from "./mobile-drawer";
 import { ProfileIcon } from "./profile-icon";
+import { getT } from "@/lib/i18n/server";
 
 export async function Nav() {
+  const { t } = await getT();
   let userId: string | null = null;
   if (clerkEnabled) {
     const session = await auth();
@@ -23,7 +25,7 @@ export async function Nav() {
           </Link>
         </div>
         <nav className="label hidden items-center gap-8 md:flex">
-          <Link href="/marketplace" className="hover:text-white">Programmes</Link>
+          <Link href="/marketplace" className="hover:text-white">{t("app.nav.programs")}</Link>
           <Link href="/training" className="hover:text-white">Training</Link>
           <Link href="/wods" className="hover:text-white">WODs</Link>
           <Link href="/dashboard" className="hover:text-white">Dashboard</Link>
@@ -33,7 +35,7 @@ export async function Nav() {
             href={signedIn ? "/dashboard" : "/signin"}
             className="btn-ghost !px-3 !py-2 !text-[10px] !tracking-[0.12em] md:!px-5 md:!py-3 md:!text-xs"
           >
-            {signedIn ? "Mon Dashboard" : "Déjà inscrit · Connexion"}
+            {signedIn ? t("app.nav.myDashboard") : t("app.nav.signin")}
           </Link>
         )}
         {clerkEnabled && (

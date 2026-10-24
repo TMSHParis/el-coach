@@ -7,13 +7,19 @@ import type { EcmScore } from "@/lib/coaching-adaptatif-mock";
 import type { Day } from "@/lib/programming";
 import Link from "next/link";
 import { isRestLikeSeance } from "@/lib/seance-kinds";
-import { feelingBadge } from "@/lib/session-feeling";
+import { SESSION_FEELINGS } from "@/lib/session-feeling";
+import { getT } from "@/lib/i18n/server";
+import { tc } from "@/lib/i18n/content";
+import { formatDate, type Lang, type Translate } from "@/lib/i18n";
 import type { SessionBlocResult } from "../session/actions";
 import { MovementChart, type TimelineDay, type Intensity } from "./progress-charts";
 import { ProgressTabs, type SessionCard, type ProgramCard, type VolumeStat, type Badge, type WeekRow } from "./progress-tabs";
 import styles from "./progress.module.css";
 
-export const metadata = { title: "Ma progression — EL COACH METHOD" };
+export async function generateMetadata() {
+  const { t } = await getT();
+  return { title: t("app.progress.meta") };
+}
 
 const SESSIONS_PAGE_SIZE = 10;
 const BADGE_THRESHOLDS = [
@@ -59,12 +65,12 @@ function computeStreaks(sortedDates: string[]): { current: number; best: number 
   return { current, best };
 }
 
-function buildBadges(best: number): { badges: Badge[]; nextThreshold: number | null } {
+function buildBadges(best: number, t: Translate): { badges: Badge[]; nextThreshold: number | null } {
   const nextThreshold = BADGE_THRESHOLDS.find((b) => best < b.threshold)?.threshold ?? null;
   const badges: Badge[] = BADGE_THRESHOLDS.map((b) => ({
     threshold: b.threshold,
     icon: b.icon,
-    label: `${b.threshold} jours`,
+    label: t("app.progress.days", { n: b.threshold }),
     unlocked: best >= b.threshold,
     current: b.threshold === nextThreshold,
   }));
@@ -81,7 +87,7 @@ function mondayOf(d: Date): Date {
 }
 
 /** Historique des 4 dernières semaines pleinement écoulées — seuil 6 check-ins/7 (doc F.5.d). */
-function buildWeeks(checkinDates: string[]): WeekRow[] {
+function buildWeeks(checkinDates: string[], t: Translate, lang: Lang): WeekRow[] {
   const thisMonday = mondayOf(new Date());
   const weeks: WeekRow[] = [];
   for (let w = 1; w <= 4; w++) {
@@ -92,8 +98,8 @@ function buildWeeks(checkinDates: string[]): WeekRow[] {
       return diff >= 0 && diff < 7;
     }).length;
     weeks.push({
-      label: `Semaine du ${new Date(start).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}`,
-      sub: `${count} check-in${count > 1 ? "s" : ""} sur 7`,
+      label: t("app.progress.weekOf", { date: formatDate(lang, new Date(start), { day: "numeric", month: "short" }) }),
+      sub: t(count > 1 ? "app.progress.weekCount.many" : "app.progress.weekCount.one", { n: count }),
       status: count >= 6 ? "ok" : "partial",
     });
   }
@@ -163,20 +169,26 @@ function buildMovementHistory(sessions: { date: string; data: unknown }[], movem
     .filter((p): p is { date: string; charge: number } => p !== null);
 }
 
-function sessionTypeLabel(seance: string | null): string {
-  if (!seance) return "Séance";
+/** "💪 Bon" — ressenti de séance traduit (null si aucun ressenti saisi). */
+function feelingLabel(value: string | null | undefined, t: Translate): string | null {
+  const found = SESSION_FEELINGS.find((f) => f.value === value);
+  return found ? `${found.emoji} ${t(`app.feeling.${found.value}`)}` : null;
+}
+
+function sessionTypeLabel(seance: string | null, t: Translate): string {
+  if (!seance) return t("app.progress.sessionDefault");
   return seance.replace(/^[^\p{L}\p{N}]+/u, "").trim() || seance;
 }
 
-function sessionDateLabel(date: string): string {
+function sessionDateLabel(date: string, lang: Lang): string {
   const [y, m, d] = date.split("-").map(Number);
-  return new Date(y, m - 1, d).toLocaleDateString("fr-FR", { day: "numeric", month: "long" });
+  return formatDate(lang, new Date(y, m - 1, d), { day: "numeric", month: "long" });
 }
 
 /** Date courte (ex. "29 sept.") pour le "dernier WOD" des cartes programme — doc H.6. */
-function shortDateLabel(date: string): string {
+function shortDateLabel(date: string, lang: Lang): string {
   const [y, m, d] = date.split("-").map(Number);
-  return new Date(y, m - 1, d).toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
+  return formatDate(lang, new Date(y, m - 1, d), { day: "numeric", month: "short" });
 }
 
 export default async function ProgressPage({
@@ -185,12 +197,13 @@ export default async function ProgressPage({
   searchParams: Promise<{ movement?: string; tab?: string; date?: string; sessionsLimit?: string }>;
 }) {
   const { movement, tab, date: expandDate, sessionsLimit } = await searchParams;
+  const { t, lang } = await getT();
   const userId = await getUserId();
   if (!userId) {
     return (
       <section className="mx-auto max-w-lg px-6 py-24 text-center">
-        <div className="label">[ PROGRESSION ]</div>
-        <h1 className="mt-4 text-3xl font-semibold">Connecte-toi pour voir ta progression.</h1>
+        <div className="label">{t("app.progress.label")}</div>
+        <h1 className="mt-4 text-3xl font-semibold">{t("app.progress.signinRequired")}</h1>
       </section>
     );
   }
@@ -246,9 +259,9 @@ export default async function ProgressPage({
     const analysis = s.photoAnalysis as { bpmMoyen?: number | null; heartRateZones?: { zone: number; minutes: number }[] | null } | null;
     return {
       date: s.date,
-      dateLabel: sessionDateLabel(s.date),
-      typeLabel: sessionTypeLabel(seanceByDate.get(s.date) ?? null),
-      feelingLabel: feelingBadge(s.sessionFeeling),
+      dateLabel: sessionDateLabel(s.date, lang),
+      typeLabel: sessionTypeLabel(seanceByDate.get(s.date) ?? null, t),
+      feelingLabel: feelingLabel(s.sessionFeeling, t),
       note: s.sessionNote,
       durationSec: s.durationSec,
       calories: s.caloriesBrulees,
@@ -289,8 +302,9 @@ export default async function ProgressPage({
       if (lastDate) {
         const out = await prisma.dashboardOutput.findUnique({ where: { userId_date: { userId, date: lastDate } }, select: { output: true } });
         dernierWod = (out?.output as { generatedDay?: Day } | null)?.generatedDay?.focus ?? null;
+        if (dernierWod) dernierWod = tc(lang, dernierWod);
       }
-      return { label, seances: dates.length, dernierWod, dernierWodDate: lastDate ? shortDateLabel(lastDate) : null };
+      return { label, seances: dates.length, dernierWod, dernierWodDate: lastDate ? shortDateLabel(lastDate, lang) : null };
     }),
   );
 
@@ -306,8 +320,8 @@ export default async function ProgressPage({
     .filter((p): p is { date: string; value: number } => p !== null);
 
   const { current, best } = computeStreaks(allCheckins.map((c) => c.date));
-  const { badges, nextThreshold } = buildBadges(best);
-  const weeks = buildWeeks(allCheckins.map((c) => c.date));
+  const { badges, nextThreshold } = buildBadges(best, t);
+  const weeks = buildWeeks(allCheckins.map((c) => c.date), t, lang);
   const checkinsByDate = new Map(allCheckins.map((c) => [c.date, c.seance]));
   const intensityByDate = new Map(allCheckins.map((c) => [c.date, c.seanceIntensite]));
   const timeline = buildTimeline(checkinsByDate, intensityByDate);
@@ -332,14 +346,14 @@ export default async function ProgressPage({
         <div style={{ marginBottom: 14 }}>
           <BackHomeButton />
         </div>
-        <div className={styles.kickerTop}>Progression</div>
-        <div className={styles.title}>MA PROGRESSION</div>
+        <div className={styles.kickerTop}>{t("app.progress.kicker")}</div>
+        <div className={styles.title}>{t("app.progress.title")}</div>
       </div>
 
       {movement && movementData && (
         <div style={{ maxWidth: 560, margin: "0 auto", padding: "20px 20px 0" }}>
-          <Link href="/progress" style={{ fontSize: 12, color: "#8a8a8a", textDecoration: "none" }}>
-            ← Toute la progression
+          <Link href="/progress" style={{ fontSize: 12, color: "var(--c-8a8a8a)", textDecoration: "none" }}>
+            {t("app.progress.backAll")}
           </Link>
           <div style={{ marginTop: 10 }}>
             <MovementChart movement={movement} data={movementData} />

@@ -3,6 +3,9 @@
 // « source » = information lue dans le document ; « proposition » = valeur de départ
 // non sourcée, à valider par un coach.
 
+import { makeT, type Translate } from "@/lib/i18n";
+import { dv } from "@/app/signup/display";
+
 export type EventFamilyId = "course" | "hybride" | "combat" | "autre";
 
 export const EVENT_FAMILIES: { id: EventFamilyId; label: string; sports: string[] }[] = [
@@ -27,13 +30,28 @@ export const EVENT_ICONS: Record<string, string> = {
   Autre: "✏️",
 };
 
+/** Libellé affiché d'une famille d'événements (l'identifiant reste inchangé). */
+export function familyLabel(id: EventFamilyId, t: Translate = makeT("fr")): string {
+  return t(`su.fam.${id}`);
+}
+
+/** Nom d'un événement pour l'affichage ; la valeur enregistrée (« Hyrox », « Combat Boxe »…) ne change pas. */
+export function eventLabel(event: string, t: Translate = makeT("fr")): string {
+  return dv(t, event);
+}
+
+/** Libellé d'un champ, d'une option, d'une catégorie ou d'une note de fiche (valeur stockée inchangée). */
+export function ficheText(text: string, t: Translate = makeT("fr")): string {
+  return dv(t, text);
+}
+
 export function familyOf(event: string): EventFamilyId {
   return EVENT_FAMILIES.find((f) => f.sports.includes(event))?.id ?? "autre";
 }
 
 /** Nom court affiché en grand sur la fiche (les libellés d'origine ne changent pas ailleurs). */
-export function sportTitle(event: string): string {
-  return event.replace(/^Combat /, "").replace(/^Compétition /, "");
+export function sportTitle(event: string, t: Translate = makeT("fr")): string {
+  return dv(t, event.replace(/^Combat /, "").replace(/^Compétition /, ""));
 }
 
 export const HYROX_CATEGORIES = ["Open · Solo", "Open · Doubles", "Pro · Solo", "Pro · Doubles"];
@@ -181,9 +199,15 @@ export const PHASE_NAMES: Record<EventFamilyId, Record<PhaseKey, string>> = {
   autre: { base: "Préparation générale", specifique: "Spécifique", affutage: "Affûtage", evenement: "Événement" },
 };
 
-export function phaseNames(event: string): Record<PhaseKey, string> {
+export function phaseNames(event: string, t: Translate = makeT("fr")): Record<PhaseKey, string> {
   const names = PHASE_NAMES[familyOf(event)];
-  return event === "Hyrox" ? { ...names, evenement: "Course" } : names;
+  const base = event === "Hyrox" ? { ...names, evenement: "Course" } : names;
+  return {
+    base: dv(t, base.base),
+    specifique: dv(t, base.specifique),
+    affutage: dv(t, base.affutage),
+    evenement: dv(t, base.evenement),
+  };
 }
 
 export type PhaseParams = {

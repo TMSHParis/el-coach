@@ -9,6 +9,7 @@ import {
 } from "@/lib/data";
 import { formatPrice } from "@/lib/utils";
 import { CheckoutButton } from "./checkout-button";
+import { getT } from "@/lib/i18n/server";
 
 export function generateStaticParams() {
   return programs.map((p) => ({ slug: p.slug }));
@@ -18,23 +19,24 @@ export default async function ProgramPage({ params }: { params: Promise<{ slug: 
   const { slug } = await params;
   const program = getProgram(slug);
   if (!program) notFound();
+  const { t, lang } = await getT();
   const coach = getCoach(program.coachSlug);
 
   return (
     <section className="mx-auto max-w-7xl px-6 py-16">
-      <div className="label">[ PROGRAMME / {program.category} ]</div>
+      <div className="label">{t("lg.program.label", { cat: program.category })}</div>
       <div className="mt-6 grid gap-12 md:grid-cols-[1.6fr_1fr]">
         <div>
           <h1 className="text-4xl font-semibold tracking-tight md:text-6xl">{program.title}</h1>
           {coach && (
             <Link href={`/coach/${coach.slug}`} className="mono mt-4 inline-block text-[color:var(--color-mute)] hover:text-white">
-              par {coach.name} →
+              {t("lg.program.by", { name: coach.name })}
             </Link>
           )}
           <p className="mt-8 text-lg text-[color:var(--color-mute)]">{program.description}</p>
 
           <div className="mt-12">
-            <div className="label">[ RÉSULTATS ATTENDUS ]</div>
+            <div className="label">{t("lg.program.outcomes")}</div>
             <ul className="mt-4 space-y-3">
               {program.outcomes.map((o) => (
                 <li key={o} className="flex items-start gap-3">
@@ -46,7 +48,7 @@ export default async function ProgramPage({ params }: { params: Promise<{ slug: 
           </div>
 
           <div className="mt-12">
-            <div className="label">[ MATÉRIEL REQUIS ]</div>
+            <div className="label">{t("lg.program.equipment")}</div>
             <div className="mt-4 flex flex-wrap gap-2">
               {program.equipment.map((e) => (
                 <span key={e} className="label border border-[color:var(--color-line)] px-3 py-1.5">
@@ -58,34 +60,34 @@ export default async function ProgramPage({ params }: { params: Promise<{ slug: 
         </div>
 
         <aside className="card grain h-fit p-8">
-          <div className="label">ABONNEMENT</div>
+          <div className="label">{t("lg.program.subscription")}</div>
           <div className="mt-4 flex items-baseline gap-2">
-            <div className="mono text-5xl font-semibold">{formatPrice(program.priceCents)}</div>
-            <div className="label">{program.priceIntervalLabel}</div>
+            <div className="mono text-5xl font-semibold">{formatPrice(program.priceCents, "EUR", lang)}</div>
+            <div className="label">{program.priceIntervalLabel === "/mois" ? t("lg.perMonth") : program.priceIntervalLabel}</div>
           </div>
           <div className="mono mt-2 text-xs text-[color:var(--color-mute)]">
-            +{formatPrice(PROGRAM_ADDITIONAL_PRICE_CENTS)}/mois par programme additionnel
+            {t("lg.program.additional", { price: formatPrice(PROGRAM_ADDITIONAL_PRICE_CENTS, "EUR", lang) })}
           </div>
           <div className="mt-6 grid grid-cols-3 gap-3 border-t border-[color:var(--color-line)] pt-4">
-            <Meta label="DURÉE" value={`${program.weeks}sem`} />
-            <Meta label="SÉANCES" value={`${program.sessionsPerWeek}/sem`} />
-            <Meta label="NIVEAU" value={program.level} />
+            <Meta label={t("lg.program.duration")} value={t("lg.program.durationValue", { n: program.weeks })} />
+            <Meta label={t("lg.program.sessions")} value={t("lg.perWeek", { n: program.sessionsPerWeek })} />
+            <Meta label={t("lg.program.level")} value={program.level} />
           </div>
           <div className="mt-8">
             <CheckoutButton programSlug={program.slug} programTitle={program.title} />
           </div>
           <ul className="mt-6 space-y-2 text-sm text-[color:var(--color-mute)]">
             <li className="flex items-center gap-2">
-              <Check size={14} /> Annulation à tout moment
+              <Check size={14} /> {t("lg.program.perk1")}
             </li>
             <li className="flex items-center gap-2">
-              <Check size={14} /> Séances quotidiennes détaillées
+              <Check size={14} /> {t("lg.program.perk2")}
             </li>
             <li className="flex items-center gap-2">
-              <Check size={14} /> Suivi PR & progression
+              <Check size={14} /> {t("lg.program.perk3")}
             </li>
             <li className="flex items-center gap-2">
-              <Check size={14} /> Cumul de programmes : {formatPrice(PROGRAM_ADDITIONAL_PRICE_CENTS)}/mois en plus chacun
+              <Check size={14} /> {t("lg.program.perk4", { price: formatPrice(PROGRAM_ADDITIONAL_PRICE_CENTS, "EUR", lang) })}
             </li>
           </ul>
         </aside>

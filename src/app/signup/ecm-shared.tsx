@@ -14,6 +14,9 @@ import styles from "./ecm-signup.module.css";
 import fx from "./event-fiche.module.css";
 import { EventSection } from "./event-fiche";
 import { SPORT_GROUPS } from "@/lib/sports-catalog";
+import { useT } from "@/lib/i18n/provider";
+import { makeT, type Translate } from "@/lib/i18n";
+import { dv } from "./display";
 
 function emptyWeekCycle(): WeekCycle {
   const empty = (): WeekCycleDay => ({ repos: false, slots: [] });
@@ -167,7 +170,8 @@ export function ObjectifsPicker({
   onProgramme?: (label: string) => void;
   onPickOtherProgramme?: () => void;
 }) {
-  const [axisMsg, setAxisMsg] = useState<string | null>(null);
+  const t = useT();
+  const [axisMsg, setAxisMsg] = useState<boolean>(false);
 
   function patch(cardType: string, fields: Partial<EcmObjectifDetail>) {
     onChange(values.map((v) => (v.type === cardType ? { ...v, ...fields } : v)));
@@ -197,22 +201,22 @@ export function ObjectifsPicker({
     } else {
       const base = current.filter((a) => a !== AXIS_TOUT);
       if (base.length >= MAX_AXES) {
-        setAxisMsg("3 axes maximum. Retire-en un, ou choisis Tout.");
+        setAxisMsg(true);
         return;
       }
       next = [...base, axis];
     }
-    setAxisMsg(null);
+    setAxisMsg(false);
     patch(type, { axes: next, sousCat: next[0] ?? "" });
   }
 
   return (
     <div className={cx(styles.qc, styles.on)}>
       <div className={styles.ql}>
-        <i>🎯</i> Mes objectifs <span className={styles.hint}>(2 maximum)</span>
+        <i>🎯</i> {t("su.obj.title")} <span className={styles.hint}>{t("su.obj.max")}</span>
       </div>
       <div className={styles.objMaxInfo}>
-        <span>Sélectionnés :</span>
+        <span>{t("su.obj.selected")}</span>
         <span className={styles.objCounter}>{values.length}</span>
         <span>/ 2</span>
       </div>
@@ -228,7 +232,7 @@ export function ObjectifsPicker({
           <div key={type} className={cx(styles.objCard, selected && styles.sel)}>
             <div className={styles.objCardHeader} onClick={() => toggleCard(card, type)}>
               <div className={styles.objIcon}>{card.icon}</div>
-              <div className={styles.objMainTitle}>{card.title}</div>
+              <div className={styles.objMainTitle}>{dv(t, card.title)}</div>
               <div className={styles.objCheck}>{selected ? "✓" : ""}</div>
             </div>
             {entry && (
@@ -237,7 +241,7 @@ export function ObjectifsPicker({
                   <EventSection
                     entry={entry}
                     patch={(fields) => patch(type, fields)}
-                    heading="Quel événement ?"
+                    heading={dv(t, "Quel événement ?")}
                     programme={programme}
                     onProgramme={onProgramme}
                     onPickOtherProgramme={onPickOtherProgramme}
@@ -245,12 +249,10 @@ export function ObjectifsPicker({
                 ) : perf ? (
                   <>
                     <div className={fx.axisHead}>
-                      <span className={styles.subLabel}>{card.subLabel}</span>
-                      <span className={fx.axisCount}>
-                        {axes.length} sur {MAX_AXES}
-                      </span>
+                      <span className={styles.subLabel}>{dv(t, card.subLabel)}</span>
+                      <span className={fx.axisCount}>{t("su.obj.axisCount", { n: axes.length, max: MAX_AXES })}</span>
                     </div>
-                    <div className={fx.axisHelp}>Choisis jusqu&apos;à 3 axes, ou Tout.</div>
+                    <div className={fx.axisHelp}>{t("su.obj.axisHelp")}</div>
                     <div className={fx.axisGrid}>
                       {card.subcats.map((s) => {
                         const on = axes.includes(s);
@@ -266,17 +268,17 @@ export function ObjectifsPicker({
                               toggleAxis(type, entry, s);
                             }}
                           >
-                            <span>{s}</span>
+                            <span>{dv(t, s)}</span>
                             {on && <span className={fx.axisCheck}>✓</span>}
                           </button>
                         );
                       })}
                     </div>
-                    {axisMsg && <div className={fx.axisMsg}>{axisMsg}</div>}
+                    {axisMsg && <div className={fx.axisMsg}>{t("su.obj.axisMax")}</div>}
                   </>
                 ) : (
                   <>
-                    <span className={styles.subLabel}>{card.subLabel}</span>
+                    <span className={styles.subLabel}>{dv(t, card.subLabel)}</span>
                     <div className={styles.subcats}>
                       {card.subcats.map((s) => (
                         <div
@@ -287,7 +289,7 @@ export function ObjectifsPicker({
                             patch(type, { sousCat: s });
                           }}
                         >
-                          {s}
+                          {dv(t, s)}
                         </div>
                       ))}
                     </div>
@@ -297,7 +299,7 @@ export function ObjectifsPicker({
                   <div className={fx.metaStack}>
                     {!competition && (
                       <div className={fx.metaGroup}>
-                        <label>{card.deadlineLabel}</label>
+                        <label>{dv(t, card.deadlineLabel)}</label>
                         <div className={fx.pills}>
                           {card.deadlineOptions.map((d) => (
                             <button
@@ -309,14 +311,14 @@ export function ObjectifsPicker({
                                 patch(type, { deadline: d });
                               }}
                             >
-                              {d}
+                              {dv(t, d)}
                             </button>
                           ))}
                         </div>
                       </div>
                     )}
                     <div className={fx.metaGroup}>
-                      <label>{card.prioLabel}</label>
+                      <label>{dv(t, card.prioLabel)}</label>
                       <div className={fx.pills}>
                         {card.prioOptions.map((p) => (
                           <button
@@ -329,7 +331,7 @@ export function ObjectifsPicker({
                               patch(type, p === "Compétition" ? { priorite: p } : { priorite: p, event: "", dateExacte: "", categorie: "", fiche: {} });
                             }}
                           >
-                            {p}
+                            {dv(t, p)}
                           </button>
                         ))}
                       </div>
@@ -340,7 +342,7 @@ export function ObjectifsPicker({
                   <EventSection
                     entry={entry}
                     patch={(fields) => patch(type, { ...fields, priorite: "Compétition" })}
-                    heading="Quelle compétition ?"
+                    heading={dv(t, "Quelle compétition ?")}
                     programme={programme}
                     onProgramme={onProgramme}
                     onPickOtherProgramme={onPickOtherProgramme}
@@ -454,18 +456,19 @@ export function EcmPageHeader({
 }
 
 /** 15 caractères min. · 1 chiffre · 1 symbole — retourne le message d'erreur, ou null si valide. */
-export function validatePassword(pw: string): string | null {
+export function validatePassword(pw: string, t: Translate = makeT("fr")): string | null {
   const ok = /^(?=.*\d)(?=.*[^A-Za-z0-9]).{15,}$/.test(pw);
-  return ok ? null : "15 caractères minimum · 1 chiffre · 1 symbole requis";
+  return ok ? null : t("su.pwInvalid");
 }
 
 export function MoSolo({ options, value, onChange }: { options: string[]; value: string; onChange: (v: string) => void }) {
+  const t = useT();
   return (
     <>
       {options.map((o) => (
         <div key={o} className={cx(styles.mo, value === o && styles.sel)} onClick={() => onChange(o)}>
           <div className={styles.mc}>{value === o ? "✓" : ""}</div>
-          {o}
+          {dv(t, o)}
         </div>
       ))}
     </>
@@ -481,12 +484,13 @@ export function MoMulti({
   values: string[];
   onToggle: (v: string) => void;
 }) {
+  const t = useT();
   return (
     <>
       {options.map((o) => (
         <div key={o} className={cx(styles.mo, values.includes(o) && styles.sel)} onClick={() => onToggle(o)}>
           <div className={styles.mc}>{values.includes(o) ? "✓" : ""}</div>
-          {o}
+          {dv(t, o)}
         </div>
       ))}
     </>
@@ -507,6 +511,7 @@ export function MoMultiCapped({
   onToggle: (v: string) => void;
   onExceed: () => void;
 }) {
+  const t = useT();
   return (
     <>
       {options.map((o) => {
@@ -524,7 +529,7 @@ export function MoMultiCapped({
             }}
           >
             <div className={styles.mc}>{selected ? "✓" : ""}</div>
-            {o}
+            {dv(t, o)}
           </div>
         );
       })}
@@ -533,35 +538,28 @@ export function MoMultiCapped({
 }
 
 export function YesNo({ value, onChange }: { value: boolean | null; onChange: (v: boolean) => void }) {
+  const t = useT();
   return (
     <div className={styles.yn}>
       <div className={cx(styles.ynb, styles.y, value === true && styles.sel)} onClick={() => onChange(true)}>
-        ✓ OUI
+        {t("su.yn.yes")}
       </div>
       <div className={cx(styles.ynb, styles.n, value === false && styles.sel)} onClick={() => onChange(false)}>
-        ✗ NON
+        {t("su.yn.no")}
       </div>
     </div>
   );
 }
 
 const WEEK_DAY_KEYS: WeekCycleDayKey[] = ["lun", "mar", "mer", "jeu", "ven", "sam", "dim"];
-const WEEK_DAY_LABELS: Record<WeekCycleDayKey, string> = {
-  lun: "LUNDI",
-  mar: "MARDI",
-  mer: "MERCREDI",
-  jeu: "JEUDI",
-  ven: "VENDREDI",
-  sam: "SAMEDI",
-  dim: "DIMANCHE",
-};
 
 /** Programme ECM de référence — un champ dédié, séparé de la semaine type (pilote programSlug/profile.programme). */
 export function ProgrammePrincipalPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const t = useT();
   return (
     <div className={styles.qc} id="programme-principal">
       <div className={styles.ql}>
-        <i>⚡</i> Programme principal
+        <i>⚡</i> {t("su.prog.main")}
       </div>
       <MoSolo options={Object.keys(SPORT_LABEL_TO_SLUG)} value={value} onChange={onChange} />
     </div>
@@ -600,6 +598,7 @@ export function WeekCyclePicker({
   programmeLabel: string;
   onChange: (next: WeekCycle) => void;
 }) {
+  const t = useT();
   const [activeDay, setActiveDay] = useState<WeekCycleDayKey | null>(null);
   const standardWeek = standardWeekFor(programmeLabel);
   // Personnalisée dès qu'un jour porte un repos explicite ou un sport choisi —
@@ -648,26 +647,26 @@ export function WeekCyclePicker({
   return (
     <div className={cx(styles.qc, styles.on)}>
       <div className={styles.ql}>
-        <i>📅</i> Ma semaine type d&apos;entraînement
+        <i>📅</i> {t("su.week.title")}
       </div>
       {!hideHeader && (
       <div className={styles.weekBadgeRow}>
         {customized ? (
-          <span className={styles.weekBadge}>Semaine personnalisée</span>
+          <span className={styles.weekBadge}>{t("su.week.custom")}</span>
         ) : (
           <span className={styles.weekBadge}>
-            Semaine standard{standardWeek ? ` · Programme : ${programmeLabel.replace(/^\S+\s*/, "")}` : ""}
+            {standardWeek ? t("su.week.standardProgram", { name: programmeLabel.replace(/^\S+\s*/, "") }) : t("su.week.standard")}
           </span>
         )}
         {customized && (
           <button type="button" className={styles.weekResetLink} onClick={resetToStandard}>
-            Rétablir la semaine standard
+            {t("su.week.restore")}
           </button>
         )}
       </div>
       )}
       <p className={styles.weekHint}>
-        Clique sur un jour. Tu peux ajouter plusieurs sports le même jour (matin + soir).
+        {t("su.week.hint")}
       </p>
       <div className={styles.weekSelector}>
         {WEEK_DAY_KEYS.map((d) => {
@@ -690,16 +689,16 @@ export function WeekCyclePicker({
                 setActiveDay(d);
               }}
             >
-              {markedDays?.includes(d) && <span className={styles.dayDot} aria-label="Modifié" />}
-              <div className={styles.dayBtnName}>{d.toUpperCase()}</div>
-              <div className={styles.dayBtnActivity}>{displayRest ? "Repos" : displaySport ?? "—"}</div>
+              {markedDays?.includes(d) && <span className={styles.dayDot} aria-label={t("su.week.modified")} />}
+              <div className={styles.dayBtnName}>{t(`su.day.short.${d}`)}</div>
+              <div className={styles.dayBtnActivity}>{displayRest ? dv(t, "Repos") : displaySport ? dv(t, displaySport) : "—"}</div>
             </div>
           );
         })}
       </div>
       {activeDay && (
         <div className={cx(styles.dayDetail, styles.visible)}>
-          <div className={styles.dayDetailTitle}>{WEEK_DAY_LABELS[activeDay]} : que prévois-tu ?</div>
+          <div className={styles.dayDetailTitle}>{t("su.week.dayQ", { day: t(`su.day.long.${activeDay}`) })}</div>
           {editorNote && <div className={styles.weekHint}>{editorNote}</div>}
           <label className={styles.dayRestRow}>
             <input
@@ -707,7 +706,7 @@ export function WeekCyclePicker({
               checked={value[activeDay].repos}
               onChange={(e) => patchDay(activeDay, { repos: e.target.checked })}
             />
-            🛋️ Jour de repos
+            {t("su.week.restDay")}
           </label>
           {!value[activeDay].repos && (
             <>
@@ -715,7 +714,7 @@ export function WeekCyclePicker({
                 <div key={idx} className={styles.sportSlot}>
                   <div className={styles.sportSlotHeader}>
                     <span className={styles.sportSlotLabel}>
-                      {idx === 0 ? "🌅 Matin / Unique" : `🌆 Soir / ${idx + 1}ème séance`}
+                      {idx === 0 ? t("su.week.morning") : t("su.week.evening", { n: idx + 1 })}
                     </span>
                     {idx > 0 && (
                       <button
@@ -733,13 +732,13 @@ export function WeekCyclePicker({
                     onChange={(e) => patchSlot(activeDay, idx, { sport: e.target.value })}
                   >
                     <option value="" disabled>
-                      Choisir un sport...
+                      {t("su.week.pickSport")}
                     </option>
                     {SPORT_OPTGROUPS.map((g) => (
-                      <optgroup key={g.label} label={g.label}>
+                      <optgroup key={g.label} label={dv(t, g.label)}>
                         {g.options.map((o) => (
                           <option key={o} value={o}>
-                            {o}
+                            {dv(t, o)}
                           </option>
                         ))}
                       </optgroup>
@@ -749,14 +748,14 @@ export function WeekCyclePicker({
                     <input
                       className={styles.slotInput}
                       type="text"
-                      placeholder="ex: 18h30"
+                      placeholder={t("su.week.timePh")}
                       value={slot.heure}
                       onChange={(e) => patchSlot(activeDay, idx, { heure: e.target.value })}
                     />
                     <input
                       className={styles.slotInput}
                       type="text"
-                      placeholder="ex: 1h30"
+                      placeholder={t("su.week.durPh")}
                       value={slot.duree}
                       onChange={(e) => patchSlot(activeDay, idx, { duree: e.target.value })}
                     />
@@ -768,14 +767,14 @@ export function WeekCyclePicker({
                         className={cx(styles.slotNivBtn, slot.niveau === l && styles.sel)}
                         onClick={() => patchSlot(activeDay, idx, { niveau: l })}
                       >
-                        {l}
+                        {dv(t, l)}
                       </div>
                     ))}
                   </div>
                 </div>
               ))}
               <button type="button" className={styles.btnAddSport} onClick={() => addSlot(activeDay)}>
-                + Ajouter un sport
+                {t("su.week.addSport")}
               </button>
             </>
           )}

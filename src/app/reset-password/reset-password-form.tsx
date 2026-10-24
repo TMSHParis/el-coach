@@ -5,10 +5,12 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useSignIn } from "@clerk/nextjs";
 import { validatePassword } from "@/app/signup/ecm-shared";
 import styles from "@/app/signup/ecm-signup.module.css";
+import { useT } from "@/lib/i18n/provider";
 
 export function ResetPasswordForm() {
   const { signIn } = useSignIn();
   const router = useRouter();
+  const t = useT();
   const searchParams = useSearchParams();
   const email = searchParams.get("email");
 
@@ -34,7 +36,7 @@ export function ResetPasswordForm() {
   }
 
   async function handleSubmit() {
-    const pwErr = validatePassword(password);
+    const pwErr = validatePassword(password, t);
     setPasswordError(pwErr);
     if (pwErr || !signIn) return;
 
@@ -44,13 +46,13 @@ export function ResetPasswordForm() {
       const { error: codeErr } = await signIn.resetPasswordEmailCode.verifyCode({ code });
       if (codeErr) {
         setBusy(false);
-        setError(codeErr.message ?? "Code invalide.");
+        setError(codeErr.message ?? t("su.reset.codeInvalid"));
         return;
       }
       const { error: pwErrRes } = await signIn.resetPasswordEmailCode.submitPassword({ password });
       setBusy(false);
       if (pwErrRes) {
-        setError(pwErrRes.message ?? "Impossible de mettre à jour le mot de passe.");
+        setError(pwErrRes.message ?? t("su.reset.updateFail"));
         return;
       }
       if (signIn.status === "complete") {
@@ -61,16 +63,16 @@ export function ResetPasswordForm() {
     } catch (err) {
       console.error("ResetPasswordForm.handleSubmit:", err);
       setBusy(false);
-      setError("Erreur technique — réessaie.");
+      setError(t("su.techError"));
     }
   }
 
   return (
     <div className={styles.ecmRoot} style={{ minHeight: "auto" }}>
       <div className={styles.right} style={{ maxWidth: 420, margin: "0 auto" }}>
-        {email && <p style={{ color: "#8a8a8a", fontSize: "0.85rem", marginBottom: 16 }}>Code envoyé à <strong>{email}</strong>.</p>}
+        {email && <p style={{ color: "var(--c-8a8a8a)", fontSize: "0.85rem", marginBottom: 16 }}>{t("su.codeSentTo")} <strong>{email}</strong>.</p>}
         <div className={styles.field}>
-          <label>Code reçu par email</label>
+          <label>{t("su.reset.codeLabel")}</label>
           <input
             type="text"
             inputMode="numeric"
@@ -81,16 +83,16 @@ export function ResetPasswordForm() {
           />
         </div>
         <div className={styles.field}>
-          <label>Nouveau mot de passe</label>
+          <label>{t("su.reset.newPw")}</label>
           <div className={styles.fieldPw}>
             <input
               type={showPassword ? "text" : "password"}
-              placeholder="15 caractères min. · 1 chiffre · 1 symbole"
+              placeholder={t("su.pwPlaceholder")}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
             <button className={styles.pwToggle} type="button" onClick={() => setShowPassword((v) => !v)}>
-              {showPassword ? "CACHER" : "VOIR"}
+              {showPassword ? t("su.pwHide") : t("su.pwShow")}
             </button>
           </div>
           {passwordError && <span className={`${styles.fieldHint} ${styles.errorMsg} ${styles.show}`}>{passwordError}</span>}
@@ -99,7 +101,7 @@ export function ResetPasswordForm() {
           <div className="mb-4 border-l-2 border-red-400 bg-red-500/5 px-4 py-3 text-sm text-red-400">{error}</div>
         )}
         <button className={styles.btnNext} type="button" disabled={busy || code.length < 6} onClick={handleSubmit}>
-          {busy ? "Mise à jour…" : "Réinitialiser mon mot de passe"} <span className={styles.arrow}>→</span>
+          {busy ? t("su.reset.updating") : t("su.reset.submit")} <span className={styles.arrow}>→</span>
         </button>
       </div>
     </div>

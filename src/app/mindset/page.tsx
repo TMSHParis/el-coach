@@ -4,9 +4,13 @@ import { prisma } from "@/lib/prisma";
 import { todayKey } from "@/lib/date-key";
 import { resolveDayState } from "@/lib/ecm-engine";
 import { ecmFontVariables } from "@/app/signup/ecm-fonts";
+import { getT } from "@/lib/i18n/server";
 import { MindsetView } from "./mindset-view";
 
-export const metadata = { title: "Mindset du jour — EL COACH METHOD" };
+export async function generateMetadata() {
+  const { t } = await getT();
+  return { title: t("ci.mindset.title") };
+}
 
 /** Page intermédiaire affichée après validation du check-in, avant le dashboard. */
 export default async function MindsetPage() {

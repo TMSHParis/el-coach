@@ -4,6 +4,7 @@ import { getAnthropicClient, ECM_ANALYSIS_MODEL, anthropicEnabled } from "@/lib/
 import { getUserId } from "@/lib/user-id";
 import { isRestLikeSeance } from "@/lib/seance-kinds";
 import type { HeartRateZoneSplit } from "@/lib/ecm-engine";
+import { getT } from "@/lib/i18n/server";
 
 export const runtime = "nodejs";
 
@@ -121,10 +122,11 @@ function cleanZones(value: unknown): HeartRateZoneSplit[] | null {
 }
 
 export async function POST(req: Request) {
+  const { t } = await getT();
   const userId = await getUserId();
-  if (!userId) return NextResponse.json({ error: "Connexion requise." }, { status: 401 });
+  if (!userId) return NextResponse.json({ error: t("app.api.signinRequired") }, { status: 401 });
   if (!anthropicEnabled) {
-    return NextResponse.json({ error: "Lecture automatique indisponible (clé API absente)." }, { status: 503 });
+    return NextResponse.json({ error: t("app.api.readUnavailable") }, { status: 503 });
   }
 
   const body = (await req.json()) as {
@@ -136,7 +138,7 @@ export async function POST(req: Request) {
     historiqueRecent?: HistoriqueSession[];
   };
   if (!body.photoUrl || !isAllowedPhotoUrl(body.photoUrl)) {
-    return NextResponse.json({ error: "photoUrl invalide." }, { status: 400 });
+    return NextResponse.json({ error: t("app.api.photoUrlInvalid") }, { status: 400 });
   }
 
   const historique = (body.historiqueRecent ?? []).slice(0, 10);

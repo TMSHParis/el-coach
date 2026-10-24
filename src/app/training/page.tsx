@@ -1,40 +1,45 @@
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { programTemplates, type ProgramTemplate } from "@/lib/programming";
+import { getT } from "@/lib/i18n/server";
+import type { Lang, Translate } from "@/lib/i18n";
+import { tc } from "@/lib/i18n/content";
 
-export const metadata = { title: "Programmations — EL COACH METHOD" };
+export async function generateMetadata() {
+  const { t } = await getT();
+  return { title: t("lg.training.meta") };
+}
 
-const DISCIPLINE_LABEL: Record<ProgramTemplate["discipline"], string> = {
-  crossfit: "CrossFit pure",
-  hybrid: "Hybrid Engine",
-  hyrox: "Hyrox pure",
-  home: "À la maison",
-  hypertrophy: "Hypertrophy · Volume Block",
-};
+const DISCIPLINE_LABEL = {
+  crossfit: "lg.training.disc.crossfit",
+  hybrid: "lg.training.disc.hybrid",
+  hyrox: "lg.training.disc.hyrox",
+  home: "lg.training.disc.home",
+  hypertrophy: "lg.training.disc.hypertrophy",
+} as const satisfies Record<ProgramTemplate["discipline"], string>;
 
-export default function TrainingIndexPage() {
+export default async function TrainingIndexPage() {
+  const { t, lang } = await getT();
   return (
     <section className="mx-auto max-w-7xl px-6 py-16">
-      <div className="label">[ PROGRAMMATIONS ]</div>
+      <div className="label">{t("lg.training.label")}</div>
       <h1 className="mt-3 text-4xl font-semibold tracking-tight md:text-6xl">
-        4 systèmes, 1 moteur.
+        {t("lg.training.h1")}
       </h1>
       <p className="mt-4 max-w-2xl text-[color:var(--color-mute)]">
-        Programmations signées, basées sur une base de mouvements unifiée
-        (CrossFit Open/Games, stations Hyrox officielles, accessoires home).
-        Chaque semaine-type est déployable en cycle de 4, 8 ou 12 semaines.
+        {t("lg.training.intro")}
       </p>
 
       <div className="mt-12 grid gap-px bg-[color:var(--color-line)] md:grid-cols-2">
-        {programTemplates.map((t) => (
-          <TemplateCard key={t.slug} template={t} />
+        {programTemplates.map((tpl) => (
+          <TemplateCard key={tpl.slug} template={tpl} t={t} lang={lang} />
         ))}
       </div>
     </section>
   );
 }
 
-function TemplateCard({ template }: { template: ProgramTemplate }) {
+function TemplateCard({ template, t, lang }: { template: ProgramTemplate; t: Translate; lang: Lang }) {
   const sessionsPerWeek = template.weeks[0]?.days.filter((d) => d.blocks.length > 0).length ?? 0;
   return (
     <Link
@@ -43,7 +48,7 @@ function TemplateCard({ template }: { template: ProgramTemplate }) {
     >
       <div className="flex items-start justify-between gap-4">
         <div>
-          <div className="label">[ {DISCIPLINE_LABEL[template.discipline]} ]</div>
+          <div className="label">[ {t(DISCIPLINE_LABEL[template.discipline])} ]</div>
           <h2 className="mt-3 text-2xl font-semibold md:text-3xl">{template.name}</h2>
         </div>
         <ArrowUpRight
@@ -52,12 +57,12 @@ function TemplateCard({ template }: { template: ProgramTemplate }) {
         />
       </div>
 
-      <p className="text-sm text-[color:var(--color-mute)]">{template.summary}</p>
+      <p className="text-sm text-[color:var(--color-mute)]">{tc(lang, template.summary)}</p>
 
       <div className="mt-auto grid grid-cols-3 gap-3 border-t border-[color:var(--color-line)] pt-5">
-        <Meta label="JOURS" value={`${sessionsPerWeek}/sem`} />
-        <Meta label="NIVEAU" value={template.level} />
-        <Meta label="SEMAINES" value={`${template.weeks.length} dispo`} />
+        <Meta label={t("lg.training.days")} value={t("lg.perWeek", { n: sessionsPerWeek })} />
+        <Meta label={t("lg.training.level")} value={template.level} />
+        <Meta label={t("lg.training.weeks")} value={t("lg.training.weeksAvail", { n: template.weeks.length })} />
       </div>
     </Link>
   );

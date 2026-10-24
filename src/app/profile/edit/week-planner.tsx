@@ -3,7 +3,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { WeekCyclePicker, standardCycleFor } from "@/app/signup/ecm-shared";
 import type { WeekCycle, WeekCycleDayKey } from "@/app/signup/actions";
-import { addWeeks, mondayOf, toKey, weekHeading, weekRange } from "@/lib/week";
+import { addWeeks, mondayOf, parseKey, toKey } from "@/lib/week";
+import { formatDate, type Lang, type Translate } from "@/lib/i18n";
+import { useLang, useT } from "@/lib/i18n/provider";
 import { alternanceLetter, cycleForWeek, diffDays, isEmptyCycle } from "@/lib/week-cycle";
 import { placeEcmAroundSports, hasExternalSport } from "@/lib/week-placement";
 import {
@@ -17,17 +19,32 @@ import {
 } from "../week-actions";
 import styles from "./week-planner.module.css";
 
-const SCOPES: { value: WeekChangeScope; label: string; short: string; sub?: string }[] = [
-  { value: "this", label: "Cette semaine seulement", short: "Cette semaine seulement" },
-  { value: "four", label: "Cette semaine et les 3 suivantes", short: "Cette semaine et les 3 suivantes" },
-  {
-    value: "ab",
-    label: "Deux semaines différentes qui alternent (A / B)",
-    short: "Deux semaines qui alternent (A / B)",
-    sub: "Tu programmes une semaine A et une semaine B. Elles se suivent en alternance : A, B, A, B…",
-  },
-  { value: "always", label: "Toujours (change ma semaine type)", short: "Toujours (change ma semaine type)", sub: "Toutes les semaines sans modification propre changent." },
-];
+const SCOPES = [
+  { value: "this", label: "su.wk.scope.this", short: "su.wk.scope.this" },
+  { value: "four", label: "su.wk.scope.four", short: "su.wk.scope.four" },
+  { value: "ab", label: "su.wk.scope.ab", short: "su.wk.scope.abShort", sub: "su.wk.scope.abSub" },
+  { value: "always", label: "su.wk.scope.always", short: "su.wk.scope.always", sub: "su.wk.scope.alwaysSub" },
+] as const satisfies readonly { value: WeekChangeScope; label: string; short: string; sub?: string }[];
+
+/** Titre long d'une semaine (« Cette semaine », « Semaine du 2 novembre »…), selon la langue. */
+function weekHeadingT(weekStart: string, todayKey: string, lang: Lang, t: Translate): string {
+  const current = mondayOf(todayKey);
+  if (weekStart === current) return t("su.wk.thisWeek");
+  if (weekStart === addWeeks(current, 1)) return t("su.wk.nextWeek");
+  if (weekStart === addWeeks(current, -1)) return t("su.wk.lastWeek");
+  return t("su.wk.weekOf", { date: formatDate(lang, parseKey(weekStart), { day: "numeric", month: "long" }) });
+}
+
+/** « 19 - 25 oct. » ou « 26 oct. - 1 nov. » quand la semaine chevauche deux mois, selon la langue. */
+function weekRangeT(weekStart: string, lang: Lang): string {
+  const start = parseKey(weekStart);
+  const end = parseKey(weekStart);
+  end.setDate(end.getDate() + 6);
+  const month = (d: Date) => formatDate(lang, d, { month: "short" });
+  return start.getMonth() === end.getMonth()
+    ? `${start.getDate()} - ${end.getDate()} ${month(end)}`
+    : `${start.getDate()} ${month(start)} - ${end.getDate()} ${month(end)}`;
+}
 
 /**
  * « Ma semaine type d'entraînement » : flèches de semaine, bouton « Personnaliser cette semaine »,
@@ -43,6 +60,8 @@ export function WeekPlanner({
   /** Mise à jour de la semaine type (portée « Toujours »). */
   onBaseChange: (next: WeekCycle) => void;
 }) {
+  const t = useT();
+  const { lang } = useLang();
   const todayKey = useMemo(() => toKey(new Date()), []);
   const [weekStart, setWeekStart] = useState(mondayOf(todayKey));
   const [state, setState] = useState<WeekState>({ overrides: {}, alternance: null });
@@ -53,7 +72,7 @@ export function WeekPlanner({
   const [choice, setChoice] = useState<WeekChangeScope>("this");
   const [busy, setBusy] = useState(false);
   const [closeKey, setCloseKey] = useState(0);
-  const [placeMsg, setPlaceMsg] = useState<string | null>(null);
+  const [placeMsg, setPlaceMsg] = useState<"none" | "placed" | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const refresh = useCallback(async () => setState(await getWeekState()), []);
@@ -149,29 +168,29 @@ export function WeekPlanner({
   function place() {
     const next = placeEcmAroundSports(shown, programmeLabel);
     if (!next) {
-      setPlaceMsg("Rien à replacer pour cette semaine.");
+      setPlaceMsg("none");
       return;
     }
     // Remplace les créneaux ECM de la semaine ; le reste (sports hors ECM, repos) est conservé.
     touched.current = new Set(diffDays(shown, next));
     setDraft(next);
-    setPlaceMsg("Séances ECM replacées autour de tes sports.");
+    setPlaceMsg("placed");
   }
 
   return (
     <div>
       <div className={styles.nav}>
-        <button type="button" className={styles.arrow} onClick={() => void go(-1)} aria-label="Semaine précédente">
+        <button type="button" className={styles.arrow} onClick={() => void go(-1)} aria-label={t("su.wk.prev")}>
           ‹
         </button>
         <div className={styles.center}>
           <div className={styles.title}>
-            {weekHeading(weekStart, todayKey)}
+            {weekHeadingT(weekStart, todayKey, lang, t)}
             {letter ? ` · ${letter}` : ""}
           </div>
-          <div className={styles.range}>{weekRange(weekStart)}</div>
+          <div className={styles.range}>{weekRangeT(weekStart, lang)}</div>
         </div>
-        <button type="button" className={styles.arrow} onClick={() => void go(1)} aria-label="Semaine suivante">
+        <button type="button" className={styles.arrow} onClick={() => void go(1)} aria-label={t("su.wk.next")}>
           ›
         </button>
       </div>
@@ -179,20 +198,20 @@ export function WeekPlanner({
       <div className={styles.row}>
         {scope || weekModified ? (
           <button type="button" className={styles.personalized} onClick={() => setSheet(true)}>
-            Semaine personnalisée
+            {t("su.week.custom")}
           </button>
         ) : (
           <button type="button" className={styles.personalize} onClick={() => setSheet(true)}>
-            Personnaliser cette semaine <span aria-hidden="true">▾</span>
+            {t("su.wk.personalize")} <span aria-hidden="true">▾</span>
           </button>
         )}
         {alternance ? (
           <button type="button" className={styles.reset} onClick={() => void reset()} disabled={busy}>
-            Supprimer l&apos;alternance A/B
+            {t("su.wk.removeAb")}
           </button>
         ) : (
           <button type="button" className={override ? styles.reset : styles.resetOff} onClick={() => override && void reset()} disabled={!override || busy}>
-            Rétablir la semaine standard
+            {t("su.week.restore")}
           </button>
         )}
       </div>
@@ -200,10 +219,10 @@ export function WeekPlanner({
       {scope && scopeInfo && (
         <div className={styles.mode}>
           <span>
-            Modifications : <b>{scopeInfo.short}</b>
+            {t("su.wk.changes")} <b>{t(scopeInfo.short)}</b>
           </span>
           <button type="button" className={styles.finish} onClick={() => void finish()}>
-            Terminer
+            {t("su.wk.done")}
           </button>
         </div>
       )}
@@ -212,13 +231,13 @@ export function WeekPlanner({
         <>
           <div className={styles.ab} role="tablist">
             <button type="button" className={letter === "A" ? styles.abOn : styles.abBtn} onClick={() => void goToLetter("A")}>
-              Semaine A
+              {t("su.wk.weekA")}
             </button>
             <button type="button" className={letter === "B" ? styles.abOn : styles.abBtn} onClick={() => void goToLetter("B")}>
-              Semaine B
+              {t("su.wk.weekB")}
             </button>
           </div>
-          <div className={styles.abHelp}>Choisis la semaine A ou B, puis touche un jour pour le modifier.</div>
+          <div className={styles.abHelp}>{t("su.wk.abHelp")}</div>
         </>
       )}
 
@@ -237,9 +256,9 @@ export function WeekPlanner({
         onTouchDay={(d) => touched.current.add(d)}
         editorNote={
           scope === "ab" && letter
-            ? `Tu modifies la semaine ${letter} (affichée). Passe à l'autre semaine avec les flèches pour programmer ${other}.`
+            ? t("su.wk.editingAb", { letter, other })
             : scopeInfo
-              ? `Sera appliqué : ${scopeInfo.short.toLowerCase()}.`
+              ? t("su.wk.willApply", { scope: t(scopeInfo.short).toLowerCase() })
               : undefined
         }
         onChange={(next) => setDraft(next)}
@@ -248,32 +267,32 @@ export function WeekPlanner({
       {hasExternalSport(shown) && (
         <>
           <button type="button" className={styles.place} onClick={place} disabled={!scope}>
-            Replacer mes séances ECM autour de mes sports
+            {t("su.wk.replace")}
           </button>
-          {!scope && <div className={styles.placeNote}>Choisis d&apos;abord « Personnaliser cette semaine ».</div>}
-          {placeMsg && <div className={styles.placeNote}>{placeMsg}</div>}
+          {!scope && <div className={styles.placeNote}>{t("su.wk.chooseFirst")}</div>}
+          {placeMsg && <div className={styles.placeNote}>{placeMsg === "none" ? t("su.wk.nothingToPlace") : t("su.wk.placed")}</div>}
         </>
       )}
 
       {sheet && (
         <div data-hide-scroll-top className={styles.overlay} onClick={() => setSheet(false)}>
-          <div className={styles.sheet} role="dialog" aria-label="Appliquer mes modifications" onClick={(e) => e.stopPropagation()}>
-            <div className={styles.sheetTitle}>Appliquer mes modifications à :</div>
-            <div className={styles.sheetHelp}>Ce choix vaut pour tous les jours que tu modifies ensuite.</div>
+          <div className={styles.sheet} role="dialog" aria-label={t("su.wk.sheetLabel")} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.sheetTitle}>{t("su.wk.sheetTitle")}</div>
+            <div className={styles.sheetHelp}>{t("su.wk.sheetHelp")}</div>
             {SCOPES.map((o) => (
               <button key={o.value} type="button" className={choice === o.value ? styles.choiceOn : styles.choice} onClick={() => setChoice(o.value)}>
                 <span className={choice === o.value ? styles.radioOn : styles.radio} />
                 <span>
-                  {o.label}
-                  {o.sub && <span className={styles.choiceSub}>{o.sub}</span>}
+                  {t(o.label)}
+                  {"sub" in o && o.sub && <span className={styles.choiceSub}>{t(o.sub)}</span>}
                 </span>
               </button>
             ))}
             <button type="button" className={styles.validate} onClick={() => void validateSheet()} disabled={busy}>
-              Valider
+              {t("su.validate")}
             </button>
             <button type="button" className={styles.cancel} onClick={() => setSheet(false)}>
-              Annuler
+              {t("su.cancel")}
             </button>
           </div>
         </div>

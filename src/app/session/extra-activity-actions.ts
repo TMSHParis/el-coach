@@ -1,5 +1,6 @@
 "use server";
 
+import { getLang } from "@/lib/i18n/server";
 // 2e (ou 3e...) activité du jour (doc G.3) — table ExtraActivity séparée de
 // Session (qui reste "la" séance principale du jour, identifiée par date).
 // Une ExtraActivity est identifiée par son id, pas par date, puisqu'il peut
@@ -116,6 +117,7 @@ export async function saveExtraActivityResult(
       sportLabel: stripLeadingEmoji(existing.seance),
       durationLabel: formatDurationLabel(payload.durationSec),
       recentTags,
+      lang: await getLang(),
     });
     await prisma.extraActivity.update({ where: { id }, data: { coachMessage: message } });
     return { ok: true, message };

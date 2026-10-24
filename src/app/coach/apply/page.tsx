@@ -1,26 +1,30 @@
 import { Check } from "lucide-react";
 import { ApplyForm } from "./apply-form";
+import { getT } from "@/lib/i18n/server";
 
-export const metadata = { title: "Devenir coach — EL COACH METHOD" };
+export async function generateMetadata() {
+  const { t } = await getT();
+  return { title: t("lg.apply.meta") };
+}
 
-export default function ApplyPage() {
+export default async function ApplyPage() {
+  const { t } = await getT();
   return (
     <section className="mx-auto max-w-4xl px-6 py-16">
-      <div className="label">[ DEVENIR COACH ]</div>
+      <div className="label">{t("lg.apply.label")}</div>
       <h1 className="mt-3 text-4xl font-semibold tracking-tight md:text-6xl">
-        Publie ton système.
+        {t("lg.apply.h1a")}
         <br />
-        <span className="text-[#8a8a8a]">Garde 80% des revenus.</span>
+        <span className="text-[color:var(--c-8a8a8a)]">{t("lg.apply.h1b")}</span>
       </h1>
-      <p className="mt-6 max-w-2xl text-[#8a8a8a]">
-        On sélectionne les coachs à la main. Candidature lue sous 72h. Paiement mensuel via Stripe
-        Connect une fois validé. Tu gardes la propriété intellectuelle de tes programmes.
+      <p className="mt-6 max-w-2xl text-[color:var(--c-8a8a8a)]">
+        {t("lg.apply.intro")}
       </p>
 
-      <div className="mt-10 grid gap-px bg-[#1f1f1f] md:grid-cols-3">
-        <Perk title="80% de revenu" body="Commission plateforme fixée à 20%. Paiement hebdo." />
-        <Perk title="Ton branding" body="Page coach, handle, stats publiques. Aucune marque imposée." />
-        <Perk title="Outils inclus" body="Éditeur de programmes, suivi athlètes, stats rétention." />
+      <div className="mt-10 grid gap-px bg-[var(--c-1f1f1f)] md:grid-cols-3">
+        <Perk title={t("lg.apply.perk1.title")} body={t("lg.apply.perk1.body")} />
+        <Perk title={t("lg.apply.perk2.title")} body={t("lg.apply.perk2.body")} />
+        <Perk title={t("lg.apply.perk3.title")} body={t("lg.apply.perk3.body")} />
       </div>
 
       <ApplyForm />
@@ -30,10 +34,10 @@ export default function ApplyPage() {
 
 function Perk({ title, body }: { title: string; body: string }) {
   return (
-    <div className="bg-[#0a0a0a] p-6">
+    <div className="bg-[var(--c-0a0a0a)] p-6">
       <Check size={16} />
       <div className="mono mt-4 text-sm font-semibold">{title}</div>
-      <p className="mt-2 text-sm text-[#8a8a8a]">{body}</p>
+      <p className="mt-2 text-sm text-[color:var(--c-8a8a8a)]">{body}</p>
     </div>
   );
 }

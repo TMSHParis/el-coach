@@ -31,7 +31,8 @@ import type { Block, BlockType, Day, Exercise, WodFormat } from "./programming";
 import { validateGeneratedDay, reclassifyMisplacedStrengthBlocks, fixIsometricPrescriptions, normalizeVolumeBlockDay } from "./session-adapt";
 import { ageFromDateNaissance } from "./age";
 import { isRestLikeSeance } from "./seance-kinds";
-import { callCoachMessage, formatRecentTags, type CoachMessageResult, type CoachTagsByDay } from "./coach-message";
+import { callCoachMessage, formatRecentTags, langInstruction, type CoachMessageResult, type CoachTagsByDay } from "./coach-message";
+import { makeT, type Lang, type DictKey } from "./i18n";
 
 function normalizeAccents(s: string): string {
   return s
@@ -40,12 +41,10 @@ function normalizeAccents(s: string): string {
     .replace(/[\u0300-\u036f]/g, "");
 }
 
-const DAY_LABELS = ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"];
-
-function dateKeyToLabel(dateKey: string): string {
+function dateKeyToLabel(dateKey: string, lang: Lang): string {
   const [y, m, d] = dateKey.split("-").map(Number);
   const date = new Date(y, m - 1, d);
-  return `${DAY_LABELS[date.getDay()]} ${d}`;
+  return `${makeT(lang)(`srv.day.${date.getDay()}` as DictKey)} ${d}`;
 }
 
 /** Parse "7h30", "7h", "450" (minutes) ou "1h45" → minutes. Null si illisible. */
@@ -69,7 +68,8 @@ type SleepAnalysisPhoto = {
 };
 
 /** Construit l'insight sommeil (7 dernières nuits) depuis les vrais check-ins. */
-export function buildSleepFromCheckins(checkins: Checkin[]): SleepInsight {
+export function buildSleepFromCheckins(checkins: Checkin[], lang: Lang = "fr"): SleepInsight {
+  const t = makeT(lang);
   const ordered = [...checkins].sort((a, b) => a.date.localeCompare(b.date));
   const nights: SleepNight[] = ordered.map((c) => {
     const photo = (c.sleepAnalysis as SleepAnalysisPhoto | null) ?? null;
@@ -81,11 +81,11 @@ export function buildSleepFromCheckins(checkins: Checkin[]): SleepInsight {
     // Phase indépendante : valeur du check-in si renseignée, sinon estimation —
     // jamais total − (profond + REM + éveil), les phases ne totalisent pas 100 %.
     const lightMinutes = parseDurationToMinutes(photo?.lent) ?? Math.round(totalMinutes * 0.59);
-    return { label: dateKeyToLabel(c.date), totalMinutes, lightMinutes, deepMinutes, remMinutes, awakeMinutes };
+    return { label: dateKeyToLabel(c.date, lang), totalMinutes, lightMinutes, deepMinutes, remMinutes, awakeMinutes };
   });
 
   const lastNight = nights[nights.length - 1] ?? {
-    label: "Auj.",
+    label: t("srv.today"),
     totalMinutes: 420,
     deepMinutes: 55,
     remMinutes: 95,
@@ -102,24 +102,24 @@ export function buildSleepFromCheckins(checkins: Checkin[]): SleepInsight {
   const alerts: string[] = [];
   const deepLow = lastNight.deepMinutes < 40;
   const remLow = lastNight.remMinutes < 90;
-  if (deepLow && remLow) alerts.push("Sommeil profond et REM sous les seuils cette nuit");
-  else if (deepLow) alerts.push("Sommeil profond < 40 min cette nuit");
-  else if (remLow) alerts.push("REM < 1h30 cette nuit");
-  if (lastNight.awakeMinutes > 120) alerts.push("Réveils > 2h cette nuit");
+  if (deepLow && remLow) alerts.push(t("srv.sleep.deepRem"));
+  else if (deepLow) alerts.push(t("srv.sleep.deep"));
+  else if (remLow) alerts.push(t("srv.sleep.rem"));
+  if (lastNight.awakeMinutes > 120) alerts.push(t("srv.sleep.awake"));
 
   return { nights, lastNight, trendMinutes, alerts };
 }
 
 /** Construit l'insight poids depuis les vrais check-ins (champ poids, optionnel). */
-export function buildWeightFromCheckins(checkins: Checkin[], fallbackKg = 78): WeightInsight {
+export function buildWeightFromCheckins(checkins: Checkin[], fallbackKg = 78, lang: Lang = "fr"): WeightInsight {
   const ordered = [...checkins].sort((a, b) => a.date.localeCompare(b.date));
   const withWeight = ordered.filter((c) => c.poids && Number(c.poids) > 0);
 
   if (withWeight.length === 0) {
-    return { history: [{ label: "Auj.", kg: fallbackKg }], today: fallbackKg, deltaWeek: 0 };
+    return { history: [{ label: makeT(lang)("srv.today"), kg: fallbackKg }], today: fallbackKg, deltaWeek: 0 };
   }
 
-  const history = withWeight.map((c) => ({ label: dateKeyToLabel(c.date), kg: Number(c.poids) }));
+  const history = withWeight.map((c) => ({ label: dateKeyToLabel(c.date, lang), kg: Number(c.poids) }));
   const today = history[history.length - 1].kg;
   const deltaWeek = Math.round((today - history[0].kg) * 10) / 10;
   return { history, today, deltaWeek };
@@ -365,6 +365,7 @@ export async function generateEcmAnalysis(input: {
   recentMainLifts?: string[];
   /** Focus du jour dans la programmation fixe (ex. "Squat lourd + couplet court") — référence par défaut si le check-in ne dit rien de spécifique. */
   weekTypeFocus?: string | null;
+  lang?: Lang;
 }): Promise<EcmAnalysisResult>;
 export function generateEcmAnalysis(input: {
   profile: Profile;
@@ -374,6 +375,7 @@ export function generateEcmAnalysis(input: {
   recentCheckins: Checkin[];
   /** false = sport hors ECM ou repos : score/stack/alertes/en-cas seulement, pas de sessionBlocks. */
   withSession: false;
+  lang?: Lang;
 }): Promise<EcmStateAnalysisResult>;
 export async function generateEcmAnalysis(input: {
   profile: Profile;
@@ -384,8 +386,10 @@ export async function generateEcmAnalysis(input: {
   recentMainLifts?: string[];
   weekTypeFocus?: string | null;
   withSession?: boolean;
+  lang?: Lang;
 }): Promise<EcmAnalysisResult | EcmStateAnalysisResult> {
   const { profile, checkin, sleep, weight, recentCheckins, recentMainLifts = [], weekTypeFocus = null } = input;
+  const lang = input.lang ?? "fr";
   const withSession = input.withSession ?? true;
 
   const dataForDashboard = buildDashboardData(profile, checkin);
@@ -404,7 +408,7 @@ export async function generateEcmAnalysis(input: {
   const client = getAnthropicClient();
 
   if (!withSession) {
-    return generateStateOnlyAnalysis(client, dataForDashboard, profile, sleep, weight, recentCheckins.length);
+    return generateStateOnlyAnalysis(client, dataForDashboard, profile, sleep, weight, recentCheckins.length, lang);
   }
 
   const candidateMovements = selectCandidateMovements(profile, checkin.seanceEquipement);
@@ -471,7 +475,7 @@ RÈGLES :
 - sessionBlocks : exactement 5 blocs dans l'ordre — type "warmup" (échauffement court), "strength" (main lift, 1 mouvement de force principal — varier par rapport aux 14 derniers jours listés ci-dessus si possible), "wod" (metcon/conditioning, inspiré de WODS D'INSPIRATION), "accessory" (finisher court), "cooldown" (mobilité/récupération, optionnel = facultatif). Adapte le volume/l'intensité à l'état du jour (énergie/jambes/mental/stress du check-in) — SANS retirer de mouvement pour cause de blessure : cette adaptation-là est gérée déterministiquement en aval, tu n'as pas à l'anticiper.
 - Un mouvement de musculation classique (sets × reps à charge fixe, ex. "3×10") va TOUJOURS dans un bloc "strength" ou "accessory" — jamais dans "wod"/"conditioning". Le bloc "wod" doit toujours porter un champ format (AMRAP/EMOM/ForTime/Tabata/Chipper/...) ; si le contenu n'a pas de format de ce type, ce n'est pas un bloc "wod", c'est un bloc "accessory".
 - Ne considère PAS les blessures/douleurs pour composer sessionBlocks (filet de sécurité séparé et déterministe après coup) — compose la séance "pleine forme" adaptée uniquement à l'énergie/l'équipement/le niveau/la séance prévue.
-- Réponds uniquement via l'appel à l'outil, sans texte additionnel.`;
+- Réponds uniquement via l'appel à l'outil, sans texte additionnel.${langInstruction(lang)}`;
 
   // Timeout explicite — évite qu'un appel qui pend bloque indéfiniment le
   // check-in ; le repli déterministe existant (checkin/actions.ts) prend le relais.
@@ -601,6 +605,7 @@ async function generateStateOnlyAnalysis(
   sleep: SleepInsight,
   weight: WeightInsight,
   recentCheckinsCount: number,
+  lang: Lang,
 ): Promise<EcmStateAnalysisResult> {
   const rest = isRestDay(dataForDashboard.seance);
   const prompt = `Tu es le Coaching Adaptatif EL COACH METHOD. Analyse les données de cet athlète (profil fusionné avec le check-in du jour), puis appelle l'outil emit_ecm_analysis avec ton analyse complète.
@@ -619,7 +624,7 @@ RÈGLES :
 - recommendedVariant = "B" si état jaune/rouge ou douleur/blessure signalée, sinon "A" (champ technique, non affiché aujourd'hui).
 - N'invente aucune donnée numérique (poids, sommeil) — utilise uniquement les valeurs fournies ci-dessus.
 - Les alertes de la catégorie "injury" ne doivent apparaître que si blessures ou douleur est vrai.
-- Réponds uniquement via l'appel à l'outil, sans texte additionnel.`;
+- Réponds uniquement via l'appel à l'outil, sans texte additionnel.${langInstruction(lang)}`;
 
   const response = await client.messages.create(
     {
@@ -751,8 +756,9 @@ export function resolveDayState(
  * ECM (ex. Boxe, Running, cours collectif) ou un jour de repos — appelée à la
  * place de la composition ECM, qui s'appuie sur le catalogue de mouvements.
  */
-export async function generateNonEcmAdvice(input: { profile: Profile; checkin: Checkin }): Promise<NonEcmAdvice> {
+export async function generateNonEcmAdvice(input: { profile: Profile; checkin: Checkin; lang?: Lang }): Promise<NonEcmAdvice> {
   const { profile, checkin } = input;
+  const lang = input.lang ?? "fr";
   const client = getAnthropicClient();
   const rest = isRestDay(checkin.seance);
   const sport = checkin.seance || "activité non précisée";
@@ -773,7 +779,7 @@ Compose la séance du jour en 3 blocs, puis appelle l'outil emit_advice :
       : `prévention des blessures spécifique à cette activité${profile.blessures || checkin.douleur ? ", en tenant compte des blessures/douleurs signalées ci-dessus" : ""}.`
   }
 - mindset : message court, direct, cohérent avec l'état du jour${rest ? ", axé récupération (le repos fait partie de la progression)" : ", motivant"}.
-Réponds uniquement via l'appel à l'outil, sans texte additionnel.`;
+Réponds uniquement via l'appel à l'outil, sans texte additionnel.${langInstruction(lang)}`;
 
   const response = await client.messages.create(
     {
@@ -807,8 +813,9 @@ export async function generateMindsetMessage(input: {
   profile: Profile;
   checkin: Checkin;
   recentTags?: CoachTagsByDay;
+  lang?: Lang;
 }): Promise<CoachMessageResult> {
-  const { profile, checkin, recentTags = [] } = input;
+  const { profile, checkin, recentTags = [], lang = "fr" } = input;
   const rest = isRestDay(checkin.seance);
   const energie = checkin.energie ?? 5;
   const ton = rest
@@ -831,6 +838,7 @@ Réponds uniquement via l'appel à l'outil, sans texte additionnel.`;
     toolDescription: "Message mindset court, affiché à l'athlète juste après son check-in.",
     messageDescription: "2-3 phrases max, inclut le prénom, direct et percutant, style coaching.",
     prompt,
+    lang,
   });
 }
 
@@ -887,8 +895,9 @@ export async function generateSessionCongrats(input: {
   previousMessage?: string | null;
   recentTags?: CoachTagsByDay;
   heartRateZones?: HeartRateZoneSplit[] | null;
+  lang?: Lang;
 }): Promise<CoachMessageResult> {
-  const { profile, checkin, sportLabel, durationLabel, previousMessage, recentTags = [], heartRateZones } = input;
+  const { profile, checkin, sportLabel, durationLabel, previousMessage, recentTags = [], heartRateZones, lang = "fr" } = input;
   const state = congratsState(checkin);
   const intensite = describeIntensity(heartRateZones);
 
@@ -905,6 +914,7 @@ Réponds uniquement via l'appel à l'outil, sans texte additionnel.`;
     toolDescription: "Message de félicitations post-séance, court et direct.",
     messageDescription: "2-3 phrases max, inclut le prénom, style coaching direct, jamais identique au message précédent.",
     prompt,
+    lang,
   });
 }
 
@@ -969,8 +979,10 @@ export function tomorrowFromWeekCycle(
 export async function generateTomorrowPreview(input: {
   profile: Profile;
   checkin: Checkin;
+  lang?: Lang;
 }): Promise<TomorrowPreview> {
   const { profile, checkin } = input;
+  const lang = input.lang ?? "fr";
   const demain = tomorrowFromWeekCycle(profile.weekCycle);
   if (!demain) throw new Error("Pas de semaine type renseignée — aperçu de demain impossible.");
 
@@ -998,7 +1010,7 @@ Génère un aperçu de la séance de demain en tenant compte de ces données.
 ${blessures ? "Une blessure est déclarée : adapte explicitement les conseils pour demain (mouvements à éviter, substitution, amplitude)." : ""}
 ${(checkin.energie ?? 10) <= 4 ? "L'énergie est très basse aujourd'hui : dis clairement de récupérer ce soir pour être prêt demain." : ""}
 Rappelle toujours le check-in du matin. Style coaching direct, très court, pas de phrase creuse.
-Réponds uniquement via l'appel à l'outil, sans texte additionnel.`;
+Réponds uniquement via l'appel à l'outil, sans texte additionnel.${langInstruction(lang)}`;
 
   const response = await client.messages.create(
     {

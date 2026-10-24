@@ -8,6 +8,7 @@ import {
   type Exercise,
 } from "@/lib/programming";
 import { BlockHeader } from "@/components/block-header";
+import { getT } from "@/lib/i18n/server";
 
 export function generateStaticParams() {
   return WODS.map((w) => ({ slug: w.slug }));
@@ -19,9 +20,10 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
+  const { t } = await getT();
   const wod = getWod(slug);
   return {
-    title: wod ? `${wod.name} — WOD · EL COACH METHOD` : "WOD introuvable — EL COACH METHOD",
+    title: wod ? `${wod.name} — WOD · EL COACH METHOD` : t("lg.wods.notFound"),
   };
 }
 
@@ -33,6 +35,7 @@ export default async function WodDetailPage({
   const { slug } = await params;
   const wod = getWod(slug);
   if (!wod) notFound();
+  const { t } = await getT();
 
   return (
     <section className="mx-auto max-w-3xl px-6 py-12">
@@ -40,7 +43,7 @@ export default async function WodDetailPage({
         href="/wods"
         className="label inline-flex items-center gap-2 text-[color:var(--color-mute)] hover:text-white"
       >
-        <ArrowLeft size={14} /> Toute la WOD library
+        <ArrowLeft size={14} /> {t("lg.wods.back")}
       </Link>
 
       <header className="mt-8">
@@ -50,7 +53,7 @@ export default async function WodDetailPage({
         </h1>
         <div className="mono mt-3 text-sm text-[color:var(--color-mute)]">
           {wod.scheme}
-          {wod.timeCap && <> · time cap {wod.timeCap}</>}
+          {wod.timeCap && <>{t("lg.wods.timeCapInline", { x: wod.timeCap })}</>}
         </div>
         <p className="mt-6 text-base text-[color:var(--color-mute)] md:text-lg">
           {wod.description}
@@ -78,10 +81,10 @@ export default async function WodDetailPage({
           href={`/dashboard/session?wod=${wod.slug}`}
           className="btn-primary justify-center"
         >
-          <Play size={14} /> Lancer ce WOD maintenant
+          <Play size={14} /> {t("lg.wods.launch")}
         </Link>
         <Link href="/wods" className="btn-ghost justify-center">
-          Choisir un autre WOD
+          {t("lg.wods.other")}
         </Link>
       </div>
     </section>

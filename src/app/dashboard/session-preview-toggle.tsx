@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import styles from "./dashboard.module.css";
 import { ApercuPanel } from "./apercu-panel";
+import { useT } from "@/lib/i18n/provider";
 
 /**
  * Remplace l'ancien <details>/<summary> (doc H.3) : ouvrir l'aperçu à
@@ -36,6 +37,7 @@ export function SessionPreviewToggle({
   durationLabel?: string;
   children: ReactNode;
 }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
 
   if (open) {
@@ -57,10 +59,10 @@ export function SessionPreviewToggle({
   return (
     <div className={styles.upcomingCtaRow}>
       <button type="button" className={styles.upcomingPreviewBtn} onClick={() => setOpen(true)}>
-        👁 APERÇU
+        {t("dash.preview.open")}
       </button>
       <Link href={startHref} className={styles.upcomingStartBtn}>
-        DÉMARRER →
+        {t("dash.preview.start")}
       </Link>
     </div>
   );

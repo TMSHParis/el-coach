@@ -11,6 +11,8 @@ import { signup } from "./signup";
 import { app } from "./app";
 import { legacy } from "./legacy";
 import { server } from "./server";
+import { notif } from "./notif";
+import { settings } from "./settings";
 
 export const DICT = {
   ...core,
@@ -22,6 +24,8 @@ export const DICT = {
   ...app,
   ...legacy,
   ...server,
+  ...notif,
+  ...settings,
 } as const;
 
 export type DictKey = keyof typeof DICT;

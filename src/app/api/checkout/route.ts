@@ -3,20 +3,22 @@ import { auth } from "@clerk/nextjs/server";
 import { stripe, stripeEnabled } from "@/lib/stripe";
 import { clerkEnabled } from "@/lib/clerk";
 import { getProgram } from "@/lib/data";
+import { getT } from "@/lib/i18n/server";
 
 export async function POST(req: Request) {
+  const { t } = await getT();
   if (!stripeEnabled || !stripe) {
     return NextResponse.json(
-      { error: "Stripe non configuré. Ajoute STRIPE_SECRET_KEY dans les variables d'environnement." },
+      { error: t("app.api.stripeNotConfigured") },
       { status: 503 },
     );
   }
 
   const { programSlug } = (await req.json()) as { programSlug?: string };
-  if (!programSlug) return NextResponse.json({ error: "programSlug requis" }, { status: 400 });
+  if (!programSlug) return NextResponse.json({ error: t("app.api.programSlugRequired") }, { status: 400 });
 
   const program = getProgram(programSlug);
-  if (!program) return NextResponse.json({ error: "Programme introuvable" }, { status: 404 });
+  if (!program) return NextResponse.json({ error: t("app.api.programNotFound") }, { status: 404 });
 
   let userId: string | null = null;
   let email: string | undefined;
@@ -24,7 +26,7 @@ export async function POST(req: Request) {
     const session = await auth();
     userId = session.userId;
     if (!userId) {
-      return NextResponse.json({ error: "Authentification requise" }, { status: 401 });
+      return NextResponse.json({ error: t("app.api.authRequired") }, { status: 401 });
     }
   }
 

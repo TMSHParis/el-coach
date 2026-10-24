@@ -5,6 +5,7 @@
 
 import type { Block, Day } from "./programming";
 import { COACH_PARAMS, type SessionFormat } from "./coach-params";
+import { makeT, type Translate } from "./i18n";
 
 export type ModularVariant = "complete" | "nofinisher" | "short";
 export type ReadinessState = "green" | "yellow" | "red";
@@ -20,6 +21,10 @@ export const VARIANT_HINT: Record<ModularVariant, string> = {
   nofinisher: "B1, B2, B3, B5",
   short: "B1, B2, B5",
 };
+
+/** Libellé / repère d'une variante dans la langue active (VARIANT_LABEL / VARIANT_HINT restent en français). */
+export const variantLabel = (v: ModularVariant, t: Translate) => t(`dash.variant.${v}`);
+export const variantHint = (v: ModularVariant, t: Translate) => t(`dash.variant.hint.${v}`);
 
 export function parseVariant(value: string | undefined | null): ModularVariant | null {
   return value === "complete" || value === "nofinisher" || value === "short" ? value : null;
@@ -131,18 +136,20 @@ export function suggestModularVariant(input: {
   sessionMinutes: number;
   availableMinutes?: number | null;
   nextDayOverlap?: boolean;
+  t?: Translate;
 }): VariantSuggestion {
+  const t = input.t ?? makeT("fr");
   const reasons: string[] = [];
-  if (input.state === "red") return { variant: "short", reasons: ["état rouge"] };
+  if (input.state === "red") return { variant: "short", reasons: [t("dash.variant.why.red")] };
   if (input.availableMinutes && input.availableMinutes < input.sessionMinutes * 0.7) {
-    return { variant: "short", reasons: [`temps disponible court (${input.availableMinutes} min)`] };
+    return { variant: "short", reasons: [t("dash.variant.why.timeShortMin", { min: input.availableMinutes })] };
   }
-  if (input.state === "yellow") reasons.push("état jaune");
-  if (input.isDeload) reasons.push("semaine de décharge");
+  if (input.state === "yellow") reasons.push(t("dash.variant.why.yellow"));
+  if (input.isDeload) reasons.push(t("dash.variant.why.deload"));
   if ((input.goal === "force" || input.goal === "hypertrophie") && input.sessionMinutes >= COACH_PARAMS.longSessionMinutes)
-    reasons.push("séance déjà longue");
-  if (input.availableMinutes && input.availableMinutes <= COACH_PARAMS.shortTimeMinutes) reasons.push("temps disponible court");
-  if (input.nextDayOverlap) reasons.push("demain sollicite les mêmes groupes");
+    reasons.push(t("dash.variant.why.long"));
+  if (input.availableMinutes && input.availableMinutes <= COACH_PARAMS.shortTimeMinutes) reasons.push(t("dash.variant.why.timeShort"));
+  if (input.nextDayOverlap) reasons.push(t("dash.variant.why.overlap"));
   return reasons.length > 0 ? { variant: "nofinisher", reasons } : { variant: "complete", reasons: [] };
 }
 
@@ -177,6 +184,7 @@ export function resolveModularDay(input: {
   isDeload?: boolean;
   /** Format demandé au check-in (checkin.seanceFormat). */
   format?: string | null;
+  t?: Translate;
 }): { day: Day; variant: ModularVariant; suggestion: VariantSuggestion } {
   const suggestion = suggestModularVariant({
     state: input.state,
@@ -185,12 +193,13 @@ export function resolveModularDay(input: {
     sessionMinutes: input.day.estimatedMinutes,
     availableMinutes: parseAvailableMinutes(input.availableLabel),
     nextDayOverlap: sameStressNextDay(input.day.focus, input.nextDayFocus),
+    t: input.t,
   });
   const variant = input.chosen ?? suggestion.variant;
   const adjusted = applyReadiness(input.day, input.state === "red" ? "red" : input.state);
   // État rouge : B1 + mobilité déjà appliqués ; une variante ne s'y ajoute pas.
   const modular = input.state === "red" ? adjusted : applyModularVariant(adjusted, variant);
-  return { day: applyFormat(modular, parseFormat(input.format)), variant, suggestion };
+  return { day: applyFormat(modular, parseFormat(input.format), input.t), variant, suggestion };
 }
 
 const FORMAT_LIMITS: Record<Exclude<SessionFormat, "complet">, { blocks: number; perBlock: number }> = {
@@ -204,7 +213,7 @@ const FORMAT_LIMITS: Record<Exclude<SessionFormat, "complet">, { blocks: number;
  * conservé (échauffement), B5 aussi (facultatif). Les mouvements viennent de
  * B2 à B4 dans l'ordre : le cœur de séance passe toujours en premier.
  */
-export function applyFormat(day: Day, format: SessionFormat | null): Day {
+export function applyFormat(day: Day, format: SessionFormat | null, t: Translate = makeT("fr")): Day {
   if (!format || format === "complet") return day;
   const roles = blockRoles(day.blocks);
   const warmup = day.blocks.filter((_, i) => roles[i] === "B1");
@@ -221,10 +230,10 @@ export function applyFormat(day: Day, format: SessionFormat | null): Day {
     if (chunk.length > 0) chunks.push(chunk);
   }
   const newBlocks: Block[] = chunks.map((chunk, i) => ({
-    name: format === "un_bloc" ? "Bloc unique" : `Bloc ${i + 1}`,
+    name: format === "un_bloc" ? t("dash.format.single") : t("dash.format.blockN", { n: i + 1 }),
     type: i === 0 ? (work[0]?.type ?? "strength") : "accessory",
     exercises: chunk,
-    notes: format === "un_bloc" ? "Enchaîne les mouvements, repos libre entre les séries." : undefined,
+    notes: format === "un_bloc" ? t("dash.format.singleNote") : undefined,
   }));
   const blocks = [...warmup, ...newBlocks, ...cooldown];
   const minutes = format === "un_bloc" ? 30 : 45;

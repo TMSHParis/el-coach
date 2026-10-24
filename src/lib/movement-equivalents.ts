@@ -5,6 +5,7 @@
 // bouton « Remplacer ». Valeurs de départ à faire valider par un coach.
 
 import { getMovement, type Equipment } from "./movements";
+import { makeT, type DictKey, type Translate } from "./i18n";
 
 export const EQUIVALENTS_TABLE: Record<string, string[]> = {
   // Jambes
@@ -53,29 +54,29 @@ export const EQUIVALENTS_TABLE: Record<string, string[]> = {
 };
 
 /** Libellé du matériel affiché sous le nom d'un équivalent (surcharges par mouvement, puis par matériel). */
-const EQUIPMENT_LABEL_OVERRIDE: Record<string, string> = { "plate-goblet-squat": "Disque", "air-squat": "Aucun matériel" };
-const EQUIPMENT_LABEL: Partial<Record<Equipment, string>> = {
-  none: "Aucun matériel",
-  machine: "Machine",
-  dumbbell: "Haltères",
-  barbell: "Barre",
-  kettlebell: "Kettlebell",
-  cable: "Poulie",
-  bench: "Banc",
-  rack: "Rack",
-  box: "Box",
-  ghd: "GHD",
-  pullup_bar: "Barre de traction",
-  resistance_band: "Élastique",
-  trx: "TRX",
+const EQUIPMENT_LABEL_OVERRIDE: Record<string, DictKey> = { "plate-goblet-squat": "run.equip.plate", "air-squat": "run.equip.none" };
+const EQUIPMENT_LABEL: Partial<Record<Equipment, DictKey>> = {
+  none: "run.equip.none",
+  machine: "run.equip.machine",
+  dumbbell: "run.equip.dumbbell",
+  barbell: "run.equip.barbell",
+  kettlebell: "run.equip.kettlebell",
+  cable: "run.equip.cable",
+  bench: "run.equip.bench",
+  rack: "run.equip.rack",
+  box: "run.equip.box",
+  ghd: "run.equip.ghd",
+  pullup_bar: "run.equip.pullupBar",
+  resistance_band: "run.equip.band",
+  trx: "run.equip.trx",
 };
 
 export type EquivalentOption = { id: string; name: string; equipmentLabel: string; videoUrl?: string };
 
-function equipmentLabelOf(id: string, equipment: Equipment[]): string {
-  if (EQUIPMENT_LABEL_OVERRIDE[id]) return EQUIPMENT_LABEL_OVERRIDE[id];
+function equipmentLabelOf(id: string, equipment: Equipment[], t: Translate): string {
+  if (EQUIPMENT_LABEL_OVERRIDE[id]) return t(EQUIPMENT_LABEL_OVERRIDE[id]);
   const first = equipment.find((e) => e !== "none") ?? "none";
-  return EQUIPMENT_LABEL[first] ?? "Matériel";
+  return t(EQUIPMENT_LABEL[first] ?? "run.equip.generic");
 }
 
 /**
@@ -83,16 +84,23 @@ function equipmentLabelOf(id: string, equipment: Equipment[]): string {
  * (null = tout). Même règle que la sélection des mouvements du moteur : au moins un matériel
  * disponible, ou un mouvement faisable à la maison.
  */
-export function equivalentsFor(movementId: string, allowed: Equipment[] | null): EquivalentOption[] {
+export function equivalentsFor(movementId: string, allowed: Equipment[] | null, t: Translate = makeT("fr")): EquivalentOption[] {
   const out: EquivalentOption[] = [];
   for (const id of EQUIVALENTS_TABLE[movementId] ?? []) {
     const m = getMovement(id);
     if (!m) continue;
     if (allowed && !(m.equipment.some((e) => allowed.includes(e)) || m.tags.includes("home-friendly"))) continue;
-    out.push({ id: m.id, name: m.name, equipmentLabel: equipmentLabelOf(m.id, m.equipment), videoUrl: m.videoUrl });
+    out.push({ id: m.id, name: m.name, equipmentLabel: equipmentLabelOf(m.id, m.equipment, t), videoUrl: m.videoUrl });
   }
   return out.slice(0, 5);
 }
 
 /** Raisons proposées dans la feuille de remplacement (la première est présélectionnée). */
 export const REPLACE_REASONS = ["Machine prise", "Pas de matériel", "Gêne ou douleur", "Autre"] as const;
+/** Clés d'affichage des raisons (la valeur française reste la valeur enregistrée). */
+export const REPLACE_REASON_KEYS: Record<(typeof REPLACE_REASONS)[number], DictKey> = {
+  "Machine prise": "run.reason.machineTaken",
+  "Pas de matériel": "run.reason.noEquipment",
+  "Gêne ou douleur": "run.reason.discomfort",
+  Autre: "run.reason.other",
+};

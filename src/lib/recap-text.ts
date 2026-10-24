@@ -2,6 +2,7 @@
 // données connues : aucune phrase n'affirme ce que l'app ne mesure pas, et
 // chaque comparaison (fourchette, durée) n'est écrite qu'après vérification.
 
+import { makeT, type DictKey, type Translate } from "@/lib/i18n";
 import type { BlocSummary, SessionBlocResult } from "@/app/session/actions";
 
 /** "1h59" — h minuscule partout ; sous une heure : "45 min". */
@@ -15,7 +16,7 @@ export function fmtDurationH(totalSec: number): string {
 export type SerieLike = NonNullable<SessionBlocResult["series"]>[number];
 
 /** "43 kg × 5", "20 reps", "32 kg × 40 m", "0:45" — jamais "—kg". Null si la série est vide. */
-export function fmtSerie(s: SerieLike, kind: string | undefined): string | null {
+export function fmtSerie(s: SerieLike, kind: string | undefined, t: Translate = makeT("fr")): string | null {
   const charge = parseFloat(s.charge);
   const hasCharge = Number.isFinite(charge) && charge > 0;
   const reps = s.reps?.trim();
@@ -24,8 +25,8 @@ export function fmtSerie(s: SerieLike, kind: string | undefined): string | null 
     const g = s.time?.trim();
     const d = s.timeD?.trim();
     if (!g && !d) return null;
-    const t = d ? `G ${g || "—"} · D ${d}` : (g as string);
-    return hasCharge ? `${t} · +${charge} kg` : t;
+    const txt = d ? t("sp.rt.sides", { g: g || "—", d }) : (g as string);
+    return hasCharge ? `${txt} · +${charge} kg` : txt;
   }
   if (kind === "carry") {
     if (!reps) return hasCharge ? `${charge} kg` : null;
@@ -33,7 +34,7 @@ export function fmtSerie(s: SerieLike, kind: string | undefined): string | null 
     return hasCharge ? `${charge} kg × ${reps} ${unit}` : `${reps} ${unit}`;
   }
   if (hasCharge) return reps ? `${charge} kg × ${reps}` : `${charge} kg`;
-  return reps ? `${reps} reps` : null;
+  return reps ? t("sp.rt.reps", { n: reps }) : null;
 }
 
 /** Valeur de tri pour repérer la meilleure série (charge, sinon reps, sinon secondes tenues). */
@@ -78,10 +79,10 @@ const WARMUP_TYPES = ["warmup", "cooldown"];
  * résultats saisis. Séances antérieures sans résumé : on reconstruit les blocs
  * à partir des seuls résultats enregistrés.
  */
-export function buildRecapBlocs(summary: BlocSummary[] | undefined, results: SessionBlocResult[]): RecapBloc[] {
+export function buildRecapBlocs(summary: BlocSummary[] | undefined, results: SessionBlocResult[], t: Translate = makeT("fr")): RecapBloc[] {
   const wodLineFor = (r: SessionBlocResult | undefined): string | null => {
     if (!r) return null;
-    const parts = [r.temps && r.temps, r.rounds && `${r.rounds} rounds`, r.score && `${r.score} reps bonus`].filter(Boolean);
+    const parts = [r.temps && r.temps, r.rounds && t("sp.rt.rounds", { n: r.rounds }), r.score && t("sp.rt.bonusReps", { n: r.score })].filter(Boolean);
     return parts.length ? parts.join(" · ") : null;
   };
 
@@ -124,7 +125,7 @@ export function buildRecapBlocs(summary: BlocSummary[] | undefined, results: Ses
       const wod = rs.find((r) => !r.series);
       return {
         bloc,
-        titre: wod?.nom ?? `Bloc ${bloc}`,
+        titre: wod?.nom ?? t("sp.rt.blocN", { n: bloc }),
         type: "unknown",
         done: true,
         wodLine: wodLineFor(wod),
@@ -136,20 +137,20 @@ export function buildRecapBlocs(summary: BlocSummary[] | undefined, results: Ses
 }
 
 /** Résultat clé affiché sur la ligne repliée d'un bloc. */
-export function blocKeyResult(b: RecapBloc): string | null {
+export function blocKeyResult(b: RecapBloc, t: Translate = makeT("fr")): string | null {
   if (WARMUP_TYPES.includes(b.type)) return b.format ?? null;
   if (b.wodLine) return b.wodLine;
   let best: { name: string; text: string; score: number } | null = null;
   for (const it of b.items) {
     if (it.series.length === 0) continue;
     const i = bestSerieIndex(it.series);
-    const text = fmtSerie(it.series[i], it.kind);
+    const text = fmtSerie(it.series[i], it.kind, t);
     if (!text) continue;
     const score = serieScore(it.series[i]);
     if (!best || score > best.score) best = { name: it.name, text, score };
   }
   if (!best) return null;
-  return b.items.length === 1 ? `meilleure série ${best.text}` : `${best.name} : ${best.text}`;
+  return b.items.length === 1 ? t("sp.rt.bestSet", { x: best.text }) : `${best.name} : ${best.text}`;
 }
 
 export type MissingEntry = { bloc: string; elements: string[] };
@@ -161,50 +162,61 @@ export function missingEntries(blocs: RecapBloc[]): MissingEntry[] {
     .filter((e) => e.elements.length > 0);
 }
 
-const MENTAL_WORD: Record<string, string> = { clair: "clair", moyen: "moyen", brouillard: "dans le brouillard" };
+/** Valeur stockée du mental (sans emoji, minuscule) → clé de mot : clair, moyen, brouillard. */
+const MENTAL_KEYS = ["clair", "moyen", "brouillard"] as const;
+function mentalKey(mental: string | null | undefined): (typeof MENTAL_KEYS)[number] | null {
+  const k = (mental ?? "").replace(/[^\p{L}]/gu, "").toLowerCase();
+  return (MENTAL_KEYS as readonly string[]).includes(k) ? (k as (typeof MENTAL_KEYS)[number]) : null;
+}
 
 /** « Mental clair » pour la pastille de la page de fin d'activité — null si non renseigné. */
-export function mentalLabel(mental: string | null | undefined): string | null {
-  const word = MENTAL_WORD[(mental ?? "").replace(/[^\p{L}]/gu, "").toLowerCase()];
-  return word ? `Mental ${word}` : null;
+export function mentalLabel(mental: string | null | undefined, t: Translate = makeT("fr")): string | null {
+  const k = mentalKey(mental);
+  return k ? t(`sp.rt.mental.${k}` as DictKey) : null;
 }
 
 /**
  * Message du coach pour une activité libre (situation B) : positif, appuyé sur la durée et l'énergie,
  * jamais de pourcentage.
  */
-export function freeActivityMessage(input: { prenom: string; durationSec: number; energie: number | null; recuperation?: boolean }): string {
+export function freeActivityMessage(
+  input: { prenom: string; durationSec: number; energie: number | null; recuperation?: boolean },
+  t: Translate = makeT("fr"),
+): string {
   const who = input.prenom ? `${input.prenom}, ` : "";
-  const energy = input.energie !== null ? ` avec une énergie à ${input.energie}/10` : "";
+  const energy = input.energie !== null ? t("sp.rt.energy", { e: input.energie }) : "";
   if (input.recuperation) {
     const min = Math.max(1, Math.round(input.durationSec / 60));
-    return `${who}${min} minutes de récupération active${energy}. Bouger doucement un jour de repos aide le corps à se régénérer : tu as bien fait.`;
+    return t("sp.rt.freeRecup", { who, min, energy });
   }
-  return `${who}${fmtDurationH(input.durationSec)} d'activité${energy}. Bouger régulièrement entretient ta forme et nourrit ta progression : continue comme ça.`;
+  return t("sp.rt.freeActivity", { who, dur: fmtDurationH(input.durationSec), energy });
 }
 
-export function coachMessage(input: {
-  prenom: string;
-  durationSec: number;
-  percent: number;
-  energie: number | null;
-  mental: string | null;
-  best: { nom: string; charge: number; reps: string } | null;
-  wod: { titre: string; temps: string } | null;
-}): string {
-  const mentalKey = (input.mental ?? "").replace(/[^\p{L}]/gu, "").toLowerCase();
-  const mental = MENTAL_WORD[mentalKey];
+export function coachMessage(
+  input: {
+    prenom: string;
+    durationSec: number;
+    percent: number;
+    energie: number | null;
+    mental: string | null;
+    best: { nom: string; charge: number; reps: string } | null;
+    wod: { titre: string; temps: string } | null;
+  },
+  t: Translate = makeT("fr"),
+): string {
+  const mk = mentalKey(input.mental);
+  const mental = mk ? t(`sp.rt.mw.${mk}` as DictKey) : null;
   let first = `${input.prenom}, ${fmtDurationH(input.durationSec)}`;
-  if (input.energie !== null) first += ` avec une énergie à ${input.energie}/10`;
-  if (mental) first += `${input.energie !== null ? " et" : " avec"} un mental ${mental}`;
-  first += input.percent >= 70 ? " : belle séance." : ` : séance faite à ${input.percent} %.`;
+  if (input.energie !== null) first += t("sp.rt.energy", { e: input.energie });
+  if (mental) first += t(input.energie !== null ? "sp.rt.mentalAnd" : "sp.rt.mentalWith", { m: mental });
+  first += input.percent >= 70 ? t("sp.rt.endGood") : t("sp.rt.endPct", { p: input.percent });
 
   const parts = [first];
   if (input.best) {
     const reps = input.best.reps ? ` × ${input.best.reps}` : "";
-    parts.push(`Ta charge la plus haute du jour : ${input.best.nom}, ${input.best.charge} kg${reps}.`);
+    parts.push(t("sp.rt.bestLift", { nom: input.best.nom, charge: input.best.charge, reps }));
   }
-  if (input.wod) parts.push(`${input.wod.titre} : ${input.wod.temps}.`);
+  if (input.wod) parts.push(t("sp.rt.wod", { titre: input.wod.titre, temps: input.wod.temps }));
   return parts.join(" ");
 }
 
@@ -227,6 +239,7 @@ export function watchDebrief(
   w: WatchData,
   durationSec: number,
   past: { kcal: number | null; durationSec: number | null }[],
+  t: Translate = makeT("fr"),
 ): WatchDebrief {
   if (w.kcalActive === null) return { text: null, gauge: null };
   const kcals = past.map((p) => p.kcal).filter((k): k is number => typeof k === "number" && k > 0);
@@ -234,26 +247,26 @@ export function watchDebrief(
 
   let text =
     w.kcalTotal !== null
-      ? `${w.kcalActive} kcal en activité (${w.kcalTotal} au total, repos inclus)`
-      : `${w.kcalActive} kcal en activité`;
+      ? t("sp.rt.watch.kcalTotal", { a: w.kcalActive, b: w.kcalTotal })
+      : t("sp.rt.watch.kcal", { a: w.kcalActive });
 
   let gauge: WatchDebrief["gauge"] = null;
   if (kcals.length >= 3) {
     const min = Math.min(...kcals);
     const max = Math.max(...kcals);
     gauge = { min, max, value: w.kcalActive };
-    if (w.kcalActive > max) text += ` : au-dessus de tes ${kcals.length} dernières séances (jusqu'à ${max})`;
-    else if (w.kcalActive < min) text += ` : en dessous de tes ${kcals.length} dernières séances (à partir de ${min})`;
-    else text += ` : tu restes dans ta fourchette habituelle (${min} à ${max})`;
+    if (w.kcalActive > max) text += t("sp.rt.watch.above", { n: kcals.length, max });
+    else if (w.kcalActive < min) text += t("sp.rt.watch.below", { n: kcals.length, min });
+    else text += t("sp.rt.watch.within", { min, max });
   }
   text += ".";
 
   if (durs.length >= 3) {
     const min = Math.min(...durs);
     const max = Math.max(...durs);
-    if (durationSec > max) text += ` Ta séance la plus longue de tes ${durs.length} dernières (${fmtDurationH(durationSec)}).`;
-    else if (durationSec < min) text += ` Plus courte que tes ${durs.length} dernières séances (${fmtDurationH(durationSec)}).`;
-    else text += ` Durée dans ta fourchette habituelle (${fmtDurationH(min)}–${fmtDurationH(max)}).`;
+    if (durationSec > max) text += t("sp.rt.dur.longest", { n: durs.length, d: fmtDurationH(durationSec) });
+    else if (durationSec < min) text += t("sp.rt.dur.shorter", { n: durs.length, d: fmtDurationH(durationSec) });
+    else text += t("sp.rt.dur.within", { min: fmtDurationH(min), max: fmtDurationH(max) });
   }
   return { text, gauge };
 }

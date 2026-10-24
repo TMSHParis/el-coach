@@ -7,7 +7,8 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { DisplayBlock } from "@/lib/session-format";
-import { SESSION_FEELINGS } from "@/lib/session-feeling";
+import { SESSION_FEELINGS, feelingLabel } from "@/lib/session-feeling";
+import { useT } from "@/lib/i18n/provider";
 import { saveRecoveryActivity } from "./actions";
 import { RecoveryBlocks } from "./recovery-blocks";
 import styles from "./recovery-page.module.css";
@@ -34,6 +35,7 @@ export function RecoveryPage({
   seance: string;
   dateLabel: string;
 }) {
+  const t = useT();
   const router = useRouter();
   // Chrono libre : horodatages, il continue app en arrière-plan.
   const [accMs, setAccMs] = useState(0);
@@ -92,7 +94,7 @@ export function RecoveryPage({
     <div className={styles.root}>
       <div className={styles.top}>
         <Link href="/" className={styles.back}>
-          ← Accueil
+          {t("sp.back")}
         </Link>
         <span className={styles.topDate}>{dateLabel}</span>
       </div>
@@ -100,13 +102,13 @@ export function RecoveryPage({
       <div className={styles.header}>
         <div className={styles.status}>
           <span className={styles.dot} />
-          Récupération du jour
+          {t("sp.rec.status")}
         </div>
         <div className={styles.headMain}>
-          <div className={styles.big}>RÉCUP</div>
+          <div className={styles.big}>{t("sp.rec.big")}</div>
           <div className={styles.headRight}>
-            <div className={styles.headName}>🚶 Récupération active</div>
-            <div className={styles.headSub}>{duration} · rien à valider</div>
+            <div className={styles.headName}>{t("sp.rec.name")}</div>
+            <div className={styles.headSub}>{t("sp.rec.sub", { d: duration })}</div>
           </div>
         </div>
       </div>
@@ -114,43 +116,43 @@ export function RecoveryPage({
       <div className={styles.chronoCard}>
         <div>
           <div className={styles.chrono}>{fmt(elapsedSec)}</div>
-          <div className={styles.chronoSub}>Chrono libre, facultatif</div>
+          <div className={styles.chronoSub}>{t("sp.rec.chronoSub")}</div>
         </div>
         <button type="button" className={styles.chronoBtn} onClick={toggleChrono}>
-          {startedAt !== null ? "⏸ Pause" : hasChrono ? "▶️ Reprendre" : "▶️ Démarrer"}
+          {startedAt !== null ? t("sp.rec.pause") : hasChrono ? t("sp.rec.resume") : t("sp.rec.start")}
         </button>
       </div>
 
       <div className={styles.sectionTitle}>
-        <span>Tes mouvements</span>
+        <span>{t("sp.yourMovements")}</span>
       </div>
-      <p className={styles.help}>Consulte les mouvements quand tu veux. Les ▶️ ouvrent les vidéos.</p>
+      <p className={styles.help}>{t("sp.moveHelp")}</p>
       <RecoveryBlocks blocks={blocks} />
 
       <div data-bottom-bar className={styles.ctaBar}>
         <button type="button" className={styles.cta} onClick={openSheet}>
-          J&apos;AI TERMINÉ
+          {t("sp.rec.finish")}
         </button>
       </div>
 
       {sheet && (
         <div data-hide-scroll-top className={styles.overlay} onClick={() => setSheet(false)}>
-          <div className={styles.sheet} role="dialog" aria-label="Enregistrer mon activité" onClick={(e) => e.stopPropagation()}>
-            <div className={styles.sheetTitle}>Enregistrer mon activité</div>
-            <div className={styles.sheetHelp}>Tout est facultatif sauf la durée.</div>
+          <div className={styles.sheet} role="dialog" aria-label={t("sp.rec.saveTitle")} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.sheetTitle}>{t("sp.rec.saveTitle")}</div>
+            <div className={styles.sheetHelp}>{t("sp.rec.sheetHelp")}</div>
 
-            <div className={styles.label}>Durée</div>
+            <div className={styles.label}>{t("sp.rec.duration")}</div>
             <div className={styles.stepper}>
-              <button type="button" className={styles.stepBtn} onClick={() => setMinutes((m) => Math.max(5, m - 5))} aria-label="Moins 5 minutes">
+              <button type="button" className={styles.stepBtn} onClick={() => setMinutes((m) => Math.max(5, m - 5))} aria-label={t("sp.rec.minus5")}>
                 −
               </button>
               <div className={styles.stepVal}>{minutes} min</div>
-              <button type="button" className={styles.stepBtn} onClick={() => setMinutes((m) => m + 5)} aria-label="Plus 5 minutes">
+              <button type="button" className={styles.stepBtn} onClick={() => setMinutes((m) => m + 5)} aria-label={t("sp.rec.plus5")}>
                 ＋
               </button>
             </div>
 
-            <div className={styles.label}>Énergie</div>
+            <div className={styles.label}>{t("sp.rec.energy")}</div>
             <div className={styles.segments}>
               {Array.from({ length: 10 }, (_, i) => (
                 <button
@@ -158,12 +160,12 @@ export function RecoveryPage({
                   type="button"
                   className={energy !== null && i < energy ? styles.segOn : styles.seg}
                   onClick={() => setEnergy(i + 1)}
-                  aria-label={`Énergie ${i + 1} sur 10`}
+                  aria-label={t("sp.rec.energyN", { n: i + 1 })}
                 />
               ))}
             </div>
 
-            <div className={styles.label}>Ressenti</div>
+            <div className={styles.label}>{t("sp.rec.feeling")}</div>
             <div className={styles.tiles}>
               {SESSION_FEELINGS.map((f) => (
                 <button
@@ -174,17 +176,17 @@ export function RecoveryPage({
                   aria-pressed={feeling === f.value}
                 >
                   <span className={styles.tileEmoji}>{f.emoji}</span>
-                  <span className={styles.tileLabel}>{f.label}</span>
+                  <span className={styles.tileLabel}>{feelingLabel(f.value, t)}</span>
                 </button>
               ))}
             </div>
 
-            {error && <div className={styles.error}>Enregistrement impossible, réessaie.</div>}
+            {error && <div className={styles.error}>{t("sp.rec.error")}</div>}
             <button type="button" className={styles.save} onClick={() => void save()} disabled={busy}>
-              ENREGISTRER
+              {t("sp.rec.save")}
             </button>
             <button type="button" className={styles.cancel} onClick={() => setSheet(false)}>
-              Annuler
+              {t("sp.rec.cancel")}
             </button>
           </div>
         </div>

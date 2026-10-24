@@ -10,22 +10,25 @@ import { upgradeChain } from "../chain-actions";
 import type { ChainId } from "@/lib/chains";
 import type { SessionRecapPatch } from "../actions";
 import type { DisplayBlock } from "@/lib/session-format";
-import { SESSION_FEELINGS } from "@/lib/session-feeling";
+import { SESSION_FEELINGS, feelingLabel } from "@/lib/session-feeling";
+import { useT, useLang } from "@/lib/i18n/provider";
+import { tc } from "@/lib/i18n/content";
+import { formatNumber, type Translate } from "@/lib/i18n";
 import { bestSerieIndex, fmtSerie, type MissingEntry, type RecapBloc, type WatchData } from "@/lib/recap-text";
 import { ActivityCard } from "@/app/dashboard/activity-card";
 import { RecoveryBlocks } from "../recovery-blocks";
 import styles from "./recap.module.css";
 
 /** Petit libellé à droite d'un bloc : « Terminé », « 5 × 5 » ou « Non réalisé ». */
-function blocLabel(b: RecapBloc): string {
-  if (!b.done) return "Non réalisé";
+function blocLabel(b: RecapBloc, t: Translate): string {
+  if (!b.done) return t("sp.recap.notDone");
   const lines = b.items.filter((i) => i.series.length > 0);
   if (b.items.length === 1 && lines.length === 1) {
     const s = lines[0].series;
     const reps = s[0]?.reps?.trim();
     if (reps && s.every((x) => x.reps?.trim() === reps)) return `${s.length} × ${reps}`;
   }
-  return "Terminé";
+  return t("sp.recap.done");
 }
 
 export function RecapView({
@@ -76,12 +79,13 @@ export function RecapView({
   /** Cible de l'enregistrement — Session (par date) par défaut. */
   onUpdate?: (date: string, patch: SessionRecapPatch) => Promise<{ ok: boolean }>;
 }) {
+  const t = useT();
+  const { lang } = useLang();
   const [feeling, setFeeling] = useState(initialFeeling);
   const [note, setNote] = useState(initialNote ?? "");
   const [openBlocs, setOpenBlocs] = useState<Set<number>>(new Set());
   const [missingOpen, setMissingOpen] = useState(false);
   const [upgraded, setUpgraded] = useState<Set<string>>(new Set());
-  const noun = situation === "A" ? "cette séance" : "cette activité";
 
   // La note libre s'enregistre après une pause de frappe.
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -112,13 +116,13 @@ export function RecapView({
 
   // Montre : on n'affiche que les mesures reçues.
   const kcal = watch?.kcalActive ?? watch?.kcalUnknown ?? null;
-  const missingWatch = [watch?.effort ? null : "Temps d'effort", watch?.bpm ? null : "fréquence cardiaque"].filter(Boolean) as string[];
+  const missingWatch = [watch?.effort ? null : "effort", watch?.bpm ? null : "bpm"].filter(Boolean) as string[];
 
   return (
     <div className={`${styles.root} ${situation === "B" ? styles.sitB : styles.sitA}`}>
       <div className={styles.top}>
         <Link href="/" className={styles.back}>
-          ← Accueil
+          {t("sp.back")}
         </Link>
         <span className={styles.topDate}>{dateLabel}</span>
       </div>
@@ -141,7 +145,7 @@ export function RecapView({
       {situation === "A" && missing.length > 0 && percent < 100 && (
         <div className={styles.missing}>
           <button type="button" className={styles.missingBtn} onClick={() => setMissingOpen((v) => !v)} aria-expanded={missingOpen}>
-            <span>Ce qui manque</span>
+            <span>{t("sp.recap.missing")}</span>
             <span className={styles.missingPct}>{100 - percent} %</span>
           </button>
           {missingOpen && (
@@ -160,7 +164,7 @@ export function RecapView({
         <div className={styles.coachCard}>
           <div className={styles.ec}>EC</div>
           <div>
-            <div className={styles.coachName}>Ton coach</div>
+            <div className={styles.coachName}>{t("sp.recap.coach")}</div>
             <p className={styles.coachText}>{coachText}</p>
           </div>
         </div>
@@ -173,7 +177,7 @@ export function RecapView({
               <span>{c.nom}</span>
               <span className={c.delta > 0 ? styles.up : styles.down}>
                 {c.delta > 0 ? "+" : ""}
-                {c.delta} kg {c.delta > 0 ? "↑" : "↓"}
+                {formatNumber(lang, c.delta)} kg {c.delta > 0 ? "↑" : "↓"}
               </span>
             </div>
           ))}
@@ -182,7 +186,7 @@ export function RecapView({
 
       {chainProposals.length > 0 && (
         <div className={styles.coachCard} style={{ display: "block" }}>
-          <div className={styles.coachName}>Monter d&apos;un cran ?</div>
+          <div className={styles.coachName}>{t("sp.recap.levelUpQ")}</div>
           {chainProposals.map((p) => (
             <div key={p.chain} className={styles.compareLine}>
               <span>
@@ -197,7 +201,7 @@ export function RecapView({
                   if (res.ok) setUpgraded((u) => new Set(u).add(p.chain));
                 }}
               >
-                {upgraded.has(p.chain) ? "✓ Monté" : "Monter"}
+                {upgraded.has(p.chain) ? t("sp.recap.levelUpDone") : t("sp.recap.levelUp")}
               </button>
             </div>
           ))}
@@ -205,7 +209,7 @@ export function RecapView({
       )}
 
       <div className={styles.sectionTitle}>
-        <span>Ton ressenti</span>
+        <span>{t("sp.recap.feeling")}</span>
       </div>
       <div className={styles.tiles}>
         {SESSION_FEELINGS.map((f) => (
@@ -217,13 +221,13 @@ export function RecapView({
             aria-pressed={feeling === f.value}
           >
             <span className={styles.tileEmoji}>{f.emoji}</span>
-            <span className={styles.tileLabel}>{f.label}</span>
+            <span className={styles.tileLabel}>{feelingLabel(f.value, t)}</span>
           </button>
         ))}
       </div>
       <textarea
         className={styles.noteInput}
-        placeholder={`Une note sur ${noun} ? (facultatif)`}
+        placeholder={t(situation === "A" ? "sp.recap.notePh.session" : "sp.recap.notePh.activity")}
         value={note}
         maxLength={1000}
         onChange={(e) => setNote(e.target.value)}
@@ -232,7 +236,7 @@ export function RecapView({
       {situation === "A" && blocs.length > 0 && (
         <>
           <div className={styles.sectionTitle}>
-            <span>Résultats par bloc</span>
+            <span>{t("sp.recap.blocResults")}</span>
           </div>
           <div className={styles.blocList}>
             {blocs.map((b) => {
@@ -242,15 +246,15 @@ export function RecapView({
                 <div key={b.bloc} className={styles.blocCard}>
                   <button type="button" className={styles.blocHead} onClick={() => toggleBloc(b.bloc)} aria-expanded={open}>
                     <span className={b.done ? styles.blocCheck : styles.blocCheckOff}>{b.done ? "✓" : "–"}</span>
-                    <span className={styles.blocName}>{b.titre}</span>
-                    <span className={styles.blocLabel}>{blocLabel(b)}</span>
+                    <span className={styles.blocName}>{tc(lang, b.titre)}</span>
+                    <span className={styles.blocLabel}>{blocLabel(b, t)}</span>
                     <span className={`${styles.chev} ${open ? styles.chevOpen : ""}`}>▾</span>
                   </button>
                   {open && (
                     <div className={styles.blocBody}>
                       {b.wodLine && <div>{b.wodLine}</div>}
                       {withSeries.length === 0 && !b.wodLine && (
-                        <div>{b.items.length > 0 ? b.items.map((it) => it.name).join(" · ") : "Aucun résultat saisi"}</div>
+                        <div>{b.items.length > 0 ? b.items.map((it) => it.name).join(" · ") : t("sp.recap.noResult")}</div>
                       )}
                       {withSeries.map((it) => {
                         const best = bestSerieIndex(it.series);
@@ -259,11 +263,11 @@ export function RecapView({
                             <Link href={`/progress?movement=${encodeURIComponent(it.name)}`} className={styles.resultName}>
                               {it.name}
                             </Link>
-                            {it.replacedFrom && <span className={styles.replacedNote}> · remplacé, à la place de {it.replacedFrom}</span>}
+                            {it.replacedFrom && <span className={styles.replacedNote}>{t("sp.recap.replaced", { from: it.replacedFrom })}</span>}
                             {" : "}
                             {it.series
                               .map((s, k) => {
-                                const text = fmtSerie(s, it.kind);
+                                const text = fmtSerie(s, it.kind, t);
                                 return text ? (k === best && it.series.length > 1 ? `${text} ★` : text) : null;
                               })
                               .filter(Boolean)
@@ -283,7 +287,7 @@ export function RecapView({
       {situation === "B" && recovery && recovery.length > 0 && (
         <>
           <div className={styles.sectionTitle}>
-            <span>Ta récupération</span>
+            <span>{t("sp.yourRecovery")}</span>
           </div>
           <RecoveryBlocks blocks={recovery} />
         </>
@@ -292,14 +296,14 @@ export function RecapView({
       {watch && (
         <>
           <div className={styles.sectionTitle}>
-            <span>Ta montre</span>
-            <span className={styles.auto}>✓ AUTO</span>
+            <span>{t("sp.recap.watch")}</span>
+            <span className={styles.auto}>{t("sp.recap.auto")}</span>
           </div>
           <div className={styles.watchCard}>
             {kcal !== null && (
               <div className={styles.kcalRow}>
                 <span className={styles.kcal}>{kcal}</span>
-                <span className={styles.kcalUnit}>{watch.kcalActive !== null ? "kcal en activité" : "kcal"}</span>
+                <span className={styles.kcalUnit}>{watch.kcalActive !== null ? t("sp.recap.kcalActive") : "kcal"}</span>
               </div>
             )}
             {(watch.effort || watch.bpm) && (
@@ -307,22 +311,20 @@ export function RecapView({
                 {watch.effort && (
                   <div>
                     <div className={styles.statVal}>{watch.effort}</div>
-                    <div className={styles.statLabel}>Temps d&apos;effort</div>
+                    <div className={styles.statLabel}>{t("sp.recap.effortTime")}</div>
                   </div>
                 )}
                 {watch.bpm && (
                   <div>
                     <div className={styles.statVal}>{watch.bpm}</div>
-                    <div className={styles.statLabel}>BPM moyen</div>
+                    <div className={styles.statLabel}>{t("sp.recap.avgBpm")}</div>
                   </div>
                 )}
               </div>
             )}
             {missingWatch.length > 0 && (
               <p className={styles.watchMissing}>
-                {missingWatch.length === 2
-                  ? "Temps d'effort et fréquence cardiaque : pas de donnée reçue de ta montre."
-                  : `${missingWatch[0].charAt(0).toUpperCase() + missingWatch[0].slice(1)} : pas de donnée reçue de ta montre.`}
+                {t(missingWatch.length === 2 ? "sp.recap.noData.both" : missingWatch[0] === "effort" ? "sp.recap.noData.effort" : "sp.recap.noData.bpm")}
               </p>
             )}
           </div>
@@ -331,7 +333,7 @@ export function RecapView({
 
       <div data-bottom-bar className={styles.ctaBar}>
         <Link href="/dashboard" className={styles.cta}>
-          VOIR MON DASHBOARD
+          {t("sp.dashCta")}
         </Link>
       </div>
     </div>

@@ -1,14 +1,25 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import {
-  getDemoState,
-  resolveTodaySession,
-  DAY_FULL_NAMES,
-} from "@/lib/demo-session";
+import { getDemoState, resolveTodaySession } from "@/lib/demo-session";
 import { getWod } from "@/lib/wods";
 import SessionRunner from "./session-runner";
+import { getT } from "@/lib/i18n/server";
+import type { Translate } from "@/lib/i18n";
 
-export const metadata = { title: "Séance en cours — EL COACH METHOD" };
+export async function generateMetadata() {
+  const { t } = await getT();
+  return { title: t("lg.run.meta") };
+}
+
+const DAY_KEYS = [
+  "lg.day.1",
+  "lg.day.2",
+  "lg.day.3",
+  "lg.day.4",
+  "lg.day.5",
+  "lg.day.6",
+  "lg.day.7",
+] as const;
 
 export default async function SessionRunnerPage({
   searchParams,
@@ -16,6 +27,7 @@ export default async function SessionRunnerPage({
   searchParams: Promise<{ day?: string; wod?: string }>;
 }) {
   const { day: dayParam, wod: wodParam } = await searchParams;
+  const { t } = await getT();
 
   // Cas 1 : un WOD nommé est demandé → séance one-shot.
   if (wodParam) {
@@ -46,49 +58,49 @@ export default async function SessionRunnerPage({
   if (!today) redirect("/dashboard");
 
   if (today.needsFatigueInput) {
-    return <FatigueBlocker />;
+    return <FatigueBlocker t={t} />;
   }
 
   if (today.day.blocks.length === 0) {
-    return <RestBlocker />;
+    return <RestBlocker t={t} />;
   }
 
   return (
     <SessionRunner
       initialBlocks={today.day.blocks}
       templateName={today.template.name}
-      dayLabel={DAY_FULL_NAMES[today.dayNumber - 1]}
+      dayLabel={t(DAY_KEYS[(today.dayNumber - 1) % 7])}
       focus={today.day.focus}
       estimatedMinutes={today.day.estimatedMinutes}
     />
   );
 }
 
-function FatigueBlocker() {
+function FatigueBlocker({ t }: { t: Translate }) {
   return (
     <section className="mx-auto max-w-xl px-6 py-24 text-center">
-      <div className="label">[ COOLDOWN ADAPTATIF ]</div>
-      <h1 className="mt-4 text-3xl font-semibold">Calibre d&apos;abord ta fatigue</h1>
+      <div className="label">{t("lg.run.cooldownLabel")}</div>
+      <h1 className="mt-4 text-3xl font-semibold">{t("lg.run.fatigueFirst")}</h1>
       <p className="mt-4 text-[color:var(--color-mute)]">
-        Aujourd&apos;hui est un jour adaptatif : indique ton état sur le dashboard avant de lancer la séance.
+        {t("lg.run.fatigueBody")}
       </p>
       <Link href="/dashboard" className="btn-primary mt-8 inline-flex">
-        Retour dashboard
+        {t("lg.backDashboard")}
       </Link>
     </section>
   );
 }
 
-function RestBlocker() {
+function RestBlocker({ t }: { t: Translate }) {
   return (
     <section className="mx-auto max-w-xl px-6 py-24 text-center">
-      <div className="label">[ REST ]</div>
-      <h1 className="mt-4 text-3xl font-semibold">Aujourd&apos;hui c&apos;est off.</h1>
+      <div className="label">{t("lg.run.restLabel")}</div>
+      <h1 className="mt-4 text-3xl font-semibold">{t("lg.run.restTitle")}</h1>
       <p className="mt-4 text-[color:var(--color-mute)]">
-        Sommeil, nutrition, récupération. La séance reprend demain.
+        {t("lg.run.restBody")}
       </p>
       <Link href="/dashboard" className="btn-primary mt-8 inline-flex">
-        Retour dashboard
+        {t("lg.backDashboard")}
       </Link>
     </section>
   );

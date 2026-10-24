@@ -5,8 +5,10 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useClerk } from "@clerk/nextjs";
+import { useT } from "@/lib/i18n/provider";
 
 export function MobileDrawer({ signedIn }: { signedIn: boolean }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   // Le header parent a un backdrop-blur, qui crée un containing block CSS pour
   // les descendants `position: fixed` — ça casse le plein écran du drawer.
@@ -40,7 +42,7 @@ export function MobileDrawer({ signedIn }: { signedIn: boolean }) {
       />
 
       <div
-        className={`fixed left-0 top-0 z-[70] h-full w-[70%] max-w-[320px] border-r border-[#222] bg-[#080808] transition-transform duration-[250ms] ease-out ${
+        className={`fixed left-0 top-0 z-[70] h-full w-[70%] max-w-[320px] border-r border-[color:var(--c-222222)] bg-[var(--c-080808)] transition-transform duration-[250ms] ease-out ${
           open ? "translate-x-0" : "-translate-x-full"
         }`}
       >
@@ -48,7 +50,7 @@ export function MobileDrawer({ signedIn }: { signedIn: boolean }) {
           <span className="mono text-xs font-semibold tracking-[0.25em] text-white">
             EL COACH <span className="text-[color:var(--color-gold)]">METHOD</span>
           </span>
-          <button type="button" aria-label="Fermer" onClick={close} className="text-white/70 hover:text-white">
+          <button type="button" aria-label={t("app.drawer.close")} onClick={close} className="text-white/70 hover:text-white">
             ✕
           </button>
         </div>
@@ -59,16 +61,16 @@ export function MobileDrawer({ signedIn }: { signedIn: boolean }) {
             className="py-3 text-xl uppercase tracking-[0.08em] text-white/90 hover:text-white"
             style={{ fontFamily: "var(--font-bebas, sans-serif)" }}
           >
-            Mon Dashboard
+            {t("app.nav.myDashboard")}
           </Link>
-          <div className="my-2 border-t border-[#222]" />
+          <div className="my-2 border-t border-[color:var(--c-222222)]" />
           <Link
             href="/settings"
             onClick={close}
             className="py-3 text-xl uppercase tracking-[0.08em] text-white/90 hover:text-white"
             style={{ fontFamily: "var(--font-bebas, sans-serif)" }}
           >
-            Réglages
+            {t("app.drawer.settings")}
           </Link>
           {signedIn && (
             <button
@@ -77,7 +79,7 @@ export function MobileDrawer({ signedIn }: { signedIn: boolean }) {
               className="py-3 text-left text-xl uppercase tracking-[0.08em] text-white/60 hover:text-white"
               style={{ fontFamily: "var(--font-bebas, sans-serif)" }}
             >
-              Déconnexion
+              {t("app.drawer.signout")}
             </button>
           )}
         </nav>
@@ -89,7 +91,7 @@ export function MobileDrawer({ signedIn }: { signedIn: boolean }) {
     <>
       <button
         type="button"
-        aria-label="Menu"
+        aria-label={t("app.drawer.menu")}
         onClick={() => setOpen(true)}
         className="flex h-9 w-9 flex-col items-center justify-center gap-[5px] md:hidden"
       >

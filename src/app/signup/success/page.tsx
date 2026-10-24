@@ -3,15 +3,21 @@ import { redirect } from "next/navigation";
 import { Check } from "lucide-react";
 import { Logo } from "@/components/logo";
 import { getSignupState } from "../actions";
+import { getT } from "@/lib/i18n/server";
+import { formatDate } from "@/lib/i18n";
 
-export const metadata = { title: "Bienvenue — EL COACH METHOD" };
+export async function generateMetadata() {
+  const { t } = await getT();
+  return { title: t("su.meta.welcome") };
+}
 
 export default async function SignupSuccessPage() {
   const state = await getSignupState();
   if (!state) redirect("/signup");
+  const { t, lang } = await getT();
 
   const trialEndDate = state.trialEndsAt
-    ? new Date(state.trialEndsAt).toLocaleDateString("fr-FR", {
+    ? formatDate(lang, new Date(state.trialEndsAt), {
         day: "2-digit",
         month: "long",
         year: "numeric",
@@ -29,27 +35,27 @@ export default async function SignupSuccessPage() {
       </div>
 
       <h1 className="gold-shimmer mt-6 text-3xl font-semibold tracking-tight md:text-5xl">
-        Bienvenue, {state.firstName}.
+        {t("su.welcome.name", { name: state.firstName })}
       </h1>
 
       <p className="mt-6 max-w-sm text-base text-[color:var(--color-mute)]">
-        Ton compte EL COACH METHOD est créé.
+        {t("su.success.created")}
         {trialEndDate && (
           <>
             <br />
-            Ton essai gratuit court jusqu&apos;au <strong className="text-white">{trialEndDate}</strong>.
+            {t("su.success.trialUntil")} <strong className="text-white">{trialEndDate}</strong>.
           </>
         )}
       </p>
 
       <Link href="/signup/profile" className="btn-primary mt-10 inline-flex">
-        Compléter mon profil →
+        {t("su.success.complete")}
       </Link>
       <Link
         href="/dashboard"
         className="label mt-4 text-[color:var(--color-mute)] hover:text-white"
       >
-        Plus tard, accéder à mon dashboard
+        {t("su.success.later")}
       </Link>
     </section>
   );

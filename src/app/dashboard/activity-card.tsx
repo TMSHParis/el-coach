@@ -6,6 +6,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import styles from "./activity-card.module.css";
+import { useT } from "@/lib/i18n/provider";
 
 export type ActivityCardData = {
   situation: "A" | "B" | "C";
@@ -26,7 +27,7 @@ export type ActivityCardData = {
   recap?: { mental: string | null };
 };
 
-const STATUS_LABEL = { A: "Séance terminée", B: "Activité terminée", C: "Repos prévu aujourd'hui" } as const;
+const STATUS_KEY = { A: "dash.act.statusA", B: "dash.act.statusB", C: "dash.act.statusC" } as const;
 
 /** « 1H59 » dès une heure ; sinon « 41 » + « MIN ». */
 function Duration({ sec }: { sec: number }) {
@@ -47,13 +48,13 @@ function Ring({ percent, size = 56 }: { percent: number; size?: number }) {
   return (
     <div className={styles.ring} style={{ width: size, height: size }}>
       <svg viewBox="0 0 56 56" width={size} height={size} aria-hidden="true">
-        <circle cx="28" cy="28" r={r} fill="none" stroke="#2a2e35" strokeWidth="5" />
+        <circle cx="28" cy="28" r={r} fill="none" stroke="var(--c-2a2e35)" strokeWidth="5" />
         <circle
           cx="28"
           cy="28"
           r={r}
           fill="none"
-          stroke="var(--accent, #E8FF00)"
+          stroke="var(--accent, var(--c-e8ff00))"
           strokeWidth="5"
           strokeLinecap="round"
           strokeDasharray={c}
@@ -68,6 +69,7 @@ function Ring({ percent, size = 56 }: { percent: number; size?: number }) {
 
 /** Message du coach limité à 2 lignes ; « Lire la suite » seulement s'il dépasse. */
 function CoachMessage({ text }: { text: string }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [overflow, setOverflow] = useState(false);
   const ref = useRef<HTMLParagraphElement>(null);
@@ -87,13 +89,13 @@ function CoachMessage({ text }: { text: string }) {
 
   return (
     <div className={styles.coachBody}>
-      <div className={styles.coachName}>Ton coach</div>
+      <div className={styles.coachName}>{t("dash.act.coach")}</div>
       <p ref={ref} className={`${styles.coachText} ${open ? "" : styles.clamp}`}>
         {text}
       </p>
       {(overflow || open) && (
         <button type="button" className={styles.more} onClick={() => setOpen((v) => !v)}>
-          {open ? "Réduire" : "Lire la suite"}
+          {open ? t("dash.act.less") : t("dash.act.more")}
         </button>
       )}
     </div>
@@ -101,13 +103,14 @@ function CoachMessage({ text }: { text: string }) {
 }
 
 export function ActivityCard({ data, showPlus }: { data: ActivityCardData; showPlus: boolean }) {
+  const t = useT();
   const { situation: s } = data;
   return (
     <div className={`${styles.card} ${styles[s]}`}>
       <div className={styles.statusRow}>
         <span className={styles.status}>
           <span className={styles.dot} />
-          {STATUS_LABEL[s]}
+          {t(STATUS_KEY[s])}
         </span>
         <span className={styles.date}>{data.dateLabel}</span>
       </div>
@@ -117,13 +120,13 @@ export function ActivityCard({ data, showPlus }: { data: ActivityCardData; showP
           <div className={styles.restRow}>
             <div className={styles.restIcon}>🛏️</div>
             <div>
-              <div className={styles.restTitle}>Jour de repos</div>
-              <div className={styles.restSub}>Ta semaine prévoit du repos</div>
+              <div className={styles.restTitle}>{t("dash.act.restDay")}</div>
+              <div className={styles.restSub}>{t("dash.act.restSub")}</div>
             </div>
           </div>
           <div className={styles.sep} />
           <p className={styles.restText}>
-            Le sommeil et l&apos;hydratation font partie de la progression. Si tu veux bouger, une marche ou de la mobilité suffit.
+            {t("dash.act.restText")}
           </p>
         </>
       ) : (
@@ -144,13 +147,13 @@ export function ActivityCard({ data, showPlus }: { data: ActivityCardData; showP
             {s === "A" && typeof data.percent === "number" && <Ring percent={data.percent} size={data.recap ? 60 : 56} />}
             {typeof data.energy === "number" && (
               <div className={styles.energy}>
-                <span className={styles.energyLabel}>Énergie</span>
+                <span className={styles.energyLabel}>{t("dash.act.energy")}</span>
                 <div className={styles.bars}>
                   {Array.from({ length: 10 }, (_, i) => (
                     <span key={i} className={`${styles.bar} ${i < (data.energy ?? 0) ? styles.barOn : ""}`} />
                   ))}
                 </div>
-                <span className={styles.energyVal}>{data.energy} sur 10</span>
+                <span className={styles.energyVal}>{t("dash.act.energyVal", { n: data.energy })}</span>
               </div>
             )}
             {data.recap?.mental && (
@@ -180,10 +183,10 @@ export function ActivityCard({ data, showPlus }: { data: ActivityCardData; showP
       {!data.recap && (
       <div className={styles.actions}>
         <Link href={data.detailHref} className={s === "C" ? styles.primaryGhost : styles.primary}>
-          {s === "C" ? "VOIR LA RÉCUPÉRATION" : "VOIR LE DÉTAIL"}
+          {s === "C" ? t("dash.act.seeRecovery") : t("dash.act.seeDetail")}
         </Link>
         {showPlus && (
-          <Link href="/session/add" className={styles.plus} aria-label="Ajouter une activité">
+          <Link href="/session/add" className={styles.plus} aria-label={t("dash.act.addAria")}>
             ＋
           </Link>
         )}
@@ -194,13 +197,15 @@ export function ActivityCard({ data, showPlus }: { data: ActivityCardData; showP
 }
 
 export function ActivitySectionTitle() {
-  return <h2 className={styles.sectionTitle}>Activité du jour</h2>;
+  const t = useT();
+  return <h2 className={styles.sectionTitle}>{t("dash.act.sectionTitle")}</h2>;
 }
 
 export function AddActivityLink() {
+  const t = useT();
   return (
     <Link href="/session/add" className={styles.addLink}>
-      ＋ Ajouter une activité
+      {t("dash.act.addLink")}
     </Link>
   );
 }

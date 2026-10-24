@@ -1,6 +1,8 @@
 // Dernier résultat connu par mouvement — alimente le rappel "dernière fois :
 // 100 kg × 5" et la charge suggérée, sur /session comme sur le compte rendu.
 
+import { LEGACY_MOVEMENT_NAMES } from "./movements";
+
 export type LastResult = {
   date: string;
   charge: number;
@@ -25,7 +27,9 @@ export function buildLastResults(sessions: SessionRow[]): Record<string, LastRes
   for (const session of sessions) {
     const blocs = (session.data as { blocs?: StoredBloc[] } | null)?.blocs ?? [];
     for (const bloc of blocs) {
-      const nom = bloc.nom?.trim();
+      const rawNom = bloc.nom?.trim();
+      // Résultats enregistrés sous un ancien nom français : on les rattache au nom anglais.
+      const nom = rawNom ? (LEGACY_MOVEMENT_NAMES[rawNom] ?? rawNom) : rawNom;
       if (!nom || out[nom] || !bloc.series?.length) continue;
       const best = bloc.series
         .map((s) => ({ charge: parseFloat(String(s.charge ?? "")), reps: String(s.reps ?? "") }))

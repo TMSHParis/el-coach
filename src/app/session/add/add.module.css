@@ -1,14 +1,14 @@
 .root {
-  --bg: #080808;
-  --s: #111;
-  --s2: #161616;
-  --bd: #232323;
-  --g: #C9A84C;
-  --gl: #E8C96A;
-  --gd: rgba(201, 168, 76, 0.10);
-  --w: #fff;
-  --m: #6b6b6b;
-  --t: #d8d8d8;
+  --bg: var(--c-080808);
+  --s: var(--c-111111);
+  --s2: var(--c-161616);
+  --bd: var(--c-232323);
+  --g: var(--c-c9a84c);
+  --gl: var(--c-e8c96a);
+  --gd: color-mix(in srgb, var(--c-c9a84c) 10%, transparent);
+  --w: var(--c-ffffff);
+  --m: var(--ct-6b6b6b);
+  --t: var(--c-d8d8d8);
 
   background: var(--bg);
   color: var(--t);
@@ -28,8 +28,8 @@
 .label { font-size: 11px; color: var(--m); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 8px; }
 
 .select { width: 100%; background: var(--s2); border: 1.5px solid var(--bd); border-radius: 10px; padding: 10px 12px; color: var(--w); font-family: inherit; font-size: 13px; outline: none; appearance: none; cursor: pointer; }
-.select option { background: #111; color: #fff; }
-.select optgroup { background: #0a0a0a; color: var(--g); font-weight: 700; }
+.select option { background: var(--c-111111); color: var(--c-ffffff); }
+.select optgroup { background: var(--c-0a0a0a); color: var(--g); font-weight: 700; }
 
 .accordion { margin-top: 10px; background: var(--s2); border: 1px solid var(--bd); border-radius: 10px; padding: 12px; }
 .accLabel { font-size: 11px; color: var(--m); text-transform: uppercase; letter-spacing: .5px; margin: 0 0 8px; }
@@ -40,8 +40,8 @@
 .chosen { margin-top: 10px; padding: 9px 12px; background: var(--gd); border: 1px solid var(--g); border-radius: 8px; font-size: 13px; color: var(--gl); }
 .chosen strong { font-weight: 600; color: var(--g); }
 
-.error { margin-top: 10px; padding: 9px 12px; background: rgba(224, 82, 82, .08); border: 1px solid rgba(224, 82, 82, .3); border-radius: 8px; font-size: 12px; color: #fca5a5; }
+.error { margin-top: 10px; padding: 9px 12px; background: color-mix(in srgb, var(--c-e05252) 8%, transparent); border: 1px solid color-mix(in srgb, var(--c-e05252) 30%, transparent); border-radius: 8px; font-size: 12px; color: var(--c-fca5a5); }
 .hint { font-size: 10px; color: var(--m); margin-top: 6px; }
 
-.submit { width: 100%; margin-top: 16px; padding: 15px; border: none; border-radius: 12px; font-family: var(--font-bebas, sans-serif); font-size: 16px; letter-spacing: 2px; cursor: pointer; background: linear-gradient(135deg, var(--g), var(--gl)); color: #000; }
+.submit { width: 100%; margin-top: 16px; padding: 15px; border: none; border-radius: 12px; font-family: var(--font-bebas, sans-serif); font-size: 16px; letter-spacing: 2px; cursor: pointer; background: linear-gradient(135deg, var(--g), var(--gl)); color: var(--on-accent); }
 .submit:disabled { opacity: .5; cursor: not-allowed; }

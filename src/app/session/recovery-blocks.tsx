@@ -4,19 +4,22 @@
 // Chaque mouvement garde son bouton vidéo.
 
 import { useState } from "react";
+import { useT } from "@/lib/i18n/provider";
+import type { Translate } from "@/lib/i18n";
 import type { DisplayBlock } from "@/lib/session-format";
 import { VideoModal } from "../dashboard/session/video-modal";
 import styles from "./recovery.module.css";
 
 const ICONS = ["🚶", "⚠️", "🧠"];
 
-function countLabel(b: DisplayBlock, index: number): string {
+function countLabel(b: DisplayBlock, index: number, t: Translate): string {
   const videoItems = b.items.filter((i) => !i.noVideo).length;
-  if (videoItems > 0) return `${videoItems} mouvement${videoItems > 1 ? "s" : ""}`;
-  return index === 2 || /mindset/i.test(b.titre) ? "Mental" : "Conseils";
+  if (videoItems > 0) return t(videoItems > 1 ? "sp.rb.moves.many" : "sp.rb.moves.one", { n: videoItems });
+  return index === 2 || /mindset/i.test(b.titre) ? t("sp.rb.mental") : t("sp.rb.tips");
 }
 
 function MovementRow({ name, qty, detail, videoUrl }: { name: string; qty: string; detail?: string; videoUrl?: string }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   return (
     <div className={styles.row}>
@@ -25,7 +28,7 @@ function MovementRow({ name, qty, detail, videoUrl }: { name: string; qty: strin
         {detail && <div className={styles.rowDetail}>{detail}</div>}
       </div>
       {qty && <div className={styles.rowQty}>{qty}</div>}
-      <button type="button" className={styles.play} onClick={() => setOpen(true)} aria-label={`Vidéo ${name}`}>
+      <button type="button" className={styles.play} onClick={() => setOpen(true)} aria-label={t("sp.rb.video", { name })}>
         ▶
       </button>
       <VideoModal open={open} onClose={() => setOpen(false)} title={name} searchQuery={name} videoUrl={videoUrl} />
@@ -34,6 +37,7 @@ function MovementRow({ name, qty, detail, videoUrl }: { name: string; qty: strin
 }
 
 export function RecoveryBlocks({ blocks }: { blocks: DisplayBlock[] }) {
+  const t = useT();
   const [openIdx, setOpenIdx] = useState<Set<number>>(new Set([0]));
   const toggle = (i: number) =>
     setOpenIdx((prev) => {
@@ -52,7 +56,7 @@ export function RecoveryBlocks({ blocks }: { blocks: DisplayBlock[] }) {
             <button type="button" className={styles.head} onClick={() => toggle(i)} aria-expanded={open}>
               <span className={styles.icon}>{ICONS[i] ?? "•"}</span>
               <span className={styles.name}>{b.titre}</span>
-              <span className={styles.count}>{countLabel(b, i)}</span>
+              <span className={styles.count}>{countLabel(b, i, t)}</span>
               <span className={`${styles.chev} ${open ? styles.chevOpen : ""}`}>▾</span>
             </button>
             {open && (

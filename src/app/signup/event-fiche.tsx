@@ -5,6 +5,8 @@
 // Compétition, par « Améliorer mes performances sportives ».
 
 import { useState } from "react";
+import { useT } from "@/lib/i18n/provider";
+import { dv } from "./display";
 import type { EcmObjectifDetail } from "./actions";
 import {
   EVENT_FAMILIES,
@@ -12,18 +14,18 @@ import {
   FICHE_FIELDS,
   SPORT_PROGRAM,
   crossfitStageDate,
+  familyLabel,
   familyOf,
   sportTitle,
   type EventFamilyId,
   type FicheField,
 } from "@/lib/competition-params";
-import { planFor, weeksLeftLabel } from "@/lib/competition-plan";
+import { planFor } from "@/lib/competition-plan";
 import { SPORT_LABEL_TO_SLUG } from "@/lib/ecm-programs";
 import { todayKey } from "@/lib/date-key";
 import { PhasePath } from "@/components/phase-path";
 import styles from "./event-fiche.module.css";
 
-const FAMILY_LABEL: Record<EventFamilyId, string> = { course: "Course", hybride: "Hybride", combat: "Combat", autre: "Autre" };
 
 /** Champs de la fiche d'un objectif : valeur lue sur l'objectif (date, niveau, catégorie ou fiche libre). */
 export function ficheValue(entry: EcmObjectifDetail, key: string): string {
@@ -58,25 +60,32 @@ export function EventSection({
   onProgramme?: (label: string) => void;
   onPickOtherProgramme?: () => void;
 }) {
+  const t = useT();
   const [tab, setTab] = useState<EventFamilyId>(entry.event ? familyOf(entry.event) : "course");
-  const [dateError, setDateError] = useState<string | null>(null);
+  const [dateError, setDateError] = useState(false);
+  const weeksLeft = (days: number) => {
+    const w = Math.floor(days / 7);
+    if (days <= 0) return t("su.wl.today");
+    if (w === 0) return days > 1 ? t("su.wl.days", { n: days }) : t("su.wl.day1");
+    return w > 1 ? t("su.wl.weeks", { n: w }) : t("su.wl.week1");
+  };
   const family = EVENT_FAMILIES.find((f) => f.id === tab) ?? EVENT_FAMILIES[0];
   const event = entry.event;
 
   function choose(sport: string) {
     // Un seul sport coché à la fois ; changer de sport efface la fiche du précédent.
     if (sport === event) return;
-    setDateError(null);
+    setDateError(false);
     patch({ sousCat: sport === "Autre" ? "Autre" : sport, event: sport, dateExacte: "", categorie: "", priorite: "", fiche: {} });
   }
 
   function setField(f: FicheField, value: string) {
     if (f.key === "date") {
       if (value && !isFuture(value)) {
-        setDateError("La date doit être dans le futur.");
+        setDateError(true);
         return;
       }
-      setDateError(null);
+      setDateError(false);
       // Jour de saisie : sert à raccourcir le plan si la date est proche.
       patch({ dateExacte: value, fiche: { ...(entry.fiche ?? {}), _saisie: todayKey(), _approx: "" } });
       return;
@@ -122,7 +131,7 @@ export function EventSection({
             className={tab === f.id ? styles.tabOn : styles.tab}
             onClick={() => setTab(f.id)}
           >
-            {f.label}
+            {familyLabel(f.id, t)}
           </button>
         ))}
       </div>
@@ -130,7 +139,7 @@ export function EventSection({
         {family.sports.map((s) => (
           <div key={s} className={event === s ? styles.rowOn : styles.row} onClick={() => choose(s)} role="radio" aria-checked={event === s}>
             <span className={styles.rowIcon}>{EVENT_ICONS[s] ?? "•"}</span>
-            <span className={styles.rowName}>{s}</span>
+            <span className={styles.rowName}>{dv(t, s)}</span>
             <span className={event === s ? styles.radioOn : styles.radio} />
           </div>
         ))}
@@ -138,11 +147,11 @@ export function EventSection({
 
       {event && (
         <div className={styles.fiche}>
-          <div className={styles.familyTag}>{FAMILY_LABEL[familyOf(event)]}</div>
-          <div className={styles.sportName}>{sportTitle(event)}</div>
+          <div className={styles.familyTag}>{familyLabel(familyOf(event), t)}</div>
+          <div className={styles.sportName}>{sportTitle(event, t)}</div>
           {(FICHE_FIELDS[event] ?? []).map((f) => (
             <div key={f.key} className={styles.field}>
-              <div className={styles.fieldLabel}>{f.label}</div>
+              <div className={styles.fieldLabel}>{dv(t, f.label)}</div>
               {f.kind === "date" && (
                 <>
                   <div className={styles.dateRow}>
@@ -153,14 +162,14 @@ export function EventSection({
                       value={entry.dateExacte ?? ""}
                       onChange={(e) => setField(f, e.target.value)}
                     />
-                    {plan && <span className={styles.remaining}>{weeksLeftLabel(plan.daysToEvent)}</span>}
+                    {plan && <span className={styles.remaining}>{weeksLeft(plan.daysToEvent)}</span>}
                   </div>
-                  {dateError && <div className={styles.error}>{dateError}</div>}
+                  {dateError && <div className={styles.error}>{t("su.fiche.dateFuture")}</div>}
                   {entry.fiche?._approx === "1" && !dateError && (
-                    <div className={styles.note}>Date approximative d&apos;après ton ancienne réponse : confirme-la.</div>
+                    <div className={styles.note}>{t("su.fiche.dateApprox")}</div>
                   )}
                   {event === "CrossFit Games" && !entry.dateExacte && entry.fiche?.etape && (
-                    <div className={styles.note}>Dates de la prochaine saison pas encore annoncées : saisis la date de l&apos;étape.</div>
+                    <div className={styles.note}>{t("su.fiche.cfNoDates")}</div>
                   )}
                 </>
               )}
@@ -168,7 +177,7 @@ export function EventSection({
                 <input
                   type="text"
                   className={styles.textInput}
-                  placeholder={f.placeholder}
+                  placeholder={f.placeholder ? dv(t, f.placeholder) : undefined}
                   value={ficheValue(entry, f.key)}
                   onChange={(e) => setField(f, e.target.value)}
                 />
@@ -187,10 +196,10 @@ export function EventSection({
               )}
               {f.kind === "choice" && f.options && f.options.length > 8 && (
                 <select className={styles.textInput} value={ficheValue(entry, f.key)} onChange={(e) => setField(f, e.target.value)}>
-                  <option value="">Choisir…</option>
+                  <option value="">{t("su.fiche.choose")}</option>
                   {f.options.map((o) => (
                     <option key={o} value={o}>
-                      {o}
+                      {dv(t, o)}
                     </option>
                   ))}
                 </select>
@@ -204,7 +213,7 @@ export function EventSection({
                       className={ficheValue(entry, f.key) === o ? styles.pillOn : styles.pill}
                       onClick={() => setField(f, o)}
                     >
-                      {o}
+                      {dv(t, o)}
                     </button>
                   ))}
                 </div>
@@ -218,7 +227,7 @@ export function EventSection({
                       className={ficheValue(entry, f.key) === o ? styles.pillOn : styles.pill}
                       onClick={() => setField(f, o)}
                     >
-                      {o === "oui" ? "Oui" : "Non"}
+                      {o === "oui" ? t("su.yes") : t("su.no")}
                     </button>
                   ))}
                 </div>
@@ -228,8 +237,8 @@ export function EventSection({
 
           {plan && (
             <>
-              {plan.shortened && <div className={styles.shortNote}>Date proche : ton plan est raccourci.</div>}
-              <PhasePath plan={plan} />
+              {plan.shortened && <div className={styles.shortNote}>{t("su.fiche.shortened")}</div>}
+              <PhasePath plan={plan} t={t} />
             </>
           )}
 
@@ -238,14 +247,14 @@ export function EventSection({
               {programName ? (
                 <>
                   <div className={styles.programTitle}>
-                    Programme conseillé : {programName}
-                    {mapping.theme ? `, thème ${mapping.theme}` : ""}
+                    {t("su.fiche.recommended", {
+                      name: programName,
+                      theme: mapping.theme ? t("su.fiche.recommendedTheme", { theme: dv(t, mapping.theme) }) : "",
+                    })}
                   </div>
-                  {mapping.note && <div className={styles.note}>{mapping.note}</div>}
+                  {mapping.note && <div className={styles.note}>{dv(t, mapping.note)}</div>}
                   {mapping.competitionMode && (
-                    <div className={styles.note}>
-                      Mode compétition : les thèmes Force, Endurance, Capacité et Haltérophilie ne s&apos;appliquent plus pendant la préparation.
-                    </div>
+                    <div className={styles.note}>{t("su.fiche.compMode")}</div>
                   )}
                   <div className={styles.programActions}>
                     {programLabel && onProgramme && (
@@ -254,24 +263,24 @@ export function EventSection({
                         className={programme === programLabel ? styles.pillOn : styles.programBtn}
                         onClick={() => onProgramme(programLabel)}
                       >
-                        {programme === programLabel ? "Programme actuel" : "Adopter ce programme"}
+                        {programme === programLabel ? t("su.fiche.current") : t("su.fiche.adopt")}
                       </button>
                     )}
                     {onPickOtherProgramme && (
                       <button type="button" className={styles.programBtnGhost} onClick={onPickOtherProgramme}>
-                        Choisir un autre
+                        {t("su.fiche.other")}
                       </button>
                     )}
                   </div>
                 </>
               ) : (
                 <>
-                  <div className={styles.programTitle}>Programme conseillé : aucun imposé</div>
-                  {mapping.note && <div className={styles.note}>{mapping.note}</div>}
+                  <div className={styles.programTitle}>{t("su.fiche.recommendedNone")}</div>
+                  {mapping.note && <div className={styles.note}>{dv(t, mapping.note)}</div>}
                   {onPickOtherProgramme && (
                     <div className={styles.programActions}>
                       <button type="button" className={styles.programBtnGhost} onClick={onPickOtherProgramme}>
-                        Choisir un autre
+                        {t("su.fiche.other")}
                       </button>
                     </div>
                   )}

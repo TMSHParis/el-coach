@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useT } from "@/lib/i18n/provider";
 import { MAX_SESSION_PHOTOS } from "@/lib/session-media";
 import type { HistoriqueSession, PhotoExtraction } from "@/app/api/extract-photo-data/route";
 
@@ -73,7 +74,7 @@ export function SessionPhotos({
   onChange,
   onExtracted,
   analysisContext,
-  accent = "#E8FF00",
+  accent = "var(--c-e8ff00)",
 }: {
   photos: string[];
   onChange: (next: string[]) => void;
@@ -83,6 +84,7 @@ export function SessionPhotos({
   analysisContext?: PhotoAnalysisContext;
   accent?: string;
 }) {
+  const t = useT();
   const inputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -100,13 +102,13 @@ export function SessionPhotos({
       const res = await fetch("/api/session-photo", { method: "POST", body });
       const data = (await res.json()) as { url?: string; error?: string };
       if (!res.ok || !data.url) {
-        setError(data.error ?? "Envoi impossible.");
+        setError(data.error ?? t("sp.photo.errSend"));
         return;
       }
       onChange([...photos, data.url]);
       if (onExtracted) void analyzePhoto(data.url, analysisContext, onExtracted);
     } catch {
-      setError("Envoi impossible — vérifie ta connexion.");
+      setError(t("sp.photo.errNet"));
     } finally {
       setBusy(false);
     }
@@ -123,12 +125,12 @@ export function SessionPhotos({
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={url}
-                alt="Photo de séance"
+                alt={t("sp.photo.alt")}
                 style={{ width: 104, height: 104, objectFit: "cover", borderRadius: 6, display: "block" }}
               />
               <button
                 type="button"
-                aria-label="Supprimer la photo"
+                aria-label={t("sp.photo.remove")}
                 onClick={() => onChange(photos.filter((p) => p !== url))}
                 style={{
                   position: "absolute",
@@ -138,8 +140,8 @@ export function SessionPhotos({
                   height: 24,
                   borderRadius: "50%",
                   border: "none",
-                  background: "#E05252",
-                  color: "#fff",
+                  background: "var(--c-e05252)",
+                  color: "var(--c-ffffff)",
                   fontSize: 15,
                   lineHeight: 1,
                   cursor: "pointer",
@@ -161,11 +163,11 @@ export function SessionPhotos({
           display: "inline-flex",
           alignItems: "center",
           gap: 8,
-          border: `1px solid ${full ? "#2a2a2a" : accent}`,
+          border: `1px solid ${full ? "var(--c-2a2a2a)" : accent}`,
           borderRadius: 6,
           background: "none",
           padding: "10px 16px",
-          color: full ? "#555" : accent,
+          color: full ? "var(--c-555555)" : accent,
           fontSize: 13,
           fontWeight: 600,
           letterSpacing: 1,
@@ -173,14 +175,14 @@ export function SessionPhotos({
           fontFamily: "inherit",
         }}
       >
-        {busy ? "Envoi…" : full ? `📷 ${MAX_SESSION_PHOTOS} photos (maximum)` : "📷 Ajouter une photo"}
+        {busy ? t("sp.photo.busy") : full ? t("sp.photo.full", { n: MAX_SESSION_PHOTOS }) : t("sp.photo.add")}
       </button>
       {!full && (
-        <span style={{ marginLeft: 10, fontSize: 11, color: "#555" }}>
+        <span style={{ marginLeft: 10, fontSize: 11, color: "var(--ct-555555)" }}>
           {photos.length}/{MAX_SESSION_PHOTOS}
         </span>
       )}
-      {error && <div style={{ marginTop: 8, fontSize: 12, color: "#E05252" }}>{error}</div>}
+      {error && <div style={{ marginTop: 8, fontSize: 12, color: "var(--c-e05252)" }}>{error}</div>}
     </div>
   );
 }

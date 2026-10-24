@@ -23,9 +23,9 @@ export function Logo({ size = 32, className, animate = false }: LogoProps) {
     >
       <defs>
         <linearGradient id={id} x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#f4ff7a" />
-          <stop offset="50%" stopColor="#e8ff00" />
-          <stop offset="100%" stopColor="#b8cc00" />
+          <stop offset="0%" stopColor="var(--c-f4ff7a)" />
+          <stop offset="50%" stopColor="var(--c-e8ff00)" />
+          <stop offset="100%" stopColor="var(--c-b8cc00)" />
         </linearGradient>
       </defs>
       {/* Barre supérieure jaune électrique — la signature */}
@@ -59,9 +59,9 @@ export function LogoMark({ size = 24, className }: { size?: number; className?: 
     >
       <defs>
         <linearGradient id="ec-mark-accent" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#f4ff7a" />
-          <stop offset="50%" stopColor="#e8ff00" />
-          <stop offset="100%" stopColor="#b8cc00" />
+          <stop offset="0%" stopColor="var(--c-f4ff7a)" />
+          <stop offset="50%" stopColor="var(--c-e8ff00)" />
+          <stop offset="100%" stopColor="var(--c-b8cc00)" />
         </linearGradient>
       </defs>
       <rect x="2" y="2" width="28" height="28" stroke="currentColor" strokeWidth="1.5" fill="none" />

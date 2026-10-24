@@ -1,4 +1,6 @@
 import { redirect } from "next/navigation";
+import { getT } from "@/lib/i18n/server";
+import type { Translate } from "@/lib/i18n";
 import { prisma } from "@/lib/prisma";
 import { getUserId } from "@/lib/user-id";
 import { generateNonEcmAdvice, isRestDay, type NonEcmAdvice } from "@/lib/ecm-engine";
@@ -8,27 +10,31 @@ import { getExtraActivity, saveExtraActivityResult, updateExtraActivityRecap } f
 import { SessionRunnerV2, type SessionKind } from "../../session-runner-v2";
 import { sessionFontVariables } from "../../session-fonts";
 
-export const metadata = { title: "2e activité — EL COACH METHOD" };
+export async function generateMetadata() {
+  const { t } = await getT();
+  return { title: t("sp.extra.title") };
+}
 
-const FALLBACK_ADVICE: NonEcmAdvice = {
+const fallbackAdvice = (t: Translate): NonEcmAdvice => ({
   dureeEstimee: "30-45 min",
   warmup: [
-    { nom: "Mobilité articulaire générale", duree: "5 min" },
-    { nom: "Montée progressive en intensité", duree: "5 min" },
+    { nom: t("sp.extra.fb.warm1"), duree: "5 min" },
+    { nom: t("sp.extra.fb.warm2"), duree: "5 min" },
   ],
-  prevention: ["Hydrate-toi avant et pendant l'effort.", "Arrête ou ralentis en cas de douleur inhabituelle."],
-  mindset: "Deuxième activité du jour — écoute ton corps, ce n'est pas une compétition.",
-};
+  prevention: [t("sp.extra.fb.prev1"), t("sp.extra.fb.prev2")],
+  mindset: t("sp.extra.fb.mind"),
+});
 
-const FALLBACK_REST_ADVICE: NonEcmAdvice = {
+const fallbackRestAdvice = (t: Translate): NonEcmAdvice => ({
   dureeEstimee: "20-30 min",
-  warmup: [{ nom: "Étirements doux, sans forcer", duree: "10-15 min" }],
-  prevention: ["Évite les efforts intenses aujourd'hui."],
-  mindset: "Le repos fait aussi partie de l'entraînement.",
-};
+  warmup: [{ nom: t("sp.extra.fbRest.warm1"), duree: "10-15 min" }],
+  prevention: [t("sp.extra.fbRest.prev1")],
+  mindset: t("sp.extra.fbRest.mind"),
+});
 
 export default async function ExtraActivityPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  const { t, lang } = await getT();
   const activity = await getExtraActivity(id);
   if (!activity || activity.completed) redirect("/dashboard");
 
@@ -43,13 +49,13 @@ export default async function ExtraActivityPage({ params }: { params: Promise<{ 
 
   let advice: NonEcmAdvice;
   try {
-    advice = await generateNonEcmAdvice({ profile, checkin: { ...checkin, seance: activity.seance } });
+    advice = await generateNonEcmAdvice({ profile, checkin: { ...checkin, seance: activity.seance }, lang });
   } catch (err) {
     console.error("ExtraActivityPage: generateNonEcmAdvice a échoué, repli générique:", err);
-    advice = isRestDay(activity.seance) ? FALLBACK_REST_ADVICE : FALLBACK_ADVICE;
+    advice = isRestDay(activity.seance) ? fallbackRestAdvice(t) : fallbackAdvice(t);
   }
 
-  const session = buildAdviceSession(activity.seance, advice);
+  const session = buildAdviceSession(activity.seance, advice, t);
   const sessionKind: SessionKind = isReposSubtype(activity.seance)
     ? "repos"
     : isRecupSubtype(activity.seance)
@@ -60,7 +66,7 @@ export default async function ExtraActivityPage({ params }: { params: Promise<{ 
     <div className={sessionFontVariables}>
       <SessionRunnerV2
         sessionName={session.titre}
-        sessionMeta={`${session.dureeEstimee} · ${session.blocks.length} blocs`}
+        sessionMeta={t("sp.extra.meta", { d: session.dureeEstimee, n: session.blocks.length })}
         blocks={session.blocks}
         initial={session.blocks.map(() => ({ format: "nft" as const, durationMin: 10, tabataRounds: 8 }))}
         date={activity.date}

@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useT } from "@/lib/i18n/provider";
+import type { DictKey } from "@/lib/i18n";
 import { buildSeanceGroups } from "@/app/checkin/checkin-form";
 import { REPOS_SUBTYPES, RECUP_SUBTYPES, isReposSubtype, isRecupSubtype } from "@/lib/seance-kinds";
 import { addExtraActivity } from "../extra-activity-actions";
@@ -25,6 +27,7 @@ function nowHHMM(): string {
  * repos/récup, doc 12.2) mais isolé — pas de sliders d'état du jour, pas de
  * nouvelle déclaration de sommeil : seule l'activité à ajouter est demandée. */
 export function ActivityPicker({ programmes = [] }: { programmes?: string[] }) {
+  const t = useT();
   const router = useRouter();
   const seanceGroups = buildSeanceGroups(programmes);
   const [seance, setSeance] = useState("");
@@ -51,12 +54,14 @@ export function ActivityPicker({ programmes = [] }: { programmes?: string[] }) {
     setOpen(false);
   }
 
+  // Affichage seulement : la valeur stockée reste le libellé français.
+  const subLabel = (value: string) => (accordionKindOf(value) ? t(`sp.sub.${value}` as DictKey) : value);
   const selectValue = accordion === "repos" ? "__repos__" : accordion === "recup" ? "__recup__" : seance;
   const showChosen = accordion !== null && Boolean(seance);
 
   async function handleSubmit() {
     if (!seance) {
-      setError("Choisis une activité avant de continuer.");
+      setError(t("sp.add.errChoose"));
       return;
     }
     setSubmitting(true);
@@ -65,22 +70,22 @@ export function ActivityPicker({ programmes = [] }: { programmes?: string[] }) {
       const result = await addExtraActivity(seance, heure);
       if (!result.ok) {
         setSubmitting(false);
-        setError("Impossible de créer cette activité pour le moment.");
+        setError(t("sp.add.errCreate"));
         return;
       }
       router.push(`/session/extra/${result.id}`);
     } catch {
       setSubmitting(false);
-      setError("Le serveur n'a pas répondu — réessaie.");
+      setError(t("sp.add.errServer"));
     }
   }
 
   return (
     <div className={styles.card}>
-      <div className={styles.label}>Choisis ton activité</div>
+      <div className={styles.label}>{t("sp.add.choose")}</div>
       <select className={styles.select} value={selectValue} onChange={(e) => onSelectChange(e.target.value)}>
         <option value="" disabled>
-          Choisir une activité...
+          {t("sp.add.placeholder")}
         </option>
         {seanceGroups.map((group) => (
           <optgroup key={group.label} label={group.label}>
@@ -95,11 +100,11 @@ export function ActivityPicker({ programmes = [] }: { programmes?: string[] }) {
 
       {accordion === "repos" && open && (
         <div className={styles.accordion}>
-          <p className={styles.accLabel}>😴 Choisis ton type de repos</p>
+          <p className={styles.accLabel}>{t("sp.add.reposPick")}</p>
           <div className={styles.opts}>
             {REPOS_SUBTYPES.map((o) => (
               <div key={o} className={cx(styles.opt, seance === o && styles.sel)} onClick={() => chooseSubtype(o)}>
-                {o}
+                {subLabel(o)}
               </div>
             ))}
           </div>
@@ -107,11 +112,11 @@ export function ActivityPicker({ programmes = [] }: { programmes?: string[] }) {
       )}
       {accordion === "recup" && open && (
         <div className={styles.accordion}>
-          <p className={styles.accLabel}>🚶 Choisis ta récupération active</p>
+          <p className={styles.accLabel}>{t("sp.add.recupPick")}</p>
           <div className={styles.opts}>
             {RECUP_SUBTYPES.map((o) => (
               <div key={o} className={cx(styles.opt, seance === o && styles.sel)} onClick={() => chooseSubtype(o)}>
-                {o}
+                {subLabel(o)}
               </div>
             ))}
           </div>
@@ -119,20 +124,20 @@ export function ActivityPicker({ programmes = [] }: { programmes?: string[] }) {
       )}
       {showChosen && (
         <div className={styles.chosen}>
-          ✓ Choix retenu : <strong>{seance}</strong>
+          {t("sp.add.chosen")} <strong>{subLabel(seance)}</strong>
         </div>
       )}
 
       <div className={styles.label} style={{ marginTop: 14 }}>
-        Heure réelle
+        {t("sp.add.time")}
       </div>
       <input type="time" className={styles.select} value={heure} onChange={(e) => setHeure(e.target.value)} />
-      <div className={styles.hint}>Détermine la position du bloc sur le dashboard — pas l&apos;ordre dans lequel tu l&apos;ajoutes ici.</div>
+      <div className={styles.hint}>{t("sp.add.timeHint")}</div>
 
       {error && <div className={styles.error}>{error}</div>}
 
       <button type="button" className={styles.submit} disabled={submitting} onClick={handleSubmit}>
-        {submitting ? "Création…" : "⚡ Démarrer cette activité"}
+        {submitting ? t("sp.add.creating") : t("sp.add.start")}
       </button>
     </div>
   );

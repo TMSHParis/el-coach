@@ -1,7 +1,11 @@
 import Link from "next/link";
 import { CheckCircle2 } from "lucide-react";
+import { getT } from "@/lib/i18n/server";
 
-export const metadata = { title: "Candidature envoyée — EL COACH METHOD" };
+export async function generateMetadata() {
+  const { t } = await getT();
+  return { title: t("lg.thanks.meta") };
+}
 
 export default async function ThanksPage({
   searchParams,
@@ -9,25 +13,25 @@ export default async function ThanksPage({
   searchParams: Promise<{ id?: string }>;
 }) {
   const { id } = await searchParams;
+  const { t } = await getT();
   return (
     <section className="mx-auto max-w-2xl px-6 py-28 text-center">
       <CheckCircle2 size={40} className="mx-auto" />
-      <div className="label mt-6">[ CANDIDATURE REÇUE ]</div>
+      <div className="label mt-6">{t("lg.thanks.label")}</div>
       <h1 className="mt-3 text-3xl font-semibold tracking-tight md:text-5xl">
-        Merci. On te répond sous 72h.
+        {t("lg.thanks.h1")}
       </h1>
       {id && (
-        <p className="mono mt-6 text-sm text-[#8a8a8a]">
-          Référence : <span className="text-white">{id}</span>
+        <p className="mono mt-6 text-sm text-[color:var(--c-8a8a8a)]">
+          {t("lg.thanks.ref")} <span className="text-white">{id}</span>
         </p>
       )}
-      <p className="mt-6 text-[#8a8a8a]">
-        Un humain lit chaque candidature. Si ton profil match, on organise un call pour cadrer la
-        publication de ton premier programme.
+      <p className="mt-6 text-[color:var(--c-8a8a8a)]">
+        {t("lg.thanks.body")}
       </p>
       <div className="mt-10 flex justify-center gap-3">
-        <Link href="/marketplace" className="btn-ghost">Explorer la marketplace</Link>
-        <Link href="/" className="btn-primary">Retour accueil</Link>
+        <Link href="/marketplace" className="btn-ghost">{t("lg.thanks.explore")}</Link>
+        <Link href="/" className="btn-primary">{t("lg.thanks.home")}</Link>
       </div>
     </section>
   );

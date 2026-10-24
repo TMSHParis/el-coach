@@ -4,14 +4,10 @@ import { useState, useTransition } from "react";
 import styles from "./dashboard.module.css";
 import { getDayDetail, type DayDetail } from "./actions";
 import { dateKey } from "@/lib/date-key";
+import { useLang } from "@/lib/i18n/provider";
+import { formatDate } from "@/lib/i18n";
 
 const cx = (...classes: (string | false | undefined)[]) => classes.filter(Boolean).join(" ");
-
-const DAYS_FR = ["LUN", "MAR", "MER", "JEU", "VEN", "SAM", "DIM"];
-const MONTHS_FR = [
-  "JANVIER", "FÉVRIER", "MARS", "AVRIL", "MAI", "JUIN",
-  "JUILLET", "AOÛT", "SEPTEMBRE", "OCTOBRE", "NOVEMBRE", "DÉCEMBRE",
-];
 
 function getWeekDays(offset: number): Date[] {
   const now = new Date();
@@ -26,6 +22,7 @@ function getWeekDays(offset: number): Date[] {
 }
 
 export function CalendarWeek({ checkinDates }: { checkinDates: string[] }) {
+  const { lang, t } = useLang();
   const [offset, setOffset] = useState(0);
   const [selected, setSelected] = useState<DayDetail | null>(null);
   const [pending, startTransition] = useTransition();
@@ -34,7 +31,12 @@ export function CalendarWeek({ checkinDates }: { checkinDates: string[] }) {
   const todayStr = now.toDateString();
   const checkinSet = new Set(checkinDates);
   const months = [...new Set(days.map((d) => d.getMonth()))];
-  const monthLabel = months.map((m) => MONTHS_FR[m]).join(" / ") + " " + days[0].getFullYear();
+  const monthLabel =
+    months
+      .map((m) => formatDate(lang, days.find((d) => d.getMonth() === m)!, { month: "long" }).toUpperCase())
+      .join(" / ") +
+    " " +
+    days[0].getFullYear();
 
   function handleDayClick(d: Date) {
     const key = dateKey(d);
@@ -73,7 +75,7 @@ export function CalendarWeek({ checkinDates }: { checkinDates: string[] }) {
               )}
               style={{ cursor: "pointer", border: "none", background: "none" }}
             >
-              <div className={styles.calDayLabel}>{DAYS_FR[i]}</div>
+              <div className={styles.calDayLabel}>{formatDate(lang, d, { weekday: "short" }).replace(".", "").toUpperCase()}</div>
               <div className={styles.calDayNum}>{d.getDate()}</div>
               {hasSession && <div className={styles.calDot} />}
             </button>
@@ -92,18 +94,25 @@ export function CalendarWeek({ checkinDates }: { checkinDates: string[] }) {
           }}
         >
           {pending ? (
-            "Chargement…"
+            t("dash.cal.loading")
           ) : !selected.hasCheckin ? (
             <>
-              <strong style={{ color: "var(--w)" }}>{selected.date}</strong> — Pas de données pour ce jour
+              <strong style={{ color: "var(--w)" }}>{selected.date}</strong> — {t("dash.cal.noData")}
             </>
           ) : (
             <>
               <strong style={{ color: "var(--w)" }}>{selected.date}</strong>
               {selected.ecm ? (
-                <> — Score {selected.ecm.letter} ({selected.ecm.numeric}/100) · {selected.seance ?? "séance non précisée"}</>
+                <>
+                  {" — "}
+                  {t("dash.cal.score", {
+                    letter: selected.ecm.letter,
+                    n: selected.ecm.numeric,
+                    seance: selected.seance ?? t("dash.cal.seanceUnknown"),
+                  })}
+                </>
               ) : (
-                <> — Check-in fait, pas de plan généré ce jour-là</>
+                <> — {t("dash.cal.noPlan")}</>
               )}
             </>
           )}

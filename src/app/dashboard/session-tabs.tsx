@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
 import styles from "./dashboard.module.css";
+import { useT } from "@/lib/i18n/provider";
 
 const cx = (...classes: (string | false | undefined)[]) => classes.filter(Boolean).join(" ");
 
@@ -25,6 +26,7 @@ export function SessionTabs({
   panelA: ReactNode;
   panelB: ReactNode;
 }) {
+  const t = useT();
   const [active, setActive] = useState<"a" | "b">(recommended);
 
   return (
@@ -48,7 +50,7 @@ export function SessionTabs({
                   color: "var(--yellow)",
                 }}
               >
-                REC
+                {t("dash.tabs.rec")}
               </div>
             )}
           </div>
@@ -72,7 +74,7 @@ export function SessionTabs({
                   color: "var(--yellow)",
                 }}
               >
-                REC
+                {t("dash.tabs.rec")}
               </div>
             )}
           </div>

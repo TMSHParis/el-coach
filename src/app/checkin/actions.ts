@@ -30,6 +30,8 @@ import type { Prisma } from "@prisma/client";
 import type { SleepInsight } from "@/lib/coaching-adaptatif-mock";
 import type { Day } from "@/lib/programming";
 import type { CoachTagsByDay } from "@/lib/coach-message";
+import { getLang, getT } from "@/lib/i18n/server";
+import { makeT, type Lang, type Translate } from "@/lib/i18n";
 
 const YEAR = 60 * 60 * 24 * 365;
 const COOKIE_CHECKIN_DATE = "el_coach_checkin_date";
@@ -104,38 +106,40 @@ function isEcmProgram(seance: string | null | undefined): boolean {
   return Boolean(seance && SPORT_LABEL_TO_SLUG[seance]);
 }
 
-const FALLBACK_ADVICE: NonEcmAdvice = {
-  dureeEstimee: "45-60 min",
-  warmup: [
-    { nom: "Mobilité articulaire générale", duree: "5 min" },
-    { nom: "Montée progressive en intensité", duree: "5 min" },
-    { nom: "Activation gainage et fessiers", duree: "3 min" },
-  ],
-  prevention: ["Hydrate-toi avant et pendant l'effort.", "Arrête ou ralentis en cas de douleur inhabituelle."],
-  mindset: "Fais de ton mieux aujourd'hui, à ton rythme.",
-};
+function fallbackAdvice(t: Translate): NonEcmAdvice {
+  return {
+    dureeEstimee: "45-60 min",
+    warmup: [
+      { nom: t("srv.fb.advice.w1"), duree: "5 min" },
+      { nom: t("srv.fb.advice.w2"), duree: "5 min" },
+      { nom: t("srv.fb.advice.w3"), duree: "3 min" },
+    ],
+    prevention: [t("srv.fb.advice.p1"), t("srv.fb.advice.p2")],
+    mindset: t("srv.fb.advice.mindset"),
+  };
+}
 
-const FALLBACK_REST_ADVICE: NonEcmAdvice = {
-  dureeEstimee: "20-30 min",
-  warmup: [
-    { nom: "Étirements doux, sans forcer", duree: "10-15 min" },
-    { nom: "Marche tranquille", duree: "20 min" },
-    { nom: "Hydratation régulière sur la journée", duree: "2 L" },
-  ],
-  prevention: ["Évite les efforts intenses aujourd'hui.", "Surveille toute douleur qui persiste au repos."],
-  mindset: "Le repos fait partie de l'entraînement. Tu progresses aussi aujourd'hui.",
-};
+function fallbackRestAdvice(t: Translate): NonEcmAdvice {
+  return {
+    dureeEstimee: "20-30 min",
+    warmup: [
+      { nom: t("srv.fb.rest.w1"), duree: "10-15 min" },
+      { nom: t("srv.fb.rest.w2"), duree: "20 min" },
+      { nom: t("srv.fb.rest.w3"), duree: "2 L" },
+    ],
+    prevention: [t("srv.fb.rest.p1"), t("srv.fb.rest.p2")],
+    mindset: t("srv.fb.rest.mindset"),
+  };
+}
 
 /** Message mindset de repli (sans Claude) — ton calé sur l'énergie du check-in. */
-function fallbackMindset(prenom: string, payload: { energie: number | null; seance: string | null }): string {
-  const nom = prenom || "Athlète";
-  if (isRestDay(payload.seance)) {
-    return `Jour de repos, ${nom}. Récupère bien — c'est là que le vrai travail se fait.`;
-  }
+function fallbackMindset(prenom: string, payload: { energie: number | null; seance: string | null }, t: Translate): string {
+  const nom = prenom || t("srv.fb.mindset.athlete");
+  if (isRestDay(payload.seance)) return t("srv.fb.mindset.rest", { nom });
   const energie = payload.energie ?? 5;
-  if (energie >= 8) return `${nom}, t'es dans le vert aujourd'hui. Profites-en pour pousser les limites.`;
-  if (energie >= 5) return `Pas le meilleur jour, ${nom}. Mais tu t'es levé et tu vas le faire. C'est ça qui compte.`;
-  return `${nom}, ton corps est dans le rouge. Séance légère aujourd'hui. Pas d'ego.`;
+  if (energie >= 8) return t("srv.fb.mindset.green", { nom });
+  if (energie >= 5) return t("srv.fb.mindset.yellow", { nom });
+  return t("srv.fb.mindset.red", { nom });
 }
 
 /** Analyse déterministe (moteur mock) quand l'appel Claude échoue. */
@@ -153,12 +157,14 @@ function fallbackAnalysis(fatigueScore: number, sleep: SleepInsight) {
 }
 
 /** Alertes sommeil calculées en code (pas par Claude) à partir des vrais check-ins. */
-function sleepAlertsFrom(sleep: SleepInsight) {
-  return sleep.alerts.map((message) => ({
-    level: (message.startsWith("Sommeil profond") ? "warning" : "info") as "warning" | "info",
+function sleepAlertsFrom(sleep: SleepInsight, t: Translate) {
+  // Alerte « profond » (seule ou fusionnée avec REM) = niveau warning ; calculé sur les minutes, pas sur le texte traduit.
+  const deepLow = sleep.lastNight.deepMinutes < 40;
+  return sleep.alerts.map((message, i) => ({
+    level: (deepLow && i === 0 ? "warning" : "info") as "warning" | "info",
     category: "sleep" as const,
     message,
-    hint: "Magnésium augmenté ce soir · écrans off 21h.",
+    hint: t("srv.sleep.hint"),
   }));
 }
 
@@ -186,7 +192,7 @@ export async function submitCheckin(
   payload: CheckinPayload,
 ): Promise<{ ok: true; fatigueScore: number } | { ok: false; error: string }> {
   if (!payload.jambes || payload.douleur === null || !payload.energie || !payload.motivation) {
-    return { ok: false, error: "Complète les champs requis avant de valider." };
+    return { ok: false, error: (await getT()).t("srv.err.checkinRequired") };
   }
 
   const fatigueScore = computeFatigueScore(payload);
@@ -213,6 +219,8 @@ export async function submitCheckin(
 }
 
 async function persistCheckinAndGenerateDashboard(payload: CheckinPayload, fatigueScore: number) {
+  const lang: Lang = await getLang();
+  const t = makeT(lang);
   const userId = await ensureUserId();
   const profile = await prisma.profile.findUnique({ where: { userId } });
   if (!profile) return; // Pas de profil ECM (signup pas complété) → mode mock inchangé.
@@ -293,14 +301,14 @@ async function persistCheckinAndGenerateDashboard(payload: CheckinPayload, fatig
     tags: ((o.output as { coachTags?: string[] } | null)?.coachTags ?? []) as string[],
   }));
 
-  const sleep = buildSleepFromCheckins(recentCheckins);
-  const weight = buildWeightFromCheckins(recentCheckins);
+  const sleep = buildSleepFromCheckins(recentCheckins, lang);
+  const weight = buildWeightFromCheckins(recentCheckins, undefined, lang);
 
   // Message mindset de la page intermédiaire post-check-in — best effort,
   // repli déterministe si Claude échoue (la page ne doit jamais rester vide).
-  const mindsetPromise = generateMindsetMessage({ profile, checkin, recentTags }).catch((err) => {
+  const mindsetPromise = generateMindsetMessage({ profile, checkin, recentTags, lang }).catch((err) => {
     console.error("generateMindsetMessage a échoué, repli sur un message générique:", err);
-    return { message: fallbackMindset(profile.prenom, checkin), tags: [] as string[] };
+    return { message: fallbackMindset(profile.prenom, checkin, t), tags: [] as string[] };
   });
 
   // L'aperçu de demain n'est plus généré ici (partie 5) : la section « Demain » du dashboard
@@ -313,13 +321,13 @@ async function persistCheckinAndGenerateDashboard(payload: CheckinPayload, fatig
   // repos) à la place de Séance A/B.
   if (!isEcmProgram(checkin.seance)) {
     const [analysis, advice] = await Promise.all([
-      generateEcmAnalysis({ profile, checkin, sleep, weight, recentCheckins, withSession: false }).catch((err) => {
+      generateEcmAnalysis({ profile, checkin, sleep, weight, recentCheckins, withSession: false, lang }).catch((err) => {
         console.error("generateEcmAnalysis (sans séance) a échoué, repli sur l'analyse déterministe:", err);
         return fallbackAnalysis(fatigueScore, sleep);
       }),
-      generateNonEcmAdvice({ profile, checkin }).catch((err) => {
+      generateNonEcmAdvice({ profile, checkin, lang }).catch((err) => {
         console.error("generateNonEcmAdvice a échoué, repli sur des conseils génériques:", err);
-        return isRestDay(checkin.seance) ? FALLBACK_REST_ADVICE : FALLBACK_ADVICE;
+        return isRestDay(checkin.seance) ? fallbackRestAdvice(t) : fallbackAdvice(t);
       }),
     ]);
     const mindset = await mindsetPromise;
@@ -328,7 +336,7 @@ async function persistCheckinAndGenerateDashboard(payload: CheckinPayload, fatig
       ...analysis,
       mindsetMessage: mindset.message,
       coachTags: mindset.tags,
-      alerts: [...sleepAlertsFrom(sleep), ...analysis.alerts],
+      alerts: [...sleepAlertsFrom(sleep, t), ...analysis.alerts],
       sleep,
       weight,
       advice,
@@ -365,7 +373,7 @@ async function persistCheckinAndGenerateDashboard(payload: CheckinPayload, fatig
 
   let analysis: EcmStateAnalysisResult & { generatedDay?: EcmAnalysisResult["generatedDay"] };
   try {
-    analysis = await generateEcmAnalysis({ profile, checkin, sleep, weight, recentCheckins, recentMainLifts, weekTypeFocus });
+    analysis = await generateEcmAnalysis({ profile, checkin, sleep, weight, recentCheckins, recentMainLifts, weekTypeFocus, lang });
   } catch (err) {
     console.error("generateEcmAnalysis a échoué, repli sur l'analyse déterministe:", err);
     // Pas de generatedDay : le dashboard retombe sur resolveTodaySession (programme fixe).
@@ -381,7 +389,7 @@ async function persistCheckinAndGenerateDashboard(payload: CheckinPayload, fatig
     recommendedVariant: analysis.recommendedVariant,
     recommendedReason: analysis.recommendedReason,
     stack: analysis.stack,
-    alerts: [...sleepAlertsFrom(sleep), ...analysis.alerts],
+    alerts: [...sleepAlertsFrom(sleep, t), ...analysis.alerts],
     snack: analysis.snack,
     sleep,
     weight,

@@ -5,11 +5,14 @@
 import type { WeekCycle, WeekCycleDayKey } from "@/app/signup/actions";
 import { SPORT_LABEL_TO_SLUG } from "./ecm-programs";
 import { splitIconLabel } from "./standard-week";
-import { normalizeSport } from "./sports-catalog";
+import { normalizeSport, sportLabel } from "./sports-catalog";
+import { makeT, type Lang } from "@/lib/i18n";
+import { tc } from "@/lib/i18n/content";
 import { isEmptyCycle } from "./week-cycle";
 
 export type PlanCard = {
-  /** Valeur envoyée comme « séance du jour » (libellé complet avec icône). */
+  /** `name` et `sub` sont déjà traduits ; `value` reste le libellé français enregistré.
+   * Valeur envoyée comme « séance du jour » (libellé complet avec icône). */
   value: string;
   icon: string;
   name: string;
@@ -34,7 +37,10 @@ export function buildCheckinPlan(
   dayKey: WeekCycleDayKey,
   /** Séance suivante de la suite de chaque programme ECM (clé : libellé du programme). */
   nextByProgram: Record<string, string>,
+  /** Langue d'affichage (nom du sport, « Séance hors ECM ») ; les valeurs restent en français. */
+  lang: Lang = "fr",
 ): CheckinPlan {
+  const t = makeT(lang);
   if (!weekCycle || isEmptyCycle(weekCycle)) return { kind: "none" };
   const day = weekCycle[dayKey];
   const slots = (day?.slots ?? []).filter((s) => s.sport);
@@ -44,13 +50,13 @@ export function buildCheckinPlan(
     .sort((a, b) => heureMinutes(a.s.heure) - heureMinutes(b.s.heure) || a.i - b.i)
     .map(({ s }): PlanCard => {
       const sport = normalizeSport(s.sport);
-      const { icon, label } = splitIconLabel(sport);
+      const { icon, label } = splitIconLabel(sportLabel(sport, lang));
       const ecm = sport in SPORT_LABEL_TO_SLUG;
       return {
         value: sport,
         icon,
         name: label,
-        sub: ecm ? nextByProgram[sport] ?? "" : "Séance hors ECM",
+        sub: ecm ? tc(lang, nextByProgram[sport] ?? "") : t("ci.plan.offEcm"),
         heure: s.heure ?? "",
         duree: s.duree ?? "",
         ecm,

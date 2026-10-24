@@ -10,10 +10,20 @@
 
 import type Anthropic from "@anthropic-ai/sdk";
 import { getAnthropicClient, ECM_ANALYSIS_MODEL } from "./anthropic";
+import { LANG_META, type Lang } from "./i18n";
 
 export type CoachTagsByDay = { date: string; tags: string[] }[];
 
 export type CoachMessageResult = { message: string; tags: string[] };
+
+/**
+ * Consigne de langue à ajouter à chaque prompt Claude : toute la prose visible est rédigée dans la
+ * langue demandée ; les clés JSON/outils, noms de mouvements, de programmes et de formats restent inchangés.
+ */
+export function langInstruction(lang: Lang = "fr"): string {
+  const name = LANG_META[lang].name;
+  return `\nLANGUE DE SORTIE (obligatoire) : rédige TOUT le texte visible par l'athlète (messages, titres, phrases, conseils, libellés, notes) en ${name}, quelle que soit la langue de ces instructions. Les clés techniques de l'outil et les valeurs d'énumération restent inchangées. Les noms de mouvements, de programmes (CrossFit Pure, Hybrid Engine, Hyrox Pure, Volume Block Hypertrophy, At Home) et de formats (For Time, AMRAP, EMOM, Tabata, Superset, Circuit, StraightSets...) restent en anglais, non traduits.`;
+}
 
 /** Résumé des thèmes déjà abordés récemment — à insérer dans le prompt pour éviter les redites. */
 export function formatRecentTags(recent: CoachTagsByDay): string {
@@ -33,6 +43,7 @@ export async function callCoachMessage(opts: {
   toolDescription: string;
   messageDescription: string;
   prompt: string;
+  lang?: Lang;
 }): Promise<CoachMessageResult> {
   const client = getAnthropicClient();
   const tool = {
@@ -59,7 +70,7 @@ export async function callCoachMessage(opts: {
       max_tokens: 300,
       tools: [tool],
       tool_choice: { type: "tool", name: opts.toolName },
-      messages: [{ role: "user", content: opts.prompt }],
+      messages: [{ role: "user", content: opts.prompt + langInstruction(opts.lang) }],
     },
     { timeout: 15_000 },
   );

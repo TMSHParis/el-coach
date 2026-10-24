@@ -5,6 +5,8 @@ import type { ReactNode } from "react";
 import styles from "./dashboard.module.css";
 import { VideoModal } from "./session/video-modal";
 import type { ApercuCardData } from "./apercu-cards";
+import { useT, useLang } from "@/lib/i18n/provider";
+import { tc } from "@/lib/i18n/content";
 
 const cx = (...classes: (string | false | undefined)[]) => classes.filter(Boolean).join(" ");
 
@@ -37,17 +39,18 @@ export function ApercuPanel({
   durationLabel?: string;
   children: ReactNode;
 }) {
+  const t = useT();
   return (
     <div className={styles.apercuPanel}>
       <div className={styles.apercuHeader}>
-        <button type="button" className={styles.apercuBackBtn} onClick={onClose} aria-label="Fermer l'aperçu">
+        <button type="button" className={styles.apercuBackBtn} onClick={onClose} aria-label={t("dash.preview.closeAria")}>
           ←
         </button>
         <div className={styles.apercuHeaderInfo}>
           <div className={styles.apercuHeaderTitle}>{programTitle}</div>
           <div className={styles.apercuHeaderSub}>{subtitle}</div>
         </div>
-        <div className={styles.apercuBadge}>APERÇU</div>
+        <div className={styles.apercuBadge}>{t("dash.preview.badge")}</div>
       </div>
 
       <div className={styles.apercuSummary}>
@@ -63,14 +66,14 @@ export function ApercuPanel({
       <div className={styles.apercuFooter}>
         {durationLabel ? (
           <div>
-            <div className={styles.apercuFooterDurLabel}>Durée estimée</div>
+            <div className={styles.apercuFooterDurLabel}>{t("dash.preview.duration")}</div>
             <div className={styles.apercuFooterDur}>{durationLabel}</div>
           </div>
         ) : (
           <div />
         )}
         <button type="button" className={styles.apercuCloseBtn} onClick={onClose}>
-          FERMER
+          {t("dash.preview.close")}
         </button>
       </div>
     </div>
@@ -79,6 +82,7 @@ export function ApercuPanel({
 
 /** Cartes numérotées en accordéon — la première dépliée (doc H.13 Mission C). */
 export function ApercuCards({ cards }: { cards: ApercuCardData[] }) {
+  const { lang } = useLang();
   const [openIds, setOpenIds] = useState<Set<string>>(() => new Set(cards[0] ? [cards[0].id] : []));
   const toggle = (id: string) =>
     setOpenIds((prev) => {
@@ -102,7 +106,7 @@ export function ApercuCards({ cards }: { cards: ApercuCardData[] }) {
             >
               <div className={styles.apercuCardNum}>{card.number}</div>
               <div className={styles.apercuCardInfo}>
-                <div className={styles.apercuCardTitle}>{card.title}</div>
+                <div className={styles.apercuCardTitle}>{tc(lang, card.title)}</div>
                 {card.label && <div className={styles.apercuCardLabel}>{card.label}</div>}
               </div>
               <div className={cx(styles.apercuChevron, open && styles.apercuChevronOpen)}>▾</div>
@@ -120,7 +124,7 @@ export function ApercuCards({ cards }: { cards: ApercuCardData[] }) {
                     noVideo={it.noVideo}
                   />
                 ))}
-                {card.note && <div className={styles.apercuNote}>{card.note}</div>}
+                {card.note && <div className={styles.apercuNote}>{tc(lang, card.note)}</div>}
               </div>
             )}
           </div>
@@ -148,22 +152,24 @@ function ApercuMovementRow({
   videoUrl?: string;
   noVideo?: boolean;
 }) {
+  const t = useT();
+  const { lang } = useLang();
   const [open, setOpen] = useState(false);
 
   return (
     <div className={styles.apercuItem}>
       <div className={styles.apercuItemInfo}>
-        <div className={styles.apercuItemName}>{name}</div>
-        {detail && <div className={styles.apercuItemDetail}>{detail}</div>}
+        <div className={styles.apercuItemName}>{tc(lang, name)}</div>
+        {detail && <div className={styles.apercuItemDetail}>{tc(lang, detail)}</div>}
       </div>
-      {qty && <div className={styles.apercuItemQty}>{qty}</div>}
+      {qty && <div className={styles.apercuItemQty}>{tc(lang, qty)}</div>}
       {!noVideo && (
         <>
           <button
             type="button"
             className={styles.apercuVideoBtn}
             onClick={() => setOpen(true)}
-            aria-label={`Vidéo ${movementName}`}
+            aria-label={t("dash.videoAria", { name: movementName })}
           >
             ▶️
           </button>

@@ -9,6 +9,8 @@
 import type { Block, Day, Exercise } from "./programming";
 import { blockRoles } from "./session-modular";
 import { COACH_PARAMS } from "./coach-params";
+import { DICT } from "./i18n/dict";
+import { makeT, type DictKey, type Translate } from "./i18n";
 
 export type ThemeDef = { id: string; label: string; description: string; isDefault?: boolean; auto?: boolean };
 
@@ -73,8 +75,36 @@ export function themesFor(slug: string): ThemeDef[] {
 export function defaultThemeFor(slug: string): string {
   return themesFor(slug).find((t) => t.isDefault)?.id ?? "equilibre";
 }
-export function themeLabel(slug: string, id: string): string {
-  return themesFor(slug).find((t) => t.id === id)?.label ?? id;
+export function themeLabel(slug: string, id: string, t: Translate = makeT("fr")): string {
+  const def = themesFor(slug).find((x) => x.id === id);
+  if (!def) return id;
+  const key = `dash.theme.label.${id}`;
+  return key in DICT ? t(key as DictKey) : def.label;
+}
+/** Description d'un thème dans la langue active (le champ `description` reste la version française). */
+export function themeDescription(slug: string, id: string, t: Translate = makeT("fr")): string {
+  const def = themesFor(slug).find((x) => x.id === id);
+  if (!def) return "";
+  const key = id === "equilibre" ? "dash.theme.desc.equilibre" : `dash.theme.desc.${slug}.${id}`;
+  return key in DICT ? t(key as DictKey) : def.description;
+}
+/** Repères Volume Block dans la langue active (VOLUME_BLOCK_MARKS reste la version française). */
+const VBM_LABEL: Record<string, DictKey> = { "Répétitions": "dash.vbm.reps", "Séries": "dash.vbm.sets", Repos: "dash.vbm.rest", Charge: "dash.vbm.load" };
+const VBM_VALUE: Record<string, DictKey> = {
+  "6 à 12": "dash.vbm.6to12",
+  "3 à 4": "dash.vbm.3to4",
+  "1 à 2 min": "dash.vbm.1to2min",
+  lourde: "dash.vbm.heavy",
+  plusieurs: "dash.vbm.several",
+  "2 à 3 min": "dash.vbm.2to3min",
+  "10 à 15 et +": "dash.vbm.10to15",
+  "moins de 2 min": "dash.vbm.lt2min",
+};
+export function volumeBlockMarks(id: string, t: Translate = makeT("fr")): { label: string; value: string }[] {
+  return (VOLUME_BLOCK_MARKS[id] ?? []).map((m) => ({
+    label: VBM_LABEL[m.label] ? t(VBM_LABEL[m.label]) : m.label,
+    value: VBM_VALUE[m.value] ? t(VBM_VALUE[m.value]) : m.value,
+  }));
 }
 
 /**
@@ -176,8 +206,8 @@ export type ThemeEffect = {
   b3DurationFactor?: number;
   /** Finishers (B4) : supprimés. */
   removeFinisher?: boolean;
-  /** Ligne affichée sur la séance : ce que le thème change et qui ne se réduit pas à un chiffre. */
-  note?: string;
+  /** Ligne affichée sur la séance : ce que le thème change et qui ne se réduit pas à un chiffre (clé du dictionnaire). */
+  note?: DictKey;
 };
 
 export const THEME_EFFECTS: Record<string, Record<string, ThemeEffect>> = {
@@ -185,48 +215,48 @@ export const THEME_EFFECTS: Record<string, Record<string, ThemeEffect>> = {
     force: {
       b3DurationFactor: 0.75,
       removeFinisher: true,
-      note: "Thème Force : Back Squat, Strict Press et Deadlift en Build to Heavy, option lourde le vendredi, effort long toutes les 2 semaines.",
+      note: "dash.theme.note.crossfit-pure.force",
     },
     capacite: {
       b2SetsDelta: -1,
       b3DurationFactor: 1.4,
-      note: "Thème Capacité : B2 raccourci, B3 plus long (AMRAP ou EMOM de 15 à 20 min), effort long chaque semaine.",
+      note: "dash.theme.note.crossfit-pure.capacite",
     },
     halterophilie: {
-      note: "Thème Haltérophilie : plus de volume technique le jeudi (clean, snatch, jerk, complexes) ; lundi et vendredi en entretien ; samedi B2 : technique de snatch ou clean.",
+      note: "dash.theme.note.crossfit-pure.halterophilie",
     },
     points_faibles: {
-      note: "Thème Points faibles : tes mouvements choisis s'ajoutent en skill (5 séries courtes, qualité) le mardi et le samedi, 10 à 15 min maximum.",
+      note: "dash.theme.note.crossfit-pure.points_faibles",
     },
   },
   "hybrid-cf-strength": {
     hypertrophie: {
       b3SetsDelta: 1,
       removeFinisher: true,
-      note: "Thème Hypertrophie : lundi et mardi B2 en 4 × 6-8, accessoires en 4 séries, finishers retirés, Zone 2 du mercredi conservée.",
+      note: "dash.theme.note.hybrid-cf-strength.hypertrophie",
     },
     force: {
       b3SetsDelta: -1,
       removeFinisher: true,
-      note: "Thème Force : B2 plus lourd (5 × 3 à 5 × 5), accessoires allégés, finishers supprimés, Zone 2 conservée.",
+      note: "dash.theme.note.hybrid-cf-strength.force",
     },
     endurance: {
       b2SetsDelta: -1,
-      note: "Thème Endurance : force en entretien (une série de moins, charges maintenues), Zone 2 du mercredi de 50 à 60 min, sortie longue du samedi recommandée.",
+      note: "dash.theme.note.hybrid-cf-strength.endurance",
     },
   },
   "hyrox-pure": {
     force: {
       b2SetsDelta: 1,
-      note: "Thème Force : B2 plus lourd (Build to Heavy, 5 séries et moins de reps), mardi en entretien (4 tours), samedi en half.",
+      note: "dash.theme.note.hyrox-pure.force",
     },
     endurance: {
       b2SetsDelta: -1,
       removeFinisher: true,
-      note: "Thème Endurance : force en entretien, mardi à 6 tours, Zone 2 du vendredi de 60 à 75 min, samedi en full si l'état est vert.",
+      note: "dash.theme.note.hyrox-pure.endurance",
     },
     competition: {
-      note: "Mode Compétition : phases et volumes d'après ta date de course.",
+      note: "dash.theme.note.hyrox-pure.competition",
     },
   },
   "volume-block-hypertrophy": {},
@@ -259,10 +289,12 @@ export type BlockContext = {
   week: BlockWeekInfo;
   weakPoints: string[];
   dayNumber: number;
+  /** Traducteur de la langue active (français par défaut). */
+  t?: Translate;
 };
 
 /** Décharge (1.12) : mêmes mouvements, ~60 % du volume, pas de finisher. */
-export function applyDeload(day: Day): Day {
+export function applyDeload(day: Day, t: Translate = makeT("fr")): Day {
   const roles = blockRoles(day.blocks);
   const f = COACH_PARAMS.deloadVolumeFactor;
   const blocks = day.blocks
@@ -276,12 +308,13 @@ export function applyDeload(day: Day): Day {
     ...day,
     blocks,
     estimatedMinutes: Math.max(15, Math.round(day.estimatedMinutes * f)),
-    notes: [day.notes, "Semaine de décharge : environ 60 % du volume, mêmes mouvements, pas de finisher."].filter(Boolean).join(" "),
+    notes: [day.notes, t("dash.theme.deload")].filter(Boolean).join(" "),
   };
 }
 
 /** Applique le thème du bloc puis, si c'est la dernière semaine, la décharge. */
 export function applyBlockToDay(day: Day, ctx: BlockContext): Day {
+  const t = ctx.t ?? makeT("fr");
   let out = day;
   const roles = blockRoles(out.blocks);
 
@@ -318,18 +351,18 @@ export function applyBlockToDay(day: Day, ctx: BlockContext): Day {
       // Points faibles : mouvements choisis ajoutés en skill, le mardi et le samedi.
       if (ctx.theme === "points_faibles" && ctx.weakPoints.length > 0 && (ctx.dayNumber === 2 || ctx.dayNumber === 6)) {
         const skill: Block = {
-          name: "Points faibles",
+          name: t("dash.theme.label.points_faibles"),
           type: "skill",
           format: "StraightSets",
           duration: "12min",
-          exercises: ctx.weakPoints.map((id) => ({ movementId: id, sets: 5, reps: "courtes séries, qualité", rest: "60s" })),
+          exercises: ctx.weakPoints.map((id) => ({ movementId: id, sets: 5, reps: t("dash.theme.weakReps"), rest: "60s" })),
         };
         const at = Math.min(2, blocks.length);
         blocks = [...blocks.slice(0, at), skill, ...blocks.slice(at)];
       }
-      out = { ...out, blocks, notes: [out.notes, eff.note].filter(Boolean).join(" ") };
+      out = { ...out, blocks, notes: [out.notes, eff.note ? t(eff.note) : undefined].filter(Boolean).join(" ") };
     }
   }
 
-  return ctx.week.isDeload ? applyDeload(out) : out;
+  return ctx.week.isDeload ? applyDeload(out, t) : out;
 }

@@ -3,6 +3,7 @@
 // Pur : aucune dépendance serveur, utilisable côté client (fiche) et serveur (dashboard).
 
 import { familyOf, phaseNames, phaseParamsFor, type PhaseKey } from "./competition-params";
+import { makeT, type DictKey, type Translate } from "./i18n";
 
 export type PlanPhase = {
   key: PhaseKey;
@@ -141,30 +142,47 @@ export function phaseWidthPercent(plan: CompetitionPlan, phase: PlanPhase): numb
   return (w / total) * 100;
 }
 
-export function pathTitle(event: string): string {
+export function pathTitle(event: string, t: Translate = makeT("fr")): string {
   const fam = familyOf(event);
-  if (event === "Hyrox" || fam === "course") return "Ton chemin jusqu'à la course";
-  if (fam === "combat") return "Ton chemin jusqu'au combat";
-  return "Ton chemin jusqu'à l'événement";
+  if (event === "Hyrox" || fam === "course") return t("dash.plan.titleRace");
+  if (fam === "combat") return t("dash.plan.titleFight");
+  return t("dash.plan.titleEvent");
 }
 
-export function weeksLeftLabel(daysToEvent: number): string {
+export function weeksLeftLabel(daysToEvent: number, t: Translate = makeT("fr")): string {
   const w = Math.floor(daysToEvent / 7);
-  if (daysToEvent <= 0) return "aujourd'hui";
-  if (w === 0) return `dans ${daysToEvent} jour${daysToEvent > 1 ? "s" : ""}`;
-  return `dans ${w} semaine${w > 1 ? "s" : ""}`;
+  if (daysToEvent <= 0) return t("dash.plan.today");
+  if (w === 0) return t(daysToEvent > 1 ? "dash.plan.days.many" : "dash.plan.days.one", { n: daysToEvent });
+  return t(w > 1 ? "dash.plan.weeks.many" : "dash.plan.weeks.one", { n: w });
 }
 
 /** Ce qui change dans la phase en cours (une phrase). */
-export function planSentence(plan: CompetitionPlan): string {
+export function planSentence(plan: CompetitionPlan, t: Translate = makeT("fr")): string {
   switch (plan.current) {
     case "base":
-      return "On construit la base : régularité, technique et capacité de travail.";
+      return t("dash.plan.base");
     case "specifique":
-      return "Le travail se rapproche de l'effort réel de l'événement.";
+      return t("dash.plan.specifique");
     case "affutage":
-      return `On garde l'intensité et on réduit le volume (${Math.round(plan.volumeFactor * 100)} % du volume normal). Rien de nouveau à ce stade.`;
+      return t("dash.plan.affutage", { n: Math.round(plan.volumeFactor * 100) });
     default:
-      return "Semaine de l'événement : rien de lourd, rien de nouveau.";
+      return t("dash.plan.evenement");
   }
+}
+
+/** Nom de phase (fourni en français par competition-params) dans la langue active. */
+const PHASE_LABEL_KEYS: Record<string, DictKey> = {
+  Base: "dash.phase.base",
+  "Spécifique": "dash.phase.specifique",
+  "Affûtage": "dash.phase.affutage",
+  Course: "dash.phase.course",
+  Construction: "dash.phase.construction",
+  "Événement": "dash.phase.evenement",
+  "Préparation générale": "dash.phase.general",
+  "Camp et affûtage": "dash.phase.camp",
+  Combat: "dash.phase.combat",
+};
+export function phaseLabel(label: string, t: Translate): string {
+  const key = PHASE_LABEL_KEYS[label];
+  return key ? t(key) : label;
 }

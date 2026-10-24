@@ -1,5 +1,7 @@
 import { PageLoading } from "@/components/page-loading";
+import { getT } from "@/lib/i18n/server";
 
-export default function Loading() {
-  return <PageLoading label="Chargement de ton profil…" />;
+export default async function Loading() {
+  const { t } = await getT();
+  return <PageLoading label={t("su.edit.loading")} />;
 }

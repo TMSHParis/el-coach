@@ -9,6 +9,7 @@
 // ============================================================================
 
 import { getMovement } from "./movements";
+import { makeT, type DictKey, type Translate } from "./i18n";
 import type { Block, Day, Exercise } from "./programming";
 import { VOLUME_BLOCK_APPROACH_SETS, VOLUME_BLOCK_DEFAULT_SETS, VOLUME_BLOCK_EXEC_SEC_PER_SET, VOLUME_BLOCK_STRUCTURE } from "./coach-params";
 
@@ -39,35 +40,35 @@ export function detectInjuryAreas(...texts: (string | null | undefined)[]): Inju
   return areas;
 }
 
-type RiskEntry = { areas: InjuryArea[]; replacement: string; reason: string };
+type RiskEntry = { areas: InjuryArea[]; replacement: string; reason: DictKey };
 
 const MOVEMENT_RISK: Record<string, RiskEntry> = {
-  "back-squat": { areas: ["knee", "back"], replacement: "kb-goblet-squat", reason: "Charge et amplitude réduites — protège genoux/dos." },
-  "front-squat": { areas: ["knee", "back"], replacement: "kb-goblet-squat", reason: "Charge et amplitude réduites — protège genoux/dos." },
-  "overhead-squat": { areas: ["shoulder", "knee", "back"], replacement: "kb-goblet-squat", reason: "Retire la charge overhead et la flexion profonde." },
-  deadlift: { areas: ["back", "hamstring"], replacement: "kb-deadlift", reason: "Charge réduite — protège le bas du dos." },
-  rdl: { areas: ["back", "hamstring"], replacement: "dead-bug", reason: "Remplacé par du gainage léger — pas de charge sur la chaîne postérieure." },
-  "kb-swing-russian": { areas: ["back", "hamstring"], replacement: "pallof-press", reason: "Retire le ballant de hanche chargé — protège dos/ischios." },
-  "kb-swing-american": { areas: ["back", "hamstring"], replacement: "pallof-press", reason: "Retire le ballant de hanche chargé — protège dos/ischios." },
-  "strict-press": { areas: ["shoulder"], replacement: "db-floor-press", reason: "Amplitude limitée au sol — retire l'overhead." },
-  "power-snatch": { areas: ["shoulder"], replacement: "kb-swing-russian", reason: "Retire la réception overhead." },
-  "clean-and-jerk": { areas: ["shoulder"], replacement: "power-clean", reason: "Garde le clean, retire le jerk overhead." },
-  thruster: { areas: ["shoulder"], replacement: "front-squat", reason: "Garde le squat, retire la finition overhead." },
-  hspu: { areas: ["shoulder"], replacement: "pike-pushup", reason: "Amplitude overhead réduite." },
-  "handstand-walk": { areas: ["shoulder"], replacement: "bear-crawl", reason: "Retire la charge overhead en appui." },
-  "kipping-pullup": { areas: ["shoulder"], replacement: "ring-row", reason: "Tirage horizontal — retire la suspension overhead." },
-  "ring-dip": { areas: ["shoulder"], replacement: "box-dip", reason: "Amplitude épaule réduite." },
-  "jump-squat": { areas: ["knee"], replacement: "air-squat", reason: "Retire l'impact à la réception." },
-  "jumping-lunge": { areas: ["knee"], replacement: "walking-lunge", reason: "Retire l'impact — garde le pattern de fente." },
-  "box-jump-over": { areas: ["knee"], replacement: "step-up", reason: "Retire l'impact/la réception sautée." },
-  "broad-jump": { areas: ["knee"], replacement: "row", reason: "Cardio sans impact." },
-  "burpee-broad-jump": { areas: ["knee"], replacement: "row", reason: "Cardio sans impact." },
-  "bar-facing-burpee": { areas: ["knee"], replacement: "row", reason: "Cardio sans impact." },
-  "bb-walking-lunge": { areas: ["knee"], replacement: "farmers-carry", reason: "Retire la flexion de genou chargée." },
-  "db-bulgarian": { areas: ["knee"], replacement: "farmers-carry", reason: "Retire la flexion de genou chargée." },
-  "db-box-step-up": { areas: ["knee"], replacement: "farmers-carry", reason: "Retire la flexion de genou chargée." },
-  "ghd-situp": { areas: ["back"], replacement: "hollow-hold", reason: "Retire l'hyperextension lombaire." },
-  "devils-press": { areas: ["shoulder", "back"], replacement: "assault-bike", reason: "Retire l'overhead et la charge lombaire du mouvement complexe." },
+  "back-squat": { areas: ["knee", "back"], replacement: "kb-goblet-squat", reason: "dash.adapt.r1" },
+  "front-squat": { areas: ["knee", "back"], replacement: "kb-goblet-squat", reason: "dash.adapt.r1" },
+  "overhead-squat": { areas: ["shoulder", "knee", "back"], replacement: "kb-goblet-squat", reason: "dash.adapt.r2" },
+  deadlift: { areas: ["back", "hamstring"], replacement: "kb-deadlift", reason: "dash.adapt.r3" },
+  rdl: { areas: ["back", "hamstring"], replacement: "dead-bug", reason: "dash.adapt.r4" },
+  "kb-swing-russian": { areas: ["back", "hamstring"], replacement: "pallof-press", reason: "dash.adapt.r5" },
+  "kb-swing-american": { areas: ["back", "hamstring"], replacement: "pallof-press", reason: "dash.adapt.r5" },
+  "strict-press": { areas: ["shoulder"], replacement: "db-floor-press", reason: "dash.adapt.r6" },
+  "power-snatch": { areas: ["shoulder"], replacement: "kb-swing-russian", reason: "dash.adapt.r7" },
+  "clean-and-jerk": { areas: ["shoulder"], replacement: "power-clean", reason: "dash.adapt.r8" },
+  thruster: { areas: ["shoulder"], replacement: "front-squat", reason: "dash.adapt.r9" },
+  hspu: { areas: ["shoulder"], replacement: "pike-pushup", reason: "dash.adapt.r10" },
+  "handstand-walk": { areas: ["shoulder"], replacement: "bear-crawl", reason: "dash.adapt.r11" },
+  "kipping-pullup": { areas: ["shoulder"], replacement: "ring-row", reason: "dash.adapt.r12" },
+  "ring-dip": { areas: ["shoulder"], replacement: "box-dip", reason: "dash.adapt.r13" },
+  "jump-squat": { areas: ["knee"], replacement: "air-squat", reason: "dash.adapt.r14" },
+  "jumping-lunge": { areas: ["knee"], replacement: "walking-lunge", reason: "dash.adapt.r15" },
+  "box-jump-over": { areas: ["knee"], replacement: "step-up", reason: "dash.adapt.r16" },
+  "broad-jump": { areas: ["knee"], replacement: "row", reason: "dash.adapt.r17" },
+  "burpee-broad-jump": { areas: ["knee"], replacement: "row", reason: "dash.adapt.r17" },
+  "bar-facing-burpee": { areas: ["knee"], replacement: "row", reason: "dash.adapt.r17" },
+  "bb-walking-lunge": { areas: ["knee"], replacement: "farmers-carry", reason: "dash.adapt.r18" },
+  "db-bulgarian": { areas: ["knee"], replacement: "farmers-carry", reason: "dash.adapt.r18" },
+  "db-box-step-up": { areas: ["knee"], replacement: "farmers-carry", reason: "dash.adapt.r18" },
+  "ghd-situp": { areas: ["back"], replacement: "hollow-hold", reason: "dash.adapt.r19" },
+  "devils-press": { areas: ["shoulder", "back"], replacement: "assault-bike", reason: "dash.adapt.r20" },
 };
 
 export type Substitution = { from: string; to: string; reason: string };
@@ -82,16 +83,18 @@ export function substitutionMessage(sub: Substitution): string {
 function adaptExercises(
   exercises: Exercise[],
   activeAreas: InjuryArea[],
+  t: Translate,
 ): { exercises: Exercise[]; substitutions: Substitution[] } {
   const substitutions: Substitution[] = [];
   const out = exercises.map((ex) => {
     const risk = MOVEMENT_RISK[ex.movementId];
     if (!risk || !risk.areas.some((a) => activeAreas.includes(a))) return ex;
-    substitutions.push({ from: ex.movementId, to: risk.replacement, reason: risk.reason });
+    const reason = t(risk.reason);
+    substitutions.push({ from: ex.movementId, to: risk.replacement, reason });
     return {
       ...ex,
       movementId: risk.replacement,
-      notes: ex.notes ? `${ex.notes} · ${risk.reason}` : risk.reason,
+      notes: ex.notes ? `${ex.notes} · ${reason}` : reason,
     };
   });
   return { exercises: out, substitutions };
@@ -101,12 +104,13 @@ function adaptExercises(
 export function adaptDayForInjuries(
   day: Day,
   activeAreas: InjuryArea[],
+  t: Translate = makeT("fr"),
 ): { day: Day; substitutions: Substitution[] } {
   if (activeAreas.length === 0) return { day, substitutions: [] };
 
   const substitutions: Substitution[] = [];
   const blocks: Block[] = day.blocks.map((block) => {
-    const result = adaptExercises(block.exercises, activeAreas);
+    const result = adaptExercises(block.exercises, activeAreas, t);
     substitutions.push(...result.substitutions);
     return { ...block, exercises: result.exercises };
   });
@@ -192,12 +196,12 @@ export function reclassifyMisplacedStrengthBlocks(day: Day): Day {
   return { ...day, blocks };
 }
 
-export function validateGeneratedDay(day: Day, allowedIds: ReadonlySet<string>): Day {
+export function validateGeneratedDay(day: Day, allowedIds: ReadonlySet<string>, t: Translate = makeT("fr")): Day {
   const blocks: Block[] = day.blocks.map((block) => ({
     ...block,
     exercises: block.exercises.map((ex): Exercise => {
       if (allowedIds.has(ex.movementId)) return ex;
-      const reason = `Mouvement non reconnu ("${ex.movementId}") — remplacé par un mouvement neutre.`;
+      const reason = t("dash.adapt.unknown", { id: ex.movementId });
       return {
         ...ex,
         movementId: FALLBACK_MOVEMENT_ID,

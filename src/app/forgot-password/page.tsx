@@ -1,15 +1,20 @@
 import { EcmPageHeader } from "@/app/signup/ecm-shared";
 import { ecmFontVariables } from "@/app/signup/ecm-fonts";
 import { ForgotPasswordForm } from "./forgot-password-form";
+import { getT } from "@/lib/i18n/server";
 
-export const metadata = { title: "Mot de passe oublié · EL COACH METHOD" };
+export async function generateMetadata() {
+  const { t } = await getT();
+  return { title: t("su.meta.forgot") };
+}
 
-export default function ForgotPasswordPage() {
+export default async function ForgotPasswordPage() {
+  const { t } = await getT();
   return (
     <div className={ecmFontVariables}>
       <EcmPageHeader
-        title="Mot de passe oublié."
-        subtitle="On t'envoie un code pour le réinitialiser."
+        title={t("su.forgot.title")}
+        subtitle={t("su.forgot.sub")}
         backHref="/"
       />
       <ForgotPasswordForm />

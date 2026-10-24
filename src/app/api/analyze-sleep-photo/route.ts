@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type Anthropic from "@anthropic-ai/sdk";
 import { getAnthropicClient, SLEEP_VISION_MODEL, anthropicEnabled } from "@/lib/anthropic";
+import { getT } from "@/lib/i18n/server";
 
 export const runtime = "nodejs";
 
@@ -37,16 +38,17 @@ const ANALYZE_TOOL = {
 };
 
 export async function POST(req: Request) {
+  const { t } = await getT();
   if (!anthropicEnabled) {
-    return NextResponse.json({ error: "Analyse photo indisponible (clé API absente)." }, { status: 503 });
+    return NextResponse.json({ error: t("app.api.analysisUnavailable") }, { status: 503 });
   }
 
   const body = (await req.json()) as { imageBase64?: string; mediaType?: string };
   if (!body.imageBase64 || !body.mediaType) {
-    return NextResponse.json({ error: "imageBase64 et mediaType requis." }, { status: 400 });
+    return NextResponse.json({ error: t("app.api.imageRequired") }, { status: 400 });
   }
   if (!["image/jpeg", "image/png", "image/webp"].includes(body.mediaType)) {
-    return NextResponse.json({ error: "Format image non supporté." }, { status: 400 });
+    return NextResponse.json({ error: t("app.api.imageFormat") }, { status: 400 });
   }
 
   try {
@@ -81,12 +83,12 @@ export async function POST(req: Request) {
       (block) => block.type === "tool_use" && block.name === "emit_sleep_photo_analysis",
     ) as Anthropic.ToolUseBlock | undefined;
     if (!toolUse) {
-      return NextResponse.json({ error: "Analyse impossible." }, { status: 502 });
+      return NextResponse.json({ error: t("app.api.analysisFailed") }, { status: 502 });
     }
 
     return NextResponse.json(toolUse.input as SleepPhotoAnalysis);
   } catch (err) {
     console.error("analyze-sleep-photo failed:", err);
-    return NextResponse.json({ error: "Analyse impossible." }, { status: 502 });
+    return NextResponse.json({ error: t("app.api.analysisFailed") }, { status: 502 });
   }
 }

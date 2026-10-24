@@ -1,20 +1,11 @@
 import "server-only";
-import { cookies, headers } from "next/headers";
-import { DEFAULT_LANG, LANG_COOKIE, isLang, langFromLocale, type Lang } from "./lang";
+import { getPrefs } from "../prefs-server";
 import { makeT } from "./index";
+import type { Lang } from "./lang";
 
-/** Langue de la requête : cookie (synchronisé avec le profil), sinon langue de l'appareil, sinon français. */
+/** Langue de la requête (cookie, sinon profil, sinon langue de l'appareil, sinon français). */
 export async function getLang(): Promise<Lang> {
-  try {
-    const jar = await cookies();
-    const c = jar.get(LANG_COOKIE)?.value;
-    if (isLang(c)) return c;
-    const h = await headers();
-    const accept = h.get("accept-language")?.split(",")[0];
-    return accept ? langFromLocale(accept) : DEFAULT_LANG;
-  } catch {
-    return DEFAULT_LANG;
-  }
+  return (await getPrefs()).lang;
 }
 
 export async function getT() {

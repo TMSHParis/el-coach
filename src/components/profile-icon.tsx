@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useT } from "@/lib/i18n/provider";
 
 /** Visible uniquement sur la page d'accueil — ailleurs, chaque page bare a déjà son propre header. */
 export function ProfileIcon({
@@ -14,10 +15,11 @@ export function ProfileIcon({
   initial: string;
 }) {
   const pathname = usePathname();
+  const t = useT();
   if (pathname !== "/") return null;
 
   return (
-    <Link href={signedIn ? "/account" : "/signin"} aria-label="Mon compte">
+    <Link href={signedIn ? "/account" : "/signin"} aria-label={t("nav.account")}>
       {signedIn && imageUrl ? (
         // eslint-disable-next-line @next/next/no-img-element -- avatar Clerk externe, taille fixe 36px
         <img src={imageUrl} alt="" className="h-9 w-9 rounded-full border border-white/20 object-cover" />

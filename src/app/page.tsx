@@ -5,6 +5,8 @@ import { ecmFontVariables } from "@/app/signup/ecm-fonts";
 import { isCheckinDoneToday } from "@/app/checkin/actions";
 import { prisma } from "@/lib/prisma";
 import { todayKey } from "@/lib/date-key";
+import { getT } from "@/lib/i18n/server";
+import type { Translate } from "@/lib/i18n";
 
 /** "anon" = déconnecté · "todo" = connecté, check-in pas fait · "done" = check-in du jour fait. */
 type HomeState = "anon" | "todo" | "done";
@@ -23,83 +25,82 @@ async function resolveHomeState(): Promise<HomeState> {
 
 export default async function Home() {
   const state = await resolveHomeState();
+  const { t } = await getT();
   return (
     <div className={ecmFontVariables}>
-      <Hero state={state} />
-      <ThreePillars />
-      <Ticker />
-      <CTA state={state} />
+      <Hero state={state} t={t} />
+      <ThreePillars t={t} />
+      <Ticker t={t} />
+      <CTA state={state} t={t} />
     </div>
   );
 }
 
-function Hero({ state }: { state: HomeState }) {
+function Hero({ state, t }: { state: HomeState; t: Translate }) {
   return (
     <section className="hairline-b relative overflow-hidden">
       <div className="scan pointer-events-none absolute inset-0 opacity-60" />
       <div className="grain relative mx-auto max-w-7xl px-6 pt-8 pb-16">
         <div className="mono inline-flex items-center gap-2 border border-[color:var(--color-line)] bg-[color:var(--color-ash)] px-3 py-1.5 text-[10px] tracking-[0.3em] text-[color:var(--color-accent)]">
-          ◆ COACHING ADAPTATIF · PAR EL COACH METHOD
+          {t("app.home.badge")}
         </div>
         <h1
           className="gold-shimmer mt-3 text-5xl leading-[0.95] tracking-tight md:text-7xl lg:text-8xl"
           style={{ fontFamily: "var(--font-bebas, sans-serif)" }}
         >
-          Ton Coaching
+          {t("app.home.title1")}
           <br />
-          Adaptatif personnel.
+          {t("app.home.title2")}
         </h1>
-        <p className="mt-4 max-w-xl text-base text-[#8a8a8a] md:text-lg">
-          Un check-in chaque matin.
+        <p className="mt-4 max-w-xl text-base text-[color:var(--c-8a8a8a)] md:text-lg">
+          {t("app.home.sub1")}
           <br />
-          Un plan sur mesure chaque jour.
+          {t("app.home.sub2")}
           <br />
-          Séance adaptée, stack compléments, récupération ciblée — tout généré en moins de
-          5 secondes.
+          {t("app.home.sub3")}
         </p>
         <div className="mt-6 flex w-full max-w-sm flex-col gap-2.5">
-          <HomeCTAButtons state={state} />
+          <HomeCTAButtons state={state} t={t} />
         </div>
       </div>
     </section>
   );
 }
 
-function ThreePillars() {
+function ThreePillars({ t }: { t: Translate }) {
   const pillars = [
     {
       icon: "⚡",
-      title: "Check-in 2 min",
-      body: "Énergie, sommeil, corps, mental. Le Coaching Adaptatif lit ton état réel.",
+      title: t("app.home.pillar1.title"),
+      body: t("app.home.pillar1.body"),
     },
     {
       icon: "🧠",
-      title: "Plan généré",
-      body: "Séance, stack, en-cas, récupération. Tout adapté à toi, aujourd'hui.",
+      title: t("app.home.pillar2.title"),
+      body: t("app.home.pillar2.body"),
     },
     {
       icon: "📈",
-      title: "Progression mesurée",
-      body: "Ton historique, tes alertes, tes tendances. Semaine après semaine.",
+      title: t("app.home.pillar3.title"),
+      body: t("app.home.pillar3.body"),
     },
   ];
   return (
-    <section id="bases-coaching-adaptatif" className="hairline-t hairline-b bg-[#0a0a0a]">
+    <section id="bases-coaching-adaptatif" className="hairline-t hairline-b bg-[var(--c-0a0a0a)]">
       <div className="mx-auto max-w-7xl px-6 py-14">
-        <div className="label text-[color:var(--color-accent)]">[ COMMENT ÇA MARCHE ]</div>
+        <div className="label text-[color:var(--color-accent)]">{t("app.home.how")}</div>
         <h2
           className="mt-3 max-w-3xl text-3xl tracking-tight md:text-5xl"
           style={{ fontFamily: "var(--font-bebas, sans-serif)" }}
         >
-          Les bases du Coaching Adaptatif.
+          {t("app.home.howTitle")}
         </h2>
-        <p className="mt-4 max-w-2xl text-sm text-[#8a8a8a] md:text-base">
-          5 programmes en base de données. 1 check-in chaque matin. 1 plan généré
-          en moins de 5 secondes — séance, stack, récupération, alertes.
+        <p className="mt-4 max-w-2xl text-sm text-[color:var(--c-8a8a8a)] md:text-base">
+          {t("app.home.howBody")}
         </p>
         <div className="mt-10 grid gap-px bg-[color:var(--color-line)] md:grid-cols-3">
           {pillars.map((p) => (
-            <div key={p.title} className="bg-[#0a0a0a] p-8 md:p-10">
+            <div key={p.title} className="bg-[var(--c-0a0a0a)] p-8 md:p-10">
               <div className="text-3xl leading-none">{p.icon}</div>
               <div className="mt-5 text-lg font-semibold tracking-tight">{p.title}</div>
               <p className="mt-2 text-sm text-[color:var(--color-mute)]">{p.body}</p>
@@ -111,21 +112,21 @@ function ThreePillars() {
   );
 }
 
-function Ticker() {
+function Ticker({ t: tr }: { t: Translate }) {
   const items = [
-    "CHECK-IN MATINAL",
-    "SÉANCE ADAPTÉE",
-    "STACK COMPLÉMENTS",
-    "EN-CAS DU JOUR",
-    "RÉCUP CIBLÉE",
-    "APERÇU DEMAIN",
+    tr("app.home.ticker1"),
+    tr("app.home.ticker2"),
+    tr("app.home.ticker3"),
+    tr("app.home.ticker4"),
+    tr("app.home.ticker5"),
+    tr("app.home.ticker6"),
   ];
   const doubled = [...items, ...items, ...items];
   return (
     <div className="hairline-b overflow-hidden">
       <div className="ticker flex gap-12 py-4 whitespace-nowrap">
         {doubled.map((t, i) => (
-          <span key={i} className="mono text-xs tracking-[0.4em] text-[#8a8a8a]">
+          <span key={i} className="mono text-xs tracking-[0.4em] text-[color:var(--c-8a8a8a)]">
             ◇ {t}
           </span>
         ))}
@@ -134,29 +135,29 @@ function Ticker() {
   );
 }
 
-function CTA({ state }: { state: HomeState }) {
+function CTA({ state, t }: { state: HomeState; t: Translate }) {
   return (
     <section className="mx-auto max-w-7xl px-6 py-20 text-center">
       <h2
         className="text-4xl tracking-tight md:text-6xl"
         style={{ fontFamily: "var(--font-bebas, sans-serif)" }}
       >
-        Le Coaching Adaptatif décide.
+        {t("app.home.cta1")}
         <br />
-        <span className="text-[#8a8a8a]">Tu exécutes.</span>
+        <span className="text-[color:var(--c-8a8a8a)]">{t("app.home.cta2")}</span>
       </h2>
       <div className="mx-auto mt-8 flex w-full max-w-sm flex-col gap-2.5">
-        <PrimaryButton state={state} />
+        <PrimaryButton state={state} t={t} />
       </div>
     </section>
   );
 }
 
-function PrimaryButton({ state }: { state: HomeState }) {
+function PrimaryButton({ state, t }: { state: HomeState; t: Translate }) {
   if (state === "anon") {
     return (
       <Link href="/signup" className="btn-home-primary" style={{ flexDirection: "column", gap: 2, padding: "16px 24px" }}>
-        <span>Je m&apos;inscris</span>
+        <span>{t("app.home.signup")}</span>
         <span
           style={{
             fontFamily: "var(--font-barlow-condensed, sans-serif)",
@@ -164,40 +165,40 @@ function PrimaryButton({ state }: { state: HomeState }) {
             fontWeight: 600,
             letterSpacing: 1,
             textTransform: "none",
-            color: "#000",
+            color: "var(--on-accent)",
           }}
         >
-          Free Trial — 7 jours offerts
+          {t("app.home.trial")}
         </span>
       </Link>
     );
   }
   return state === "done" ? (
     <Link href="/dashboard" className="btn-home-primary">
-      Mon dashboard
+      {t("app.home.dashboard")}
     </Link>
   ) : (
     <Link href="/checkin" className="btn-home-primary">
-      Mon check-in du jour
+      {t("app.home.checkin")}
     </Link>
   );
 }
 
-function HomeCTAButtons({ state }: { state: HomeState }) {
+function HomeCTAButtons({ state, t }: { state: HomeState; t: Translate }) {
   return (
     <>
-      <PrimaryButton state={state} />
+      <PrimaryButton state={state} t={t} />
       {state === "anon" ? (
         <Link href="/signin" className="btn-home-secondary">
-          Déjà inscrit · Je me connecte
+          {t("app.home.signin")}
         </Link>
       ) : (
         <Link href="/profile/edit" className="btn-home-secondary">
-          Je mets à jour mon profil
+          {t("app.home.editProfile")}
         </Link>
       )}
       <Link href="#bases-coaching-adaptatif" className="btn-home-secondary">
-        Voir comment ça marche
+        {t("app.home.seeHow")}
       </Link>
     </>
   );

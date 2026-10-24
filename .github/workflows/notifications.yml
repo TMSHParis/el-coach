@@ -1,0 +1,19 @@
+# Tâche planifiée des notifications push (partie 5, mission 4A).
+# Le plan Vercel Hobby n'autorise qu'une tâche par jour : GitHub Actions appelle l'endpoint toutes les 10 minutes.
+# GitHub peut retarder une exécution de quelques minutes : les fenêtres d'envoi (plan.ts) en tiennent compte.
+name: notifications
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Appeler /api/cron/notifications
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl --fail --silent --show-error --max-time 60 \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            https://el-coach-gamma.vercel.app/api/cron/notifications

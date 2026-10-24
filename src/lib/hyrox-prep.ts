@@ -4,6 +4,7 @@
 
 import type { Block, Day } from "./programming";
 import { planFor } from "./competition-plan";
+import { makeT, type Translate } from "./i18n";
 
 export type HyroxPhase = "construction" | "specifique" | "affutage" | "course";
 
@@ -13,6 +14,11 @@ export const PHASE_LABEL: Record<HyroxPhase, string> = {
   affutage: "Affûtage",
   course: "Course",
 };
+
+/** Libellé de phase affiché, selon la langue. */
+export function phaseLabel(phase: HyroxPhase, t: Translate = makeT("fr")): string {
+  return t(`srv.phase.${phase}` as const);
+}
 
 export type HyroxPrep = {
   raceDate: string;
@@ -58,16 +64,16 @@ export function hyroxPrepFor(
   };
 }
 
-export function phaseSentence(prep: HyroxPrep): string {
+export function phaseSentence(prep: HyroxPrep, t: Translate = makeT("fr")): string {
   switch (prep.phase) {
     case "specifique":
-      return "Plus de simulations et de course compromise. La séance de samedi passe en simulation half.";
+      return t("srv.phase.sentence.specifique");
     case "affutage":
-      return "On garde l'intensité et la course compromise, on réduit le volume. Rien de nouveau à ce stade.";
+      return t("srv.phase.sentence.affutage");
     case "course":
-      return "Semaine de course : rien de lourd, rien de nouveau.";
+      return t("srv.phase.sentence.course");
     default:
-      return "On construit la base : Zone 2, force et technique des stations.";
+      return t("srv.phase.sentence.construction");
   }
 }
 
@@ -82,33 +88,33 @@ export function scaleVolume(day: Day, factor: number): Day {
 }
 
 /** Séances de la semaine de course (exemples de durée, à valider par un coach). */
-function raceWeekDay(prep: HyroxPrep, base: Day): Day {
+function raceWeekDay(prep: HyroxPrep, base: Day, t: Translate): Day {
   const mk = (focus: string, notes: string, blocks: Block[], minutes: number): Day => ({ day: base.day, focus, estimatedMinutes: minutes, notes, blocks });
   if (prep.daysToRace === 0) {
-    return mk("JOUR J · HYROX", "Charges de référence affichées sur la carte Préparation. Rien de nouveau.", [], 0);
+    return mk(t("srv.race.dayFocus"), t("srv.race.dayNotes"), [], 0);
   }
-  const rest = mk("Repos", "Repos, sommeil, hydratation, matériel prêt.", [], 0);
+  const rest = mk(t("srv.race.restFocus"), t("srv.race.restNotes"), [], 0);
   if (prep.daysToRace === 1) return rest;
   if (prep.daysToRace === 2) {
-    return mk("Séance d'activation", "Deux jours avant la course : courte et vive, rien de lourd.", [
-      { name: "Activation", type: "conditioning", format: "Intervals", duration: "20min", exercises: [{ movementId: "run", sets: 4, time: "1min", rest: "1min30", notes: "Allure course, vif." }, { movementId: "wall-ball", sets: 2, reps: 10 }] },
+    return mk(t("srv.race.activFocus"), t("srv.race.activNotes"), [
+      { name: t("srv.race.activName"), type: "conditioning", format: "Intervals", duration: "20min", exercises: [{ movementId: "run", sets: 4, time: "1min", rest: "1min30", notes: t("srv.race.activRun") }, { movementId: "wall-ball", sets: 2, reps: 10 }] },
     ], 25);
   }
   if (base.day === 1 || prep.daysToRace >= 5) {
-    return mk("Footing de décrassage", "Allure facile, 20 à 30 min.", [{ name: "Footing", type: "endurance", format: "StraightSets", duration: "25min", exercises: [{ movementId: "run", time: "25min", notes: "Allure facile." }] }], 25);
+    return mk(t("srv.race.jogFocus"), t("srv.race.jogNotes"), [{ name: t("srv.race.jogName"), type: "endurance", format: "StraightSets", duration: "25min", exercises: [{ movementId: "run", time: "25min", notes: t("srv.race.jogRun") }] }], 25);
   }
   return rest;
 }
 
 /** Applique la phase à la séance du jour. */
-export function applyPrepToDay(day: Day, prep: HyroxPrep): Day {
-  if (prep.phase === "course") return raceWeekDay(prep, day);
+export function applyPrepToDay(day: Day, prep: HyroxPrep, t: Translate = makeT("fr")): Day {
+  if (prep.phase === "course") return raceWeekDay(prep, day, t);
   const out = scaleVolume(day, prep.volumeFactor);
   const note =
     prep.phase === "affutage"
-      ? `Affûtage · volume ${Math.round(prep.volumeFactor * 100)} % du volume normal, intensité conservée.`
+      ? t("srv.phase.noteTaper", { label: t("srv.phase.affutage"), pct: Math.round(prep.volumeFactor * 100) })
       : prep.phase === "specifique"
-        ? "Phase Spécifique : plus de simulations et de course compromise."
+        ? t("srv.phase.noteSpecific")
         : null;
   return note ? { ...out, notes: [out.notes, note].filter(Boolean).join(" ") } : out;
 }

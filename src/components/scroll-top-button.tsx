@@ -23,6 +23,22 @@ export function ScrollTopButton() {
   const btnRef = useRef<HTMLButtonElement>(null);
   const frame = useRef(0);
 
+  // Couleur d'accent de l'écran : variable --accent (dashboard, check-in) ou --g (écran de séance) du conteneur de la page.
+  const syncAccent = useCallback(() => {
+    let found: string | undefined;
+    const els = document.querySelectorAll("main > *, main > * > *, main > * > * > *");
+    for (const el of Array.from(els).slice(0, 12)) {
+      const cs = getComputedStyle(el);
+      const v = cs.getPropertyValue("--accent").trim() || cs.getPropertyValue("--g").trim();
+      if (v) {
+        found = v;
+        break;
+      }
+    }
+    if (found) btnRef.current?.style.setProperty("--scroll-top-accent", found);
+    else btnRef.current?.style.removeProperty("--scroll-top-accent");
+  }, []);
+
   const measure = useCallback(() => {
     // Barre fixe la plus haute en bas de l'écran.
     let barTop = window.innerHeight;
@@ -38,8 +54,10 @@ export function ScrollTopButton() {
     const vv = window.visualViewport;
     const keyboard = !!vv && window.innerHeight - vv.height > KEYBOARD_MIN_SHRINK;
     const typing = document.activeElement instanceof HTMLElement && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName) && keyboard;
-    setShown(scrollable && window.scrollY > SHOW_AFTER && !overlay && !keyboard && !typing);
-  }, []);
+    const show = scrollable && window.scrollY > SHOW_AFTER && !overlay && !keyboard && !typing;
+    setShown(show);
+    if (show) syncAccent();
+  }, [syncAccent]);
 
   useEffect(() => {
     const schedule = () => {
@@ -60,22 +78,6 @@ export function ScrollTopButton() {
       mo.disconnect();
     };
   }, [measure, pathname]);
-
-  // Couleur d'accent de l'écran : variable --accent (dashboard, check-in) ou --g (écran de séance) du conteneur de la page.
-  useEffect(() => {
-    let found: string | undefined;
-    const els = document.querySelectorAll("main > *, main > * > *, main > * > * > *");
-    for (const el of Array.from(els).slice(0, 12)) {
-      const cs = getComputedStyle(el);
-      const v = cs.getPropertyValue("--accent").trim() || cs.getPropertyValue("--g").trim();
-      if (v) {
-        found = v;
-        break;
-      }
-    }
-    if (found) btnRef.current?.style.setProperty("--scroll-top-accent", found);
-    else btnRef.current?.style.removeProperty("--scroll-top-accent");
-  }, [pathname]);
 
   return (
     <button

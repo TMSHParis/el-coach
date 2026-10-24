@@ -130,13 +130,13 @@ const coreMovements: Movement[] = [
   // ========================================================================
   // MONOSTRUCTURAL — cardio / mono-articulaire
   // ========================================================================
-  { id: "run", name: "Course à pied", category: "monostructural", subcategory: "cardio", equipment: ["outdoor"], level: "beginner", tags: ["zone2", "metcon", "hyrox-core", "home-friendly"] },
+  { id: "run", name: "Run", category: "monostructural", subcategory: "cardio", equipment: ["outdoor"], level: "beginner", tags: ["zone2", "metcon", "hyrox-core", "home-friendly"] },
   { id: "shuttle-run", name: "Shuttle Run", category: "monostructural", subcategory: "cardio", equipment: ["outdoor"], level: "intermediate", tags: ["speed", "games"] },
-  { id: "row", name: "Rameur (Concept2)", category: "monostructural", subcategory: "cardio", equipment: ["rower"], level: "beginner", tags: ["metcon", "hyrox-station"], hyroxStation: true },
+  { id: "row", name: "Row (Concept2)", category: "monostructural", subcategory: "cardio", equipment: ["rower"], level: "beginner", tags: ["metcon", "hyrox-station"], hyroxStation: true },
   { id: "ski-erg", name: "Ski Erg", category: "monostructural", subcategory: "cardio", equipment: ["ski_erg"], level: "beginner", tags: ["upper", "hyrox-station"], hyroxStation: true },
   { id: "assault-bike", name: "Assault Bike / Echo Bike", category: "monostructural", subcategory: "cardio", equipment: ["assault_bike"], level: "beginner", tags: ["metcon", "full-body"] },
   { id: "bike-erg", name: "Bike Erg", category: "monostructural", subcategory: "cardio", equipment: ["bike_erg"], level: "beginner", tags: ["zone2", "metcon"] },
-  { id: "swim", name: "Natation", category: "monostructural", subcategory: "cardio", equipment: ["pool"], level: "intermediate", tags: ["recovery", "games", "cooldown"] },
+  { id: "swim", name: "Swim", category: "monostructural", subcategory: "cardio", equipment: ["pool"], level: "intermediate", tags: ["recovery", "games", "cooldown"] },
   { id: "single-under", name: "Single Under", category: "monostructural", subcategory: "skipping", equipment: ["jump_rope"], level: "beginner", tags: ["warmup", "home-friendly"] },
   { id: "double-under", name: "Double Under", category: "monostructural", subcategory: "skipping", equipment: ["jump_rope"], level: "intermediate", tags: ["metcon", "home-friendly"] },
   { id: "triple-under", name: "Triple Under", category: "monostructural", subcategory: "skipping", equipment: ["jump_rope"], level: "elite", tags: ["games"], gamesOnly: true },
@@ -199,8 +199,8 @@ const coreMovements: Movement[] = [
   // ========================================================================
   // DUMBBELL
   // ========================================================================
-  { id: "db-snatch", name: "Dumbbell Snatch (1 bras)", category: "dumbbell", subcategory: "olympic", equipment: ["dumbbell"], level: "intermediate", tags: ["metcon", "home-friendly"] },
-  { id: "db-snatch-2arm", name: "Dumbbell Snatch (2 bras)", category: "dumbbell", subcategory: "olympic", equipment: ["dumbbell"], level: "intermediate", tags: ["metcon"] },
+  { id: "db-snatch", name: "Dumbbell Snatch (1-Arm)", category: "dumbbell", subcategory: "olympic", equipment: ["dumbbell"], level: "intermediate", tags: ["metcon", "home-friendly"] },
+  { id: "db-snatch-2arm", name: "Dumbbell Snatch (2-Arm)", category: "dumbbell", subcategory: "olympic", equipment: ["dumbbell"], level: "intermediate", tags: ["metcon"] },
   { id: "db-clean", name: "Dumbbell Clean", category: "dumbbell", subcategory: "olympic", equipment: ["dumbbell"], level: "intermediate", tags: ["metcon", "home-friendly"] },
   { id: "db-hang-clean", name: "Dumbbell Hang Clean", category: "dumbbell", subcategory: "olympic", equipment: ["dumbbell"], level: "intermediate", tags: ["metcon"] },
   { id: "db-hang-clean-oh", name: "DB Hang Clean-to-Overhead", category: "dumbbell", subcategory: "complex", equipment: ["dumbbell"], level: "intermediate", tags: ["metcon"] },
@@ -222,8 +222,8 @@ const coreMovements: Movement[] = [
   // ========================================================================
   // KETTLEBELL
   // ========================================================================
-  { id: "kb-swing-russian", name: "Kettlebell Swing Russe", category: "kettlebell", subcategory: "hip_hinge", equipment: ["kettlebell"], level: "beginner", tags: ["metcon", "explosive", "home-friendly"] },
-  { id: "kb-swing-american", name: "Kettlebell Swing Américain", category: "kettlebell", subcategory: "hip_hinge", equipment: ["kettlebell"], level: "intermediate", tags: ["metcon", "explosive"] },
+  { id: "kb-swing-russian", name: "Russian Kettlebell Swing", category: "kettlebell", subcategory: "hip_hinge", equipment: ["kettlebell"], level: "beginner", tags: ["metcon", "explosive", "home-friendly"] },
+  { id: "kb-swing-american", name: "American Kettlebell Swing", category: "kettlebell", subcategory: "hip_hinge", equipment: ["kettlebell"], level: "intermediate", tags: ["metcon", "explosive"] },
   { id: "kb-clean", name: "Kettlebell Clean", category: "kettlebell", subcategory: "olympic", equipment: ["kettlebell"], level: "intermediate", tags: ["metcon"] },
   { id: "kb-snatch", name: "Kettlebell Snatch", category: "kettlebell", subcategory: "olympic", equipment: ["kettlebell"], level: "advanced", tags: ["metcon"] },
   { id: "kb-goblet-squat", name: "Kettlebell Goblet Squat", category: "kettlebell", subcategory: "squat", equipment: ["kettlebell"], level: "beginner", tags: ["home-friendly"] },
@@ -244,7 +244,7 @@ const coreMovements: Movement[] = [
   { id: "wall-ball", name: "Wall Ball Shot", category: "medball", subcategory: "complex", equipment: ["wallball"], level: "beginner", tags: ["metcon", "hyrox-station", "benchmark"], hyroxStation: true },
   { id: "med-ball-clean", name: "Med Ball Clean", category: "medball", subcategory: "complex", equipment: ["medball"], level: "beginner", tags: ["metcon", "skill"] },
   { id: "slam-ball", name: "Slam Ball", category: "medball", subcategory: "complex", equipment: ["slamball"], level: "beginner", tags: ["metcon", "home-friendly"] },
-  { id: "med-ball-toss", name: "Med Ball Wall Toss (rotation)", category: "medball", subcategory: "rotation", equipment: ["medball"], level: "beginner", tags: ["power", "core"] },
+  { id: "med-ball-toss", name: "Med Ball Wall Toss (rotational)", category: "medball", subcategory: "rotation", equipment: ["medball"], level: "beginner", tags: ["power", "core"] },
 
   // ========================================================================
   // GYMNASTIQUE — pulling
@@ -260,7 +260,7 @@ const coreMovements: Movement[] = [
   { id: "ring-row", name: "Ring Row", category: "gymnastics", subcategory: "pulling", equipment: ["rings"], level: "beginner", tags: ["scaling"] },
   { id: "t2b", name: "Toes-to-Bar", category: "gymnastics", subcategory: "pulling", equipment: ["pullup_bar"], level: "intermediate", tags: ["core", "metcon"] },
   { id: "k2e", name: "Knees-to-Elbows", category: "gymnastics", subcategory: "pulling", equipment: ["pullup_bar"], level: "beginner", tags: ["core"] },
-  { id: "rope-climb", name: "Rope Climb (pieds)", category: "gymnastics", subcategory: "pulling", equipment: ["rope"], level: "intermediate", tags: ["skill"] },
+  { id: "rope-climb", name: "Rope Climb", category: "gymnastics", subcategory: "pulling", equipment: ["rope"], level: "intermediate", tags: ["skill"] },
   { id: "legless-rope", name: "Legless Rope Climb", category: "gymnastics", subcategory: "pulling", equipment: ["rope"], level: "advanced", tags: ["skill"] },
   { id: "ghd-situp", name: "GHD Sit-up", category: "gymnastics", subcategory: "pulling", equipment: ["ghd"], level: "advanced", tags: ["core"] },
   { id: "peg-board", name: "Peg Board Ascent", category: "gymnastics", subcategory: "pulling", equipment: ["peg_board"], level: "elite", tags: ["games"], gamesOnly: true },
@@ -354,7 +354,7 @@ const coreMovements: Movement[] = [
   { id: "db-farmer", name: "Dumbbell Farmer's Carry", category: "dumbbell", subcategory: "carry", equipment: ["dumbbell"], level: "beginner", tags: ["grip", "home-friendly"] },
   { id: "duck-walk", name: "KB Duck Walk", category: "kettlebell", subcategory: "carry", equipment: ["kettlebell"], level: "intermediate", tags: ["legs"] },
   { id: "zercher-carry", name: "Zercher Carry", category: "barbell", subcategory: "carry", equipment: ["barbell"], level: "advanced", tags: ["core", "strongman"] },
-  { id: "bear-hug-carry", name: "Bear Hug Carry (sac/stone)", category: "odd_object", subcategory: "carry", equipment: ["sandbag"], level: "intermediate", tags: ["strongman"] },
+  { id: "bear-hug-carry", name: "Bear Hug Carry (sandbag/stone)", category: "odd_object", subcategory: "carry", equipment: ["sandbag"], level: "intermediate", tags: ["strongman"] },
 
   // ========================================================================
   // MOBILITY / RECOVERY
@@ -365,10 +365,64 @@ const coreMovements: Movement[] = [
   { id: "thoracic-rot", name: "Thoracic Rotations", category: "mobility", subcategory: "rotation", equipment: ["mat"], level: "beginner", tags: ["mobility", "home-friendly"] },
   { id: "banded-shoulder", name: "Banded Shoulder Distraction", category: "mobility", equipment: ["resistance_band"], level: "beginner", tags: ["prehab"] },
   { id: "foam-roll", name: "Foam Rolling", category: "mobility", subcategory: "recovery", equipment: ["mat"], level: "beginner", tags: ["recovery", "cooldown", "home-friendly"] },
-  { id: "zone1-walk", name: "Marche Zone 1", category: "monostructural", subcategory: "recovery", equipment: ["outdoor"], level: "beginner", tags: ["cooldown", "recovery"] },
+  { id: "zone1-walk", name: "Zone 1 Walk", category: "monostructural", subcategory: "recovery", equipment: ["outdoor"], level: "beginner", tags: ["cooldown", "recovery"] },
   { id: "shadow-boxing", name: "Shadow Boxing", category: "bodyweight", subcategory: "cardio", equipment: ["none"], level: "beginner", tags: ["cooldown", "home-friendly"] },
-  { id: "boxing-bag", name: "Travail au sac (boxe)", category: "bodyweight", subcategory: "cardio", equipment: ["none"], level: "intermediate", tags: ["cooldown", "skill"] },
+  { id: "boxing-bag", name: "Boxing Bag Work", category: "bodyweight", subcategory: "cardio", equipment: ["none"], level: "intermediate", tags: ["cooldown", "skill"] },
 ];
+
+/**
+ * Anciens noms français (stockés dans l'historique des séances) -> nom anglais actuel.
+ * Sert à retrouver les derniers résultats enregistrés avant le passage des noms en anglais.
+ */
+export const LEGACY_MOVEMENT_NAMES: Record<string, string> = {
+  "Course à pied": "Run",
+  "Rameur (Concept2)": "Row (Concept2)",
+  "Natation": "Swim",
+  "Kettlebell Swing Russe": "Russian Kettlebell Swing",
+  "Kettlebell Swing Américain": "American Kettlebell Swing",
+  "Dumbbell Snatch (1 bras)": "Dumbbell Snatch (1-Arm)",
+  "Dumbbell Snatch (2 bras)": "Dumbbell Snatch (2-Arm)",
+  "Rope Climb (pieds)": "Rope Climb",
+  "Marche Zone 1": "Zone 1 Walk",
+  "Travail au sac (boxe)": "Boxing Bag Work",
+  "Med Ball Wall Toss (rotation)": "Med Ball Wall Toss (rotational)",
+  "Bear Hug Carry (sac/stone)": "Bear Hug Carry (sandbag/stone)",
+  "Leg Curl Couché": "Lying Leg Curl",
+  "Leg Curl Assis": "Seated Leg Curl",
+  "Calf Raise Debout": "Standing Calf Raise",
+  "Calf Raise Assis": "Seated Calf Raise",
+  "Pulldown Prise Neutre": "Neutral Grip Pulldown",
+  "Deadlift Conventionnel": "Conventional Deadlift",
+  "Deadlift Roumain": "Romanian Deadlift",
+  "Snatch (Arraché)": "Snatch",
+  "Clean & Jerk (Épaulé-Jeté)": "Clean & Jerk",
+  "Clean (Épaulé)": "Clean",
+  "Jerk (Jeté)": "Jerk",
+  "Muscle-Up (Barre)": "Bar Muscle-Up",
+  "Course 1km entre chaque station": "Run 1 km Between Stations",
+  "Step Aérobic": "Step Aerobics",
+  "CAF — Cuisse Abdo Fessier": "Legs, Abs & Glutes Class",
+  "Cardio Boxe": "Cardio Boxing",
+  "Fente variations BW": "Lunge Variations BW",
+  "Sac de frappe": "Heavy Bag Work",
+  "Pattes d'ours": "Bear Crawl",
+  "Corde à sauter boxe": "Boxing Jump Rope",
+  "Teep (Coup de pied frontal)": "Teep (Front Kick)",
+  "Marche / Nordic Walking": "Walking / Nordic Walking",
+  "Cyclisme / Vélo": "Cycling",
+  "Escalade": "Climbing",
+  "Traction négative": "Negative Pull-up",
+  "Pistol assisté": "Assisted Pistol Squat",
+  "Pompe sur genoux": "Knee Push-up",
+  "Pompe déclinée": "Decline Push-up",
+  "Pompe archer": "Archer Push-up",
+  "Pompe une main": "One-Arm Push-up",
+  "Développé incliné haltères": "Incline Dumbbell Press",
+  "Calf Raise unilatéral": "Single-Leg Calf Raise",
+  "Squat gobelet au disque": "Plate Goblet Squat",
+  "KB Swing Russe": "Russian KB Swing",
+  "KB Swing Américain": "American KB Swing",
+};
 
 export const movements: Movement[] = [...coreMovements, ...EXTENDED_MOVEMENTS, ...V2_MOVEMENTS];
 

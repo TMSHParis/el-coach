@@ -79,11 +79,19 @@ model Profile {
   onboardingDone   Boolean  @default(false) @map("onboarding_done")
   recordsRm        Json?    @map("records_rm")
   notifCheckinOn   Boolean  @default(true) @map("notif_checkin_on")
-  notifCheckinTime String?  @default("07:30") @map("notif_checkin_time")
+  notifCheckinTime String?  @default("07:00") @map("notif_checkin_time")
   notifSeance      Boolean  @default(true) @map("notif_seance")
   notifBlessure    Boolean  @default(true) @map("notif_blessure")
   notifRecap       Boolean  @default(false) @map("notif_recap")
   langue           String   @default("fr")
+  // Partie 5 (mission 4) : thème, fuseau de l'appareil, réglages fins des notifications.
+  theme            String   @default("dark")
+  timezone         String?
+  // Heure du récapitulatif du dimanche (paramétrable) ; le changement d'heure du rappel check-in
+  // s'applique le lendemain (ancienne heure conservée jusqu'à notifCheckinTimeFrom).
+  notifRecapTime        String? @default("19:00") @map("notif_recap_time")
+  notifCheckinTimePrev  String? @map("notif_checkin_time_prev")
+  notifCheckinTimeFrom  String? @map("notif_checkin_time_from")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -96,6 +104,8 @@ model Profile {
   weekOverrides    WeekOverride[]
   programPositions ProgramPosition[]
   chainProgress    ChainProgress[]
+  pushSubscriptions PushSubscription[]
+  notificationLogs  NotificationLog[]
 
   @@map("profiles")
 }
@@ -304,4 +314,34 @@ model ChainProgress {
 
   @@unique([userId, chain])
   @@map("chain_progress")
+}
+
+// Partie 5 : abonnements push de l'app web (un par appareil / navigateur).
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  userAgent String?  @map("user_agent")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  profile Profile @relation(fields: [userId], references: [userId], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("push_subscriptions")
+}
+
+// Partie 5 : une notification n'est envoyée qu'une fois par (utilisateur, type, clé) — clé = jour, créneau, période.
+model NotificationLog {
+  id     String   @id @default(cuid())
+  userId String   @map("user_id")
+  kind   String
+  key    String
+  sentAt DateTime @default(now()) @map("sent_at")
+
+  profile Profile @relation(fields: [userId], references: [userId], onDelete: Cascade)
+
+  @@unique([userId, kind, key])
+  @@map("notification_logs")
 }

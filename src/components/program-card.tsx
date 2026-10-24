@@ -5,9 +5,22 @@ import {
   getCoach,
   PROGRAM_ADDITIONAL_PRICE_CENTS,
 } from "@/lib/data";
-import { formatPrice } from "@/lib/utils";
+import { getT } from "@/lib/i18n/server";
+import { formatNumber, type Lang } from "@/lib/i18n";
 
-export function ProgramCard({ program }: { program: Program }) {
+/** Prix localisé (centimes affichés seulement s'ils sont non nuls). */
+function formatPrice(lang: Lang, cents: number, currency = "EUR") {
+  const hasCents = cents % 100 !== 0;
+  return formatNumber(lang, cents / 100, {
+    style: "currency",
+    currency,
+    minimumFractionDigits: hasCents ? 2 : 0,
+    maximumFractionDigits: 2,
+  });
+}
+
+export async function ProgramCard({ program }: { program: Program }) {
+  const { t, lang } = await getT();
   const coach = getCoach(program.coachSlug);
   return (
     <Link
@@ -27,20 +40,20 @@ export function ProgramCard({ program }: { program: Program }) {
         </p>
       </div>
       <div className="mt-8 grid grid-cols-3 gap-3 border-t border-[color:var(--color-line)] pt-4">
-        <Stat label="DURÉE" value={`${program.weeks}sem`} />
-        <Stat label="FRÉQ." value={`${program.sessionsPerWeek}/sem`} />
-        <Stat label="NIVEAU" value={program.level.slice(0, 3)} />
+        <Stat label={t("app.program.duration")} value={t("app.program.weeks", { n: program.weeks })} />
+        <Stat label={t("app.program.freq")} value={t("app.program.perWeek", { n: program.sessionsPerWeek })} />
+        <Stat label={t("app.program.level")} value={program.level.slice(0, 3)} />
       </div>
       <div className="mt-6 flex items-end justify-between">
         <div>
-          <div className="label">Coach</div>
+          <div className="label">{t("app.program.coach")}</div>
           <div className="mono text-sm">{coach?.name ?? "—"}</div>
         </div>
         <div className="text-right">
-          <div className="mono text-2xl font-semibold">{formatPrice(program.priceCents)}</div>
+          <div className="mono text-2xl font-semibold">{formatPrice(lang, program.priceCents)}</div>
           <div className="label">{program.priceIntervalLabel}</div>
           <div className="mono mt-1 text-[10px] text-[color:var(--color-mute)]">
-            +{formatPrice(PROGRAM_ADDITIONAL_PRICE_CENTS)} / programme additionnel
+            {t("app.program.additional", { price: formatPrice(lang, PROGRAM_ADDITIONAL_PRICE_CENTS) })}
           </div>
         </div>
       </div>

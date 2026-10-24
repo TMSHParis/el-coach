@@ -9,6 +9,35 @@
 // fatigueScore courant pour donner une cohérence narrative entre les cartes.
 
 import type { Movement } from "./movements";
+import { DICT } from "./i18n/dict";
+import { LANGS, makeT, translate, type DictKey, type Lang, type Translate } from "./i18n";
+
+// Les builders ci-dessous produisent du texte via `t` (français par défaut : le texte est stocké
+// tel quel en base à la création du check-in). À l'affichage, `localizeStored` retrouve ces
+// phrases françaises et les traduit dans la langue active.
+let frIndex: Map<string, DictKey> | null = null;
+function indexFr(): Map<string, DictKey> {
+  if (!frIndex) {
+    frIndex = new Map();
+    for (const [k, v] of Object.entries(DICT) as [string, readonly string[]][]) {
+      if (k.startsWith("dash.mock.") && !frIndex.has(v[0])) frIndex.set(v[0], k as DictKey);
+    }
+  }
+  return frIndex;
+}
+
+/** Traduit une phrase issue des builders (ou stockée en français en base) ; inconnue : renvoyée telle quelle. */
+export function localizeStored(lang: Lang, text: string): string {
+  if (lang === "fr" || !text) return text;
+  const idx = indexFr();
+  const key = idx.get(text);
+  if (key) return translate(lang, key);
+  // « Lun 12 » : abréviation de jour suivie d'un complément.
+  const m = text.match(/^(\S+)(\s.*)$/);
+  const dayKey = m ? idx.get(m[1]) : undefined;
+  if (m && dayKey && dayKey.startsWith("dash.mock.d.")) return translate(lang, dayKey) + m[2];
+  return text;
+}
 
 // ============================================================================
 // Score ECM — grade A / B+ / C... + couleur 🟢🟡🔴 + résumé
@@ -31,15 +60,14 @@ export type EcmScore = {
  * Quand le moteur Coaching Adaptatif sera live (Étape 2.5), cette fonction
  * sera remplacée par un appel Claude Sonnet 4 qui croisera profil + check-in.
  */
-export function computeEcmScore(fatigueScore: number): EcmScore {
+export function computeEcmScore(fatigueScore: number, t: Translate = makeT("fr")): EcmScore {
   if (fatigueScore <= 3) {
     return {
       state: "green",
       letter: fatigueScore <= 1 ? "A" : "A-",
       numeric: Math.round(95 - fatigueScore * 3),
-      headline: "Tu es prêt à pousser.",
-      summary:
-        "Énergie haute, jambes légères, mental clair. Séance complète à 100%, charges prescrites.",
+      headline: t("dash.mock.ecm.green.headline"),
+      summary: t("dash.mock.ecm.green.summary"),
     };
   }
   if (fatigueScore <= 6) {
@@ -47,18 +75,16 @@ export function computeEcmScore(fatigueScore: number): EcmScore {
       state: "yellow",
       letter: fatigueScore <= 4 ? "B+" : fatigueScore <= 5 ? "B" : "B-",
       numeric: Math.round(85 - fatigueScore * 5),
-      headline: "Lève le pied, sans couper.",
-      summary:
-        "Séance allégée recommandée — intensité 80%, volume réduit. Focus technique.",
+      headline: t("dash.mock.ecm.yellow.headline"),
+      summary: t("dash.mock.ecm.yellow.summary"),
     };
   }
   return {
     state: "red",
     letter: fatigueScore <= 8 ? "C" : "D",
     numeric: Math.max(20, Math.round(70 - fatigueScore * 5)),
-    headline: "Récupération aujourd'hui.",
-    summary:
-      "Pas de WOD. Mobilité + marche zone 1. Stack récupération + sommeil prioritaire.",
+    headline: t("dash.mock.ecm.red.headline"),
+    summary: t("dash.mock.ecm.red.summary"),
   };
 }
 
@@ -84,18 +110,27 @@ export type SleepInsight = {
   alerts: string[]; // alertes seuils — profond < 40, REM < 1h30, éveil > 2h
 };
 
-const SLEEP_LABELS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
+const SLEEP_LABEL_KEYS = [
+  "dash.mock.d.Lun",
+  "dash.mock.d.Mar",
+  "dash.mock.d.Mer",
+  "dash.mock.d.Jeu",
+  "dash.mock.d.Ven",
+  "dash.mock.d.Sam",
+  "dash.mock.d.Dim",
+] as const;
 
 /**
  * Mock 7 nuits — dérivé du fatigueScore pour rester cohérent avec les autres
  * cartes. Plus le score de fatigue est haut, plus le sommeil est dégradé.
  */
-export function buildSleepInsight(fatigueScore: number): SleepInsight {
+export function buildSleepInsight(fatigueScore: number, t: Translate = makeT("fr")): SleepInsight {
   const baseTotal = 7 * 60 + 30 - fatigueScore * 12; // 7h30 - fatigue impact
   const baseDeep = 75 - fatigueScore * 4;
   const baseRem = 110 - fatigueScore * 6;
 
-  const nights: SleepNight[] = SLEEP_LABELS.map((label, i) => {
+  const nights: SleepNight[] = SLEEP_LABEL_KEYS.map((labelKey, i) => {
+    const label = t(labelKey);
     // Petite variation sinusoïdale pour donner du relief au sparkline.
     const jitter = Math.round(Math.sin(i * 1.3) * 18);
     const totalMinutes = Math.max(330, baseTotal + jitter);
@@ -114,10 +149,10 @@ export function buildSleepInsight(fatigueScore: number): SleepInsight {
   const alerts: string[] = [];
   const deepLow = lastNight.deepMinutes < 40;
   const remLow = lastNight.remMinutes < 90;
-  if (deepLow && remLow) alerts.push("Sommeil profond et REM sous les seuils cette nuit");
-  else if (deepLow) alerts.push("Sommeil profond < 40 min cette nuit");
-  else if (remLow) alerts.push("REM < 1h30 cette nuit");
-  if (lastNight.awakeMinutes > 120) alerts.push("Réveils > 2h cette nuit");
+  if (deepLow && remLow) alerts.push(t("dash.mock.sleepDeepRem"));
+  else if (deepLow) alerts.push(t("dash.mock.sleepDeep"));
+  else if (remLow) alerts.push(t("dash.mock.sleepRem"));
+  if (lastNight.awakeMinutes > 120) alerts.push(t("dash.mock.sleepAwake"));
 
   return { nights, lastNight, trendMinutes, alerts };
 }
@@ -134,10 +169,11 @@ export type WeightInsight = {
   deltaWeek: number; // delta sur 7 jours en kg
 };
 
-export function buildWeightInsight(fatigueScore: number): WeightInsight {
+export function buildWeightInsight(fatigueScore: number, t: Translate = makeT("fr")): WeightInsight {
   const base = 78.4;
   // Plus la fatigue est haute, plus on s'écarte vers le bas (déshydratation, stress).
-  const history: WeightPoint[] = SLEEP_LABELS.map((label, i) => {
+  const history: WeightPoint[] = SLEEP_LABEL_KEYS.map((labelKey, i) => {
+    const label = t(labelKey);
     const drift = Math.sin(i * 0.9) * 0.4 - (fatigueScore > 5 ? 0.3 : 0);
     return { label, kg: Math.round((base + drift) * 10) / 10 };
   });
@@ -169,7 +205,7 @@ export type StackMoment = {
  * Stack 4 moments — règles de la Section 7 du doc final v2.
  * Active / pause selon le fatigueScore courant.
  */
-export function buildStack4Moments(fatigueScore: number): StackMoment[] {
+export function buildStack4Moments(fatigueScore: number, t: Translate = makeT("fr")): StackMoment[] {
   const isIntense = fatigueScore <= 4;
   const isRecovery = fatigueScore >= 7;
   const stressed = fatigueScore >= 5;
@@ -177,51 +213,51 @@ export function buildStack4Moments(fatigueScore: number): StackMoment[] {
   return [
     {
       slot: "morning",
-      label: "Matin à jeun",
+      label: t("dash.mock.slot.morning"),
       emoji: "🌅",
       items: [
-        { name: "Créatine", dose: "5 g", active: isIntense, note: isIntense ? undefined : "Pausée — jour de récup" },
-        { name: "Citrulline", dose: "6 g", active: isIntense },
-        { name: "Vitamines B complex", dose: "1 cps", active: true },
-        { name: "Ginseng", dose: "200 mg", active: fatigueScore >= 5, note: fatigueScore >= 5 ? "Boost énergie ciblé" : undefined },
+        { name: t("dash.mock.supp.creatine"), dose: "5 g", active: isIntense, note: isIntense ? undefined : t("dash.mock.note.pausedRecovery") },
+        { name: t("dash.mock.supp.citrulline"), dose: "6 g", active: isIntense },
+        { name: t("dash.mock.supp.bComplex"), dose: t("dash.mock.dose.cps"), active: true },
+        { name: t("dash.mock.supp.ginseng"), dose: "200 mg", active: fatigueScore >= 5, note: fatigueScore >= 5 ? t("dash.mock.note.energyBoost") : undefined },
       ],
     },
     {
       slot: "noon",
-      label: "Avec repas midi",
+      label: t("dash.mock.slot.noon"),
       emoji: "🍽️",
       items: [
-        { name: "Oméga 3", dose: "2 g", active: true },
-        { name: "Vitamine D3", dose: "2000 UI", active: true },
-        { name: "Zinc", dose: "15 mg", active: true },
+        { name: t("dash.mock.supp.omega3"), dose: "2 g", active: true },
+        { name: t("dash.mock.supp.d3"), dose: t("dash.mock.dose.ui"), active: true },
+        { name: t("dash.mock.supp.zinc"), dose: "15 mg", active: true },
       ],
     },
     {
       slot: "pre-workout",
-      label: "Pré-séance · 1 h avant",
+      label: t("dash.mock.slot.pre"),
       emoji: "⚡",
       items: isRecovery
         ? [
             {
-              name: "Pas de séance prévue",
+              name: t("dash.mock.note.noSession"),
               active: false,
-              note: "État rouge — focus récupération",
+              note: t("dash.mock.note.redFocus"),
             },
           ]
         : [
-            { name: "Beta-alanine", dose: "3 g", active: !isRecovery },
-            { name: "Café", dose: "100 mg caféine", active: !stressed, note: stressed ? "Caféine réduite — stress modéré" : undefined },
-            { name: "Maca", dose: "1500 mg", active: true },
+            { name: t("dash.mock.supp.betaAlanine"), dose: "3 g", active: !isRecovery },
+            { name: t("dash.mock.supp.coffee"), dose: t("dash.mock.dose.caffeine"), active: !stressed, note: stressed ? t("dash.mock.note.lessCaffeine") : undefined },
+            { name: t("dash.mock.supp.maca"), dose: "1500 mg", active: true },
           ],
     },
     {
       slot: "evening",
-      label: "Soir · dernier repas",
+      label: t("dash.mock.slot.evening"),
       emoji: "🌙",
       items: [
-        { name: "Magnésium bisglycinate", dose: "400 mg", active: true, note: stressed ? "Dose renforcée" : undefined },
-        { name: "Ashwagandha KSM-66", dose: "600 mg", active: stressed, note: stressed ? "Activé — stress élevé" : undefined },
-        { name: "Collagène", dose: "10 g", active: true },
+        { name: t("dash.mock.supp.magnesium"), dose: "400 mg", active: true, note: stressed ? t("dash.mock.note.strongerDose") : undefined },
+        { name: t("dash.mock.supp.ashwagandha"), dose: "600 mg", active: stressed, note: stressed ? t("dash.mock.note.activated") : undefined },
+        { name: t("dash.mock.supp.collagen"), dose: "10 g", active: true },
       ],
     },
   ];
@@ -237,25 +273,25 @@ export type SnackInsight = {
   note: string;
 };
 
-export function buildSnack(fatigueScore: number): SnackInsight {
+export function buildSnack(fatigueScore: number, t: Translate = makeT("fr")): SnackInsight {
   if (fatigueScore <= 3) {
     return {
-      titre: "🥤 Pré-séance",
-      contenu: "Lait végétal + banane + 2 dattes",
-      note: "Format liquide · Digestion rapide ✅",
+      titre: t("dash.mock.snack.pre.title"),
+      contenu: t("dash.mock.snack.pre.content"),
+      note: t("dash.mock.snack.pre.note"),
     };
   }
   if (fatigueScore <= 6) {
     return {
-      titre: "🍫 Collation légère",
-      contenu: "Fruit + poignée d'amandes",
-      note: "Glycémie stable avant l'effort",
+      titre: t("dash.mock.snack.light.title"),
+      contenu: t("dash.mock.snack.light.content"),
+      note: t("dash.mock.snack.light.note"),
     };
   }
   return {
-    titre: "🍵 Focus récupération",
-    contenu: "Infusion + oléagineux + carré de chocolat noir",
-    note: "Pas d'excitant · priorité au sommeil ce soir",
+    titre: t("dash.mock.snack.rec.title"),
+    contenu: t("dash.mock.snack.rec.content"),
+    note: t("dash.mock.snack.rec.note"),
   };
 }
 
@@ -270,16 +306,21 @@ export type Alert = {
   hint?: string;
 };
 
-export function buildAlerts(fatigueScore: number, sleep: SleepInsight): Alert[] {
+/** Alerte « sommeil profond » dans n'importe quelle langue (le niveau d'alerte ne dépend pas de la langue). */
+function isDeepSleepAlert(message: string): boolean {
+  return LANGS.some((l) => message === translate(l, "dash.mock.sleepDeepRem") || message === translate(l, "dash.mock.sleepDeep"));
+}
+
+export function buildAlerts(fatigueScore: number, sleep: SleepInsight, t: Translate = makeT("fr")): Alert[] {
   const out: Alert[] = [];
 
   // Alertes sommeil — issues directement du mock sleep.
   for (const a of sleep.alerts) {
     out.push({
-      level: a.startsWith("Sommeil profond") ? "warning" : "info",
+      level: isDeepSleepAlert(a) ? "warning" : "info",
       category: "sleep",
       message: a,
-      hint: "Magnésium augmenté ce soir · écrans off 21h.",
+      hint: t("dash.mock.sleepHint"),
     });
   }
 
@@ -287,15 +328,15 @@ export function buildAlerts(fatigueScore: number, sleep: SleepInsight): Alert[] 
     out.push({
       level: "critical",
       category: "load",
-      message: "Surcharge détectée — 3e jour consécutif d'état rouge.",
-      hint: "Récupération obligatoire aujourd'hui. Pas de WOD.",
+      message: t("dash.mock.overload"),
+      hint: t("dash.mock.overloadHint"),
     });
   } else if (fatigueScore >= 5) {
     out.push({
       level: "warning",
       category: "recovery",
-      message: "Récupération en baisse sur 3 jours.",
-      hint: "Séance B recommandée. Stack soir renforcé.",
+      message: t("dash.mock.recoveryDown"),
+      hint: t("dash.mock.recoveryDownHint"),
     });
   }
 
@@ -305,8 +346,8 @@ export function buildAlerts(fatigueScore: number, sleep: SleepInsight): Alert[] 
     out.push({
       level: "info",
       category: "injury",
-      message: "Léger inconfort lombaires signalé hier.",
-      hint: "Deadlifts retirés de la séance · core léger uniquement.",
+      message: t("dash.mock.backPain"),
+      hint: t("dash.mock.backPainHint"),
     });
   }
 
@@ -331,14 +372,14 @@ export type SessionRecommendation = {
  *   JAUNE ou blessure légère → B
  *   ROUGE ou blessure sévère → récupération
  */
-export function recommendVariant(ecm: EcmScore): SessionRecommendation {
+export function recommendVariant(ecm: EcmScore, t: Translate = makeT("fr")): SessionRecommendation {
   if (ecm.state === "green") {
-    return { recommended: "A", reason: "État VERT — séance complète à 100%." };
+    return { recommended: "A", reason: t("dash.mock.recoState.green") };
   }
   if (ecm.state === "yellow") {
-    return { recommended: "B", reason: "État JAUNE — séance allégée à 80%." };
+    return { recommended: "B", reason: t("dash.mock.recoState.yellow") };
   }
-  return { recommended: "B", reason: "État ROUGE — récupération active." };
+  return { recommended: "B", reason: t("dash.mock.recoState.red") };
 }
 
 // ============================================================================

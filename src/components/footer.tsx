@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { Logo } from "./logo";
+import { getT } from "@/lib/i18n/server";
 
-export function Footer() {
+export async function Footer() {
+  const { t } = await getT();
   return (
     <footer className="hairline-t mt-24">
       <div className="mx-auto grid max-w-7xl grid-cols-2 gap-8 px-6 py-16 md:grid-cols-4">
@@ -13,7 +15,7 @@ export function Footer() {
             </div>
           </div>
           <p className="mt-4 max-w-sm text-sm text-[color:var(--color-mute)]">
-            Pas une app de programmes. Ton Coaching Adaptatif quotidien.
+            {t("app.footer.tagline")}
             <br />
             <span className="mono text-xs tracking-[0.2em] text-white">
               EL COACH METHOD · by El Coach
@@ -21,7 +23,7 @@ export function Footer() {
           </p>
         </div>
         <div>
-          <div className="label mb-4">Plateforme</div>
+          <div className="label mb-4">{t("app.footer.platform")}</div>
           <ul className="space-y-2 text-sm">
             <li>
               <Link href="/marketplace">Marketplace</Link>
@@ -32,10 +34,10 @@ export function Footer() {
           </ul>
         </div>
         <div>
-          <div className="label mb-4">Entreprise</div>
+          <div className="label mb-4">{t("app.footer.company")}</div>
           <ul className="space-y-2 text-sm text-[color:var(--color-mute)]">
-            <li>À propos</li>
-            <li>Contact</li>
+            <li>{t("app.footer.about")}</li>
+            <li>{t("app.footer.contact")}</li>
           </ul>
         </div>
       </div>

@@ -2,23 +2,28 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { ProgramIcon } from "@/components/program-icon";
 import { programTemplates } from "@/lib/programming";
+import { getT } from "@/lib/i18n/server";
+import { tc } from "@/lib/i18n/content";
 
-export const metadata = { title: "Choisis ton programme — EL COACH METHOD" };
+export async function generateMetadata() {
+  const { t } = await getT();
+  return { title: t("su.meta.onboarding") };
+}
 
-export default function OnboardingPage() {
+export default async function OnboardingPage() {
+  const { t: tr, lang } = await getT();
   return (
     <section className="mx-auto max-w-5xl px-6 py-20">
       <div className="mono inline-flex items-center gap-2 border border-[color:var(--color-accent)] bg-[color:var(--color-accent)]/10 px-3 py-1.5 text-[10px] tracking-[0.3em] text-[color:var(--color-accent)]">
-        ✦ COACHING ADAPTATIF · PAR EL COACH METHOD
+        {tr("su.onb.badge")}
       </div>
       <h1 className="gold-shimmer mt-6 text-4xl font-semibold tracking-tight md:text-6xl">
-        Choisis ton programme.
+        {tr("su.onb.title")}
       </h1>
       <p className="mt-6 max-w-xl text-base text-[color:var(--color-mute)] md:text-lg">
-        Le Coaching Adaptatif piochera dedans chaque matin pour générer ta séance,
-        adaptée à ton état du jour.
+        {tr("su.onb.body")}
         <br />
-        Tu peux en changer à tout moment depuis ton profil.
+        {tr("su.onb.change")}
       </p>
 
       <div className="mt-12 grid gap-px bg-[color:var(--color-line)] md:grid-cols-2">
@@ -40,7 +45,7 @@ export default function OnboardingPage() {
                   </div>
                   {t.tagline && (
                     <div className="mt-1 text-xs italic text-[color:var(--color-mute)]">
-                      {t.tagline}
+                      {tc(lang, t.tagline)}
                     </div>
                   )}
                 </div>
@@ -50,7 +55,7 @@ export default function OnboardingPage() {
                 className="mt-1 shrink-0 transition-transform group-hover:translate-x-1"
               />
             </div>
-            <p className="text-sm text-[color:var(--color-mute)]">{t.summary}</p>
+            <p className="text-sm text-[color:var(--color-mute)]">{tc(lang, t.summary)}</p>
           </Link>
         ))}
       </div>

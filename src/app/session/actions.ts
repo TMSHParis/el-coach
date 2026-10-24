@@ -10,6 +10,8 @@ import { isSessionFeeling } from "@/lib/session-feeling";
 import { MAX_SESSION_PHOTOS } from "@/lib/session-media";
 import { advanceProgramPosition } from "@/lib/program-position";
 import { effectiveWeekCycle } from "@/lib/week-overrides";
+import { getLang } from "@/lib/i18n/server";
+import { makeT } from "@/lib/i18n";
 
 export type ResultKind = "strength" | "bodyweight" | "hold" | "carry" | "wod" | "warmup" | "endurance";
 
@@ -153,15 +155,17 @@ async function generateAndStoreCongrats(userId: string, payload: SessionResultPa
   const heartRateZones =
     (session?.photoAnalysis as { heartRateZones?: HeartRateZoneSplit[] | null } | null)?.heartRateZones ?? null;
   const durationLabel = formatDurationLabel(payload.durationSec);
+  const lang = await getLang();
 
   const { message, tags } = await generateSessionCongrats({
     profile,
     checkin,
-    sportLabel: checkin.seance || "Séance",
+    sportLabel: checkin.seance || makeT(lang)("srv.sport.fallback"),
     durationLabel,
     previousMessage,
     recentTags,
     heartRateZones,
+    lang,
   });
 
   const existing = dashboardOutput.output as Record<string, unknown>;

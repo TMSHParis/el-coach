@@ -2,18 +2,20 @@
 // drapeau de l'événement, durée de chaque phase. Sans état : utilisable côté serveur et client.
 
 import { EVENT_ICONS } from "@/lib/competition-params";
-import { pathTitle, phaseWidthPercent, type CompetitionPlan } from "@/lib/competition-plan";
+import { pathTitle, phaseLabel, phaseWidthPercent, type CompetitionPlan } from "@/lib/competition-plan";
+import { makeT, type Translate } from "@/lib/i18n";
 import styles from "./phase-path.module.css";
 
-export function PhasePath({ plan, showTitle = true }: { plan: CompetitionPlan; showTitle?: boolean }) {
+/** `t` : traducteur de la langue active (français par défaut si non fourni par l'appelant). */
+export function PhasePath({ plan, showTitle = true, t = makeT("fr") }: { plan: CompetitionPlan; showTitle?: boolean; t?: Translate }) {
   const flag = plan.event === "Hyrox" ? "🏁" : EVENT_ICONS[plan.event] ?? "🏁";
   return (
     <div className={styles.root}>
       {showTitle && (
         <>
-          <div className={styles.title}>{pathTitle(plan.event)}</div>
+          <div className={styles.title}>{pathTitle(plan.event, t)}</div>
           <div className={styles.sub}>
-            {plan.planWeeks} semaine{plan.planWeeks > 1 ? "s" : ""}
+            {t(plan.planWeeks > 1 ? "dash.path.weeks.many" : "dash.path.weeks.one", { n: plan.planWeeks })}
           </div>
         </>
       )}
@@ -24,10 +26,10 @@ export function PhasePath({ plan, showTitle = true }: { plan: CompetitionPlan; s
               key={p.key}
               className={`${styles.seg} ${styles[p.state]}`}
               style={{ width: `${phaseWidthPercent(plan, p)}%` }}
-              title={p.label}
+              title={phaseLabel(p.label, t)}
             />
           ))}
-          <span className={styles.marker} style={{ left: `${plan.todayFraction * 100}%` }} aria-label="Aujourd'hui" />
+          <span className={styles.marker} style={{ left: `${plan.todayFraction * 100}%` }} aria-label={t("dash.path.todayAria")} />
         </div>
         <span className={styles.flag} aria-hidden="true">
           {flag}
@@ -40,11 +42,11 @@ export function PhasePath({ plan, showTitle = true }: { plan: CompetitionPlan; s
             className={`${styles.label} ${p.state === "current" ? styles.labelOn : ""}`}
             style={{ width: `${phaseWidthPercent(plan, p)}%` }}
           >
-            <span className={styles.labelName}>{p.label}</span>
-            {p.key !== "evenement" && <span className={styles.labelDur}>{p.weeks} sem.</span>}
+            <span className={styles.labelName}>{phaseLabel(p.label, t)}</span>
+            {p.key !== "evenement" && <span className={styles.labelDur}>{t("dash.path.wk", { n: p.weeks })}</span>}
             {p.state === "current" && plan.weekInPhase && plan.currentPhaseWeeks && (
               <span className={styles.labelWeek}>
-                semaine {plan.weekInPhase} sur {plan.currentPhaseWeeks}
+                {t("dash.path.weekOf", { week: plan.weekInPhase, weeks: plan.currentPhaseWeeks })}
               </span>
             )}
           </div>

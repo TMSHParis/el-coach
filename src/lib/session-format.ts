@@ -1,12 +1,13 @@
 // Correspondance entre le format de programmation (programming.ts) et l'affichage
 // UI partagé par le dashboard (aperçu séance) et /session (moteur de chrono).
 
+import { makeT, type Translate } from "./i18n";
 import { resolveExerciseMovement, displayBlockName, type Block, type BlockType, type Exercise, type WodFormat } from "./programming";
 
 export type BadgeCls = "nft" | "bth" | "ft" | "amrap" | "emom" | "tabata";
 export type RuntimeFormat = "nft" | "ft" | "amrap" | "emom" | "tabata";
 
-export function badgeForBlock(block: Block): { label: string; cls: BadgeCls } {
+export function badgeForBlock(block: Block, t: Translate = makeT("fr")): { label: string; cls: BadgeCls } {
   const fmt = block.format;
   if (fmt === "AMRAP") return { label: "AMRAP", cls: "amrap" };
   if (fmt === "EMOM" || fmt === "E2MOM" || fmt === "E3MOM") return { label: fmt, cls: "emom" };
@@ -17,7 +18,7 @@ export function badgeForBlock(block: Block): { label: string; cls: BadgeCls } {
   if (block.type === "strength" || block.type === "skill") {
     return { label: "Build to Heavy", cls: "bth" };
   }
-  if (block.type === "cooldown") return { label: "Facultatif", cls: "nft" };
+  if (block.type === "cooldown") return { label: t("run.badge.optional"), cls: "nft" };
   return { label: "Not For Time", cls: "nft" };
 }
 
@@ -93,9 +94,9 @@ export type DisplayBlock = {
 };
 
 /** Transforme les blocs bruts (programming.ts) en vue prête pour dashboard/session. */
-export function toDisplayBlocks(blocks: Block[]): DisplayBlock[] {
+export function toDisplayBlocks(blocks: Block[], t: Translate = makeT("fr")): DisplayBlock[] {
   return blocks.map((block, i) => {
-    const { label, cls } = badgeForBlock(block);
+    const { label, cls } = badgeForBlock(block, t);
     return {
       lettre: String(i + 1),
       titre: displayBlockName(block),

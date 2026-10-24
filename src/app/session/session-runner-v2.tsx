@@ -8,13 +8,15 @@ import type { BlockType, WodFormat } from "@/lib/programming";
 import styles from "./session.module.css";
 import { SessionItemRow } from "../dashboard/session-item-row";
 import { VideoModal } from "../dashboard/session/video-modal";
-import { REPLACE_REASONS, type EquivalentOption } from "@/lib/movement-equivalents";
+import { REPLACE_REASONS, REPLACE_REASON_KEYS, type EquivalentOption } from "@/lib/movement-equivalents";
 import { CARDIO_ZONES, cardioLine, paceText } from "@/lib/cardio";
 import { saveSessionResult, updateSessionRecap, type BlocSummary, type ResultKind, type SessionBlocResult } from "./actions";
 import { SessionPhotos, type PhotoAnalysisContext } from "@/components/session-photos";
 import type { PhotoExtraction } from "@/app/api/extract-photo-data/route";
 import type { LastResult } from "@/lib/last-results";
 import { useLongPress } from "@/lib/use-long-press";
+import { useT, useLang } from "@/lib/i18n/provider";
+import { tc } from "@/lib/i18n/content";
 import {
   getVolume,
   releaseAudio,
@@ -74,6 +76,9 @@ function haloColorFor(block: DisplayBlock): string {
   return BLOCK_HALO_COLOR[block.type] ?? "#C9A84C";
 }
 const TICK_MS = 200;
+
+/** Couleur d'un hex de la palette de thème (assombrie en thème clair). Le plein écran du chrono reste sur les hex bruts (toujours sombre). */
+const themed = (hex: string) => `var(--c-${hex.slice(1).toLowerCase()})`;
 
 /** "#F97316" + 0.12 → "rgba(249,115,22,0.12)". */
 function hexAlpha(hex: string, alpha: number): string {
@@ -400,6 +405,8 @@ export function SessionRunnerV2({
   doneRedirect?: string;
 }) {
   const router = useRouter();
+  const t = useT();
+  const { lang } = useLang();
   const storageKey = `elc_session_${date}`;
 
   const makeInitial = useCallback(
@@ -1037,7 +1044,7 @@ export function SessionRunnerV2({
       exIdx: -1,
       endsAt: Date.now() + st.restSec * 1000,
       totalSec: st.restSec,
-      label: `Tour ${tourIdx + 1}`,
+      label: t("run.circuit.tourN", { n: tourIdx + 1 }),
     });
   }
 
@@ -1092,7 +1099,7 @@ export function SessionRunnerV2({
         ),
       );
       setReplaceSheet(null);
-      setToast(`Remplacé par ${option.name}`);
+      setToast(t("run.toast.replaced", { name: option.name }));
       setTimeout(() => setToast(null), 1800);
       return;
     }
@@ -1116,7 +1123,7 @@ export function SessionRunnerV2({
     );
     if (restTimer && restTimer.blocIdx === blocIdx && restTimer.exIdx === exIdx) cancelRestTimer();
     setReplaceSheet(null);
-    setToast(`Remplacé par ${option.name}`);
+    setToast(t("run.toast.replaced", { name: option.name }));
     setTimeout(() => setToast(null), 1800);
   }
 
@@ -1273,7 +1280,7 @@ export function SessionRunnerV2({
       router.push("/dashboard");
       return;
     }
-    if (window.confirm("Quitter la séance ?")) router.push("/dashboard");
+    if (window.confirm(t("run.confirm.quit"))) router.push("/dashboard");
   }
 
   // Enregistrement des résultats puis compte rendu — best effort : même si
@@ -1361,16 +1368,16 @@ export function SessionRunnerV2({
         <div data-hide-scroll-top className={cx(styles.success, styles.show)}>
           <div className={styles.successIcon}>⚡</div>
           <div className={styles.successTitle}>
-            Séance
+            {t("run.done.title1")}
             <br />
-            terminée.
+            {t("run.done.title2")}
           </div>
           <div className={styles.successSub}>
             <strong>{sessionName}</strong>
             <br />
-            {fmtHMS(globalSec)} · {movementsDone}/{movementsTotal} mouvements
+            {fmtHMS(globalSec)} · {movementsDone}/{movementsTotal} {t("run.done.movements")}
           </div>
-          <div className={styles.successSub}>Préparation de ton compte rendu…</div>
+          <div className={styles.successSub}>{t("run.done.preparing")}</div>
         </div>
       </div>
     );
@@ -1414,7 +1421,7 @@ export function SessionRunnerV2({
           séries" du mouvement concerné. */}
       <div className={styles.topbar}>
         <div className={styles.tbLeft}>
-          <button className={styles.tbBack} onClick={confirmBack} aria-label="Retour">
+          <button className={styles.tbBack} onClick={confirmBack} aria-label={t("run.back")}>
             ←
           </button>
           <div>
@@ -1426,7 +1433,7 @@ export function SessionRunnerV2({
         </div>
         <div style={{ textAlign: "right" }}>
           <div className={styles.globalTimer}>{fmtHMS(globalSec)}</div>
-          <div className={styles.globalTimerLabel}>Durée totale</div>
+          <div className={styles.globalTimerLabel}>{t("run.totalDuration")}</div>
         </div>
       </div>
 
@@ -1439,7 +1446,7 @@ export function SessionRunnerV2({
           {sessionStarted && (
             <div className={styles.sessLabel}>
               <span className={styles.sessLabelDot} />
-              Séance en cours
+              {t("run.inProgress")}
             </div>
           )}
           <div className={styles.sessTitleRow}>
@@ -1450,7 +1457,7 @@ export function SessionRunnerV2({
             </div>
           </div>
           <label className={styles.volumeRow}>
-            <span className={styles.volumeLabel}>🔊 Volume</span>
+            <span className={styles.volumeLabel}>🔊 {t("run.volume")}</span>
             <input
               type="range"
               min={0}
@@ -1458,20 +1465,20 @@ export function SessionRunnerV2({
               value={Math.round(volume * 100)}
               onChange={(e) => changeVolume(Number(e.target.value) / 100)}
               className={styles.volumeSlider}
-              aria-label="Volume des signaux sonores"
+              aria-label={t("run.volumeAria")}
             />
             <span className={styles.volumeValue}>{Math.round(volume * 100)}%</span>
           </label>
 
           <div className={styles.ctaRow}>
             <button type="button" className={styles.ctaPreview} onClick={() => setShowPreview((v) => !v)}>
-              👁 {showPreview ? "FERMER" : "APERÇU"}
+              👁 {showPreview ? t("run.preview.close") : t("run.preview.open")}
             </button>
             {/* Séance déjà lancée : "Démarrer" n'a plus de sens ici, la fin de
                 séance se fait via "Terminer la séance" plus bas (doc H.8). */}
             {!sessionStarted && (
               <button type="button" className={styles.ctaStart} onClick={startSession}>
-                ▷ DÉMARRER LA SÉANCE
+                ▷ {t("run.start")}
               </button>
             )}
           </div>
@@ -1480,11 +1487,11 @@ export function SessionRunnerV2({
             <div className={styles.previewPanel}>
               {blockData.map((b, i) => (
                 <div key={`${b.titre}-${i}`} className={styles.previewBlock}>
-                  <div className={styles.previewBlockTitle}>{b.titre}</div>
+                  <div className={styles.previewBlockTitle}>{tc(lang, b.titre)}</div>
                   {b.items.map((it, j) => (
                     <div key={j} className={styles.previewItem}>
-                      <span>{it.name}</span>
-                      {it.qty && <span>{it.qty}</span>}
+                      <span>{tc(lang, it.name)}</span>
+                      {it.qty && <span>{tc(lang, it.qty)}</span>}
                     </div>
                   ))}
                 </div>
@@ -1495,18 +1502,18 @@ export function SessionRunnerV2({
 
         {sessionKind === "recuperationActive" && (
           <div className={styles.timerCard}>
-            <div className={styles.timerCardLabel}>Chrono général</div>
+            <div className={styles.timerCardLabel}>{t("run.generalTimer")}</div>
             <div className={styles.timerCardValue}>{fmtMS(globalSec)}</div>
             <div className={styles.timerCardSub}>
-              Objectif {fmtMS(recupTargetSec)} · {fmtMS(globalSec)} / {fmtMS(recupTargetSec)} écoulé
+              {t("run.recup.targetLine", { target: fmtMS(recupTargetSec), elapsed: fmtMS(globalSec) })}
             </div>
             <DurationAdjust
-              label="Objectif de durée"
+              label={t("run.recup.targetLabel")}
               seconds={recupTargetSec}
               step={5}
               min={5}
               max={7200}
-              accent="#C9A84C"
+              accent={themed("#C9A84C")}
               onChange={setRecupTargetSec}
             />
             <div className={styles.blocProgress}>
@@ -1521,9 +1528,9 @@ export function SessionRunnerV2({
         )}
         {sessionKind === "sportHorsEcm" && (
           <div className={styles.timerCard}>
-            <div className={styles.timerCardLabel}>Chrono général</div>
+            <div className={styles.timerCardLabel}>{t("run.generalTimer")}</div>
             <div className={styles.timerCardValue}>{fmtMS(globalSec)}</div>
-            <div className={styles.timerCardSub}>Un seul chrono pour toute la séance — pas de chronos intermédiaires</div>
+            <div className={styles.timerCardSub}>{t("run.generalTimer.sub")}</div>
           </div>
         )}
 
@@ -1579,7 +1586,7 @@ export function SessionRunnerV2({
         {photosEnabled && (
           <div className={styles.photoBar}>
             <div className={styles.photoBarLabel}>
-              Photos de la séance (2 max) — les calories s&apos;y lisent toutes seules
+              {t("run.photos.label")}
             </div>
             <SessionPhotos
               photos={photos}
@@ -1592,7 +1599,7 @@ export function SessionRunnerV2({
 
         {/* Ajouter une 2e activité du jour (doc G.3/G.4) — disponible depuis l'écran séance aussi. */}
         <Link href="/session/add" className={styles.addActivityBtn}>
-          <span>+</span> Ajouter une activité
+          <span>+</span> {t("run.addActivity")}
         </Link>
       </div>
 
@@ -1600,21 +1607,21 @@ export function SessionRunnerV2({
         <div className={styles.bbStats}>
           <div className={styles.bbStat}>
             <div className={styles.bbVal}>{movementsDone}</div>
-            <div className={styles.bbLabel}>Mouvements</div>
+            <div className={styles.bbLabel}>{t("run.stat.movements")}</div>
           </div>
           <div className={styles.bbStat}>
             <div className={styles.bbVal}>
               {doneCount}/{total}
             </div>
-            <div className={styles.bbLabel}>Blocs</div>
+            <div className={styles.bbLabel}>{t("run.stat.blocks")}</div>
           </div>
           <div className={styles.bbStat}>
             <div className={styles.bbVal}>{fmtMS(globalSec)}</div>
-            <div className={styles.bbLabel}>Temps</div>
+            <div className={styles.bbLabel}>{t("run.stat.time")}</div>
           </div>
         </div>
         <button className={cx(styles.bbBtn, styles.bbFinish)} onClick={endSession}>
-          ⚡ Terminer la séance
+          ⚡ {t("run.finish")}
         </button>
       </div>
     </div>
@@ -1702,6 +1709,8 @@ function BlocCard({
   onAdjustRest: (deltaSec: number) => void;
   onCancelRest: () => void;
 }) {
+  const t = useT();
+  const { lang } = useLang();
   const isDone = state.done;
   const isActive = index === currentIndex && !isDone;
   const checkedCount = state.checked.filter(Boolean).length;
@@ -1716,7 +1725,7 @@ function BlocCard({
           {isDone ? "✓" : block.lettre}
         </div>
         <div className={styles.blocInfo}>
-          <div className={styles.blocTitle}>{block.titre}</div>
+          <div className={styles.blocTitle}>{tc(lang, block.titre)}</div>
           {!isDone &&
             (["ft", "amrap", "emom", "tabata"].includes(block.badgeCls) ? (
               <span className={styles.secGoal}>🏆 {block.badge}</span>
@@ -1767,7 +1776,7 @@ function BlocCard({
             {itemCount > 0 && (
               <div className={styles.blocProgress}>
                 <div className={styles.blocProgressLabel}>
-                  {checkedCount} / {itemCount} mouvements
+                  {checkedCount} / {itemCount} {t("run.done.movements")}
                 </div>
                 <div className={styles.blocProgressTrack}>
                   <div className={styles.blocProgressFill} style={{ width: `${(checkedCount / itemCount) * 100}%` }} />
@@ -1784,7 +1793,7 @@ function BlocCard({
               return (
                 <div key={`${it.movementName}-${j}`} className={styles.vigilRow}>
                   <div className={styles.vigilDot} />
-                  <div className={styles.vigilText}>{it.name}</div>
+                  <div className={styles.vigilText}>{tc(lang, it.name)}</div>
                 </div>
               );
             }
@@ -1806,18 +1815,18 @@ function BlocCard({
                     aria-label={
                       hasSeries
                         ? expanded
-                          ? `Replier ${it.name}`
-                          : `Déplier ${it.name}`
+                          ? t("run.item.collapse", { name: it.name })
+                          : t("run.item.expand", { name: it.name })
                         : checked
-                          ? `Décocher ${it.name}`
-                          : `Cocher ${it.name}`
+                          ? t("run.item.uncheck", { name: it.name })
+                          : t("run.item.check", { name: it.name })
                     }
                     aria-pressed={hasSeries ? expanded : checked}
                   >
                     {checked ? "✓" : ""}
                   </button>
                   <div style={{ flex: 1 }}>
-                    {it.replacedFrom && <div className={styles.replacedTag}>REMPLACÉ</div>}
+                    {it.replacedFrom && <div className={styles.replacedTag}>{t("run.replacedTag")}</div>}
                     <SessionItemRow
                       name={it.name}
                       qty={it.qty}
@@ -1827,7 +1836,7 @@ function BlocCard({
                       noVideo={it.noVideo}
                       hideVideo={canReplace}
                     />
-                    {it.replacedFrom && <div className={styles.replacedFrom}>à la place de : {it.replacedFrom}</div>}
+                    {it.replacedFrom && <div className={styles.replacedFrom}>{t("run.replacedInstead", { name: it.replacedFrom })}</div>}
                     {canReplace && (
                       <MovementActions
                         movementName={it.movementName}
@@ -1838,7 +1847,7 @@ function BlocCard({
                     )}
                     {it.replacedFrom && (
                       <button type="button" className={styles.revertLink} onClick={() => onRevert(j)}>
-                        Rétablir le mouvement prévu
+                        {t("run.revert")}
                       </button>
                     )}
                   </div>
@@ -1868,10 +1877,10 @@ function BlocCard({
                         onCancel={onCancelRest}
                       />
                     ) : restJustEnded && restJustEnded.blocIdx === index && restJustEnded.exIdx === j ? (
-                      <div className={styles.restFlash}>C&apos;est reparti !</div>
+                      <div className={styles.restFlash}>{t("run.restOver")}</div>
                     ) : (
                       <Stepper
-                        label="Repos entre séries"
+                        label={t("run.restBetweenSets")}
                         value={state.restOverrides[j] ?? parseRestSeconds(it.rest, block.type)}
                         step={5}
                         min={5}
@@ -1887,7 +1896,7 @@ function BlocCard({
                 {checked && TIME_RESULT_TYPES.includes(block.type) && (
                   <div className={styles.seriesWrap}>
                     <div className={styles.serieRow}>
-                      <span className={styles.serieLabel}>Temps</span>
+                      <span className={styles.serieLabel}>{t("run.time")}</span>
                       <input
                         className={styles.serieInput}
                         type="text"
@@ -1903,12 +1912,12 @@ function BlocCard({
                         placeholder="—"
                         value={state.exerciseCardio?.[j]?.distance ?? ""}
                         onChange={(e) => onSetExerciseCardio(j, { distance: e.target.value })}
-                        aria-label="Distance en kilomètres"
+                        aria-label={t("run.distanceAria")}
                       />
                       <span className={styles.serieUnit}>km</span>
                     </div>
                     <div className={styles.serieRow}>
-                      <span className={styles.serieLabel}>Zone</span>
+                      <span className={styles.serieLabel}>{t("run.zone")}</span>
                       {CARDIO_ZONES.map((z) => (
                         <button
                           key={z}
@@ -1923,7 +1932,7 @@ function BlocCard({
                     </div>
                     {paceText(state.exerciseCardio?.[j]?.distance ?? "", state.exerciseTimes[j] ?? "") && (
                       <div className={styles.lastResult}>
-                        Allure : {paceText(state.exerciseCardio?.[j]?.distance ?? "", state.exerciseTimes[j] ?? "")}
+                        {t("run.pace")} : {paceText(state.exerciseCardio?.[j]?.distance ?? "", state.exerciseTimes[j] ?? "")}
                       </div>
                     )}
                   </div>
@@ -1947,10 +1956,10 @@ function BlocCard({
             onPatch={onPatch}
           />
         )}
-        {!isWod && block.note && <div className={styles.blocNote}>{block.note}</div>}
+        {!isWod && block.note && <div className={styles.blocNote}>{tc(lang, block.note)}</div>}
         {isDone && (
           <div className={styles.blocDoneOverlay}>
-            <span>✅ Bloc complété</span>
+            <span>✅ {t("run.blockDone")}</span>
             <span className={styles.bdoTime}>{fmtMS(state.finalSec)}</span>
           </div>
         )}
@@ -1971,7 +1980,16 @@ function capitalize(s: string) {
  * le profil (genre) n'est pas remonté jusqu'à ce composant.
  */
 function WodSheet({ block }: { block: DisplayBlock }) {
-  const tag = (block.format && WOD_FORMAT_TAG[block.format]) || "🏆 For Time";
+  const t = useT();
+  const { lang } = useLang();
+  const tag =
+    (block.format &&
+      (block.format === "Intervals"
+        ? `⏱️ ${t("run.wod.intervals")}`
+        : block.format === "StraightSets"
+          ? `🏋️ ${t("run.wod.sets")}`
+          : WOD_FORMAT_TAG[block.format])) ||
+    "🏆 For Time";
   const formatLine = wodFormatLine(block);
   const timeCap = wodTimeCap(block);
 
@@ -1979,23 +1997,23 @@ function WodSheet({ block }: { block: DisplayBlock }) {
     <div className={styles.wodSheet}>
       <div className={styles.wodSheetHead}>
         <div className={styles.wodSheetLetter}>{block.lettre}</div>
-        <div className={styles.wodSheetTitle}>{block.titre}</div>
+        <div className={styles.wodSheetTitle}>{tc(lang, block.titre)}</div>
         <div className={styles.wodSheetTag}>{tag}</div>
       </div>
       {formatLine && <div className={styles.wodSheetFormat}>{formatLine}</div>}
       <div className={styles.wodSheetBody}>
         {block.items.map((it, j) => (
           <div key={`${it.movementName}-${j}`} className={styles.wodSheetRow}>
-            {it.qty && <span className={styles.wodSheetQty}>{it.qty}</span>}
+            {it.qty && <span className={styles.wodSheetQty}>{tc(lang, it.qty)}</span>}
             <span className={styles.wodSheetName}>
               {it.movementName}
-              {it.load ? ` (${it.load})` : ""}
+              {it.load ? ` (${tc(lang, it.load)})` : ""}
             </span>
           </div>
         ))}
       </div>
-      {timeCap && <div className={styles.wodSheetCap}>Time cap : {timeCap}</div>}
-      {block.note && <div className={styles.wodSheetNote}>{block.note}</div>}
+      {timeCap && <div className={styles.wodSheetCap}>{t("run.wod.timeCap", { cap: timeCap })}</div>}
+      {block.note && <div className={styles.wodSheetNote}>{tc(lang, block.note)}</div>}
     </div>
   );
 }
@@ -2023,6 +2041,7 @@ function WodResult({
   roundTimes: string[];
   onPatch: (patch: Partial<BlocState>) => void;
 }) {
+  const t = useT();
   const isIntervals = format === "Intervals";
   const toSec = (t: string) => {
     const m = t.trim().match(/^(\d+):(\d{2})$/);
@@ -2040,7 +2059,7 @@ function WodResult({
           <>
             {Array.from({ length: Math.max(1, roundCount) }, (_, i) => (
               <div key={i} className={styles.wodResultField}>
-                <label>Série {i + 1}</label>
+                <label>{t("run.wod.setN", { n: i + 1 })}</label>
                 <input
                   type="text"
                   placeholder="MM:SS"
@@ -2054,55 +2073,55 @@ function WodResult({
               </div>
             ))}
             <div className={styles.wodResultField}>
-              <label>Total</label>
+              <label>{t("run.wod.total")}</label>
               <div className={styles.wodTotal}>{total > 0 ? `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}` : "—"}</div>
             </div>
           </>
         ) : isForTime ? (
           <>
             <div className={styles.wodResultField}>
-              <label>Temps</label>
+              <label>{t("run.time")}</label>
               <input type="text" placeholder="MM:SS" value={temps} onChange={(e) => onPatch({ temps: e.target.value })} />
             </div>
             <div className={styles.wodResultField}>
-              <label>Reps restantes (si cap)</label>
+              <label>{t("run.wod.repsLeft")}</label>
               <input type="text" placeholder="—" value={score} onChange={(e) => onPatch({ score: e.target.value })} />
             </div>
           </>
         ) : isAmrap ? (
           <>
             <div className={styles.wodResultField}>
-              <label>Rounds complets</label>
+              <label>{t("run.wod.fullRounds")}</label>
               <input type="text" placeholder="—" value={rounds} onChange={(e) => onPatch({ rounds: e.target.value })} />
             </div>
             <div className={styles.wodResultField}>
-              <label>Reps supplémentaires</label>
+              <label>{t("run.wod.extraReps")}</label>
               <input type="text" placeholder="—" value={score} onChange={(e) => onPatch({ score: e.target.value })} />
             </div>
           </>
         ) : isEmom ? (
           <>
             <div className={styles.wodResultField}>
-              <label>Charge utilisée</label>
+              <label>{t("run.wod.loadUsed")}</label>
               <input type="text" placeholder="kg" value={temps} onChange={(e) => onPatch({ temps: e.target.value })} />
             </div>
             <div className={styles.wodResultField}>
-              <label>Minutes réussies / total</label>
-              <input type="text" placeholder="ex. 9/10 (loupée : min 4)" value={score} onChange={(e) => onPatch({ score: e.target.value })} />
+              <label>{t("run.wod.minutesDone")}</label>
+              <input type="text" placeholder={t("run.wod.minutesPh")} value={score} onChange={(e) => onPatch({ score: e.target.value })} />
             </div>
           </>
         ) : (
           <>
             <div className={styles.wodResultField}>
-              <label>Temps</label>
+              <label>{t("run.time")}</label>
               <input type="text" placeholder="MM:SS" value={temps} onChange={(e) => onPatch({ temps: e.target.value })} />
             </div>
             <div className={styles.wodResultField}>
-              <label>Rounds</label>
+              <label>{t("run.wod.rounds")}</label>
               <input type="text" placeholder="—" value={rounds} onChange={(e) => onPatch({ rounds: e.target.value })} />
             </div>
             <div className={styles.wodResultField}>
-              <label>Reps bonus</label>
+              <label>{t("run.wod.bonusReps")}</label>
               <input type="text" placeholder="—" value={score} onChange={(e) => onPatch({ score: e.target.value })} />
             </div>
           </>
@@ -2160,6 +2179,7 @@ function SerieInput({
   onUpdate: (serieIdx: number, patch: Partial<ExerciseSerie>) => void;
   onRemove: (serieIdx: number) => void;
 }) {
+  const t = useT();
   const [chargeEnabled, setChargeEnabled] = useState(!!loaded);
   const showCharge = !isHold || chargeEnabled;
   // Chrono d'une tenue : un seul à la fois ; à l'arrêt, le temps tenu est écrit dans le champ.
@@ -2192,7 +2212,7 @@ function SerieInput({
       {series.map((s, k) => (
         <div key={k}>
         <div className={cx(styles.serieRow, s.done && styles.serieRowDone)}>
-          <span className={styles.serieLabel}>Série {k + 1}</span>
+          <span className={styles.serieLabel}>{t("run.wod.setN", { n: k + 1 })}</span>
           {showCharge && (
             <>
               <input
@@ -2212,7 +2232,7 @@ function SerieInput({
               {targetTime && <span className={styles.holdTarget}>{targetTime.replace(/(\d+)s$/, "$1 s")}</span>}
               {(perSide ? (["G", "D"] as const) : (["G"] as const)).map((side) => (
                 <span key={side} className={styles.holdCell}>
-                  {perSide && <span className={styles.holdSide}>{side}</span>}
+                  {perSide && <span className={styles.holdSide}>{t(side === "G" ? "run.side.left" : "run.side.right")}</span>}
                   <input
                     className={styles.serieInput}
                     type="text"
@@ -2225,7 +2245,7 @@ function SerieInput({
                     type="button"
                     className={cx(styles.holdPlay, holdTimer?.k === k && holdTimer.side === side && styles.holdPlayOn)}
                     onClick={() => toggleHold(k, side)}
-                    aria-label={holdTimer?.k === k && holdTimer.side === side ? "Arrêter le chrono" : "Lancer le chrono"}
+                    aria-label={holdTimer?.k === k && holdTimer.side === side ? t("run.hold.stop") : t("run.hold.start")}
                   >
                     {holdTimer?.k === k && holdTimer.side === side ? "■" : "▶"}
                   </button>
@@ -2247,7 +2267,7 @@ function SerieInput({
               className={styles.serieUnit}
               value={s.unit ?? "m"}
               onChange={(e) => onUpdate(k, { unit: e.target.value as "m" | "km" })}
-              aria-label={`Unité de la série ${k + 1}`}
+              aria-label={t("run.serie.unitAria", { n: k + 1 })}
             >
               <option value="m">m</option>
               <option value="km">km</option>
@@ -2260,9 +2280,9 @@ function SerieInput({
               type="button"
               className={styles.removeSerieBtn}
               onClick={() => {
-                if (window.confirm(`Supprimer la série ${k + 1} ?`)) onRemove(k);
+                if (window.confirm(t("run.serie.deleteConfirm", { n: k + 1 }))) onRemove(k);
               }}
-              aria-label={`Supprimer la série ${k + 1}`}
+              aria-label={t("run.serie.deleteAria", { n: k + 1 })}
             >
               ✕
             </button>
@@ -2271,7 +2291,7 @@ function SerieInput({
             type="button"
             className={cx(styles.serieCheckBtn, s.done && styles.serieCheckBtnOn)}
             onClick={() => onToggleDone(k)}
-            aria-label={s.done ? `Dévalider la série ${k + 1}` : `Valider la série ${k + 1}`}
+            aria-label={s.done ? t("run.serie.unvalidate", { n: k + 1 }) : t("run.serie.validate", { n: k + 1 })}
             aria-pressed={!!s.done}
           >
             <span className={styles.serieCheckMark}>{s.done ? "✓" : ""}</span>
@@ -2288,26 +2308,26 @@ function SerieInput({
               step={1}
               value={s.rpe ? Number(s.rpe) : 5}
               onChange={(e) => onUpdate(k, { rpe: e.target.value })}
-              aria-label={`RPE série ${k + 1}`}
+              aria-label={t("run.serie.rpeAria", { n: k + 1 })}
             />
-            <span className={styles.rpeHint}>facultatif</span>
+            <span className={styles.rpeHint}>{t("run.optional")}</span>
           </div>
         )}
         </div>
       ))}
       {last && !isHold && last.charge > 0 && (
         <div className={styles.lastResult}>
-          Dernière fois : {last.charge} kg × {last.reps || "—"} · suggéré {last.suggestion} kg
+          {t("run.last.line", { charge: last.charge, reps: last.reps || "—", suggestion: last.suggestion })}
         </div>
       )}
-      {last && isHold && last.time && <div className={styles.lastResult}>Dernière fois : {last.time}</div>}
+      {last && isHold && last.time && <div className={styles.lastResult}>{t("run.last.time", { time: last.time })}</div>}
       <div className={styles.seriesActionsRow}>
         <button type="button" className={styles.addSerieBtn} onClick={onAdd}>
-          + Ajouter une série
+          {t("run.serie.add")}
         </button>
         {isHold && !chargeEnabled && (
           <button type="button" className={styles.addSerieBtn} onClick={() => setChargeEnabled(true)}>
-            + Charge
+            {t("run.serie.addLoad")}
           </button>
         )}
       </div>
@@ -2385,6 +2405,7 @@ function DurationAdjust({
   accent: string;
   onChange: (v: number) => void;
 }) {
+  const t = useT();
   const dec = useLongPress(
     () => onChange(stepDuration(seconds, "-", step, min, max)),
     () => onChange(stepDuration(seconds, "-", 60, min, max)),
@@ -2397,13 +2418,13 @@ function DurationAdjust({
     <div className={styles.durAdjust}>
       <div className={styles.durAdjustLabel}>{label}</div>
       <div className={styles.durAdjustRow}>
-        <button type="button" className={styles.durAdjustBtn} aria-label="Diminuer la durée" {...dec}>
+        <button type="button" className={styles.durAdjustBtn} aria-label={t("run.dur.dec")} {...dec}>
           −
         </button>
-        <div className={styles.durAdjustValue} style={{ filter: `drop-shadow(0 0 12px ${accent}66)` }}>
+        <div className={styles.durAdjustValue} style={{ filter: `drop-shadow(0 0 12px color-mix(in srgb, ${accent} 40%, transparent))` }}>
           {fmtDurationAdjust(seconds)}
         </div>
-        <button type="button" className={styles.durAdjustBtn} aria-label="Augmenter la durée" {...inc}>
+        <button type="button" className={styles.durAdjustBtn} aria-label={t("run.dur.inc")} {...inc}>
           +
         </button>
       </div>
@@ -2440,6 +2461,7 @@ function TimerZone({
   onAddRound: () => void;
   onOpenFullscreen: () => void;
 }) {
+  const tr = useT();
   // Hors ECM (sport libre, repos, récupération active) : pas de chrono par
   // bloc — "repos" n'a aucun chrono, les deux autres s'appuient sur le chrono
   // général déjà affiché en permanence (bandeau du haut / carte dédiée) —
@@ -2451,11 +2473,11 @@ function TimerZone({
         <div className={styles.timerControls}>
           {t.done ? (
             <button className={cx(styles.tcBtn, styles.tcReset)} style={{ flex: "none", width: "100%" }} onClick={onReset}>
-              ↺ Refaire
+              ↺ {tr("run.redo")}
             </button>
           ) : (
             <button className={cx(styles.tcBtn, styles.tcDone)} style={{ flex: "none", width: "100%" }} onClick={onDone}>
-              ✓ Terminer
+              ✓ {tr("run.finishShort")}
             </button>
           )}
         </div>
@@ -2469,39 +2491,39 @@ function TimerZone({
 
   let displayTime = "00:00";
   let displayClass = styles.idle;
-  let statusText = "⏸ EN ATTENTE";
+  let statusText = `⏸ ${tr("run.status.waiting")}`;
   let infoText = FORMAT_LABELS[fmt].toUpperCase();
 
   if (t.done) {
     displayTime = fmtMS(t.finalSec);
     displayClass = styles.doneT;
-    statusText = "✅ TERMINÉ";
+    statusText = `✅ ${tr("run.status.done")}`;
   } else if (t.running) {
-    statusText = "⏱ EN COURS";
+    statusText = `⏱ ${tr("run.status.running")}`;
     if (fmt === "ft" || fmt === "nft") {
       displayTime = fmtMS(elapsed);
       displayClass = fmt === "ft" ? styles.runningFt : styles.runningNft;
-      infoText = fmt === "ft" ? "POUR LE TEMPS" : "SANS CHRONO";
+      infoText = fmt === "ft" ? tr("run.info.forTime") : tr("run.info.noTimer");
     } else if (fmt === "amrap") {
       displayTime = fmtMS(t.durationSec - elapsed);
       displayClass = styles.runningAmrap;
-      infoText = "TEMPS RESTANT";
+      infoText = tr("run.info.remaining");
     } else if (fmt === "emom") {
       const emomRounds = Math.max(1, Math.round(t.durationSec / 60));
       displayTime = fmtMS(60 - (elapsed % 60));
       displayClass = styles.runningEmom;
-      infoText = `MINUTE ${Math.min(emomRounds, Math.floor(elapsed / 60) + 1)} / ${emomRounds}`;
+      infoText = tr("run.info.minute", { n: Math.min(emomRounds, Math.floor(elapsed / 60) + 1), total: emomRounds });
     } else if (fmt === "tabata") {
       const view = tabataView(t, elapsed);
       displayTime = fmtMS(view.remaining);
       displayClass = view.phase === "work" ? styles.runningTabataWork : styles.runningTabataRest;
-      infoText = view.phase === "work" ? "EFFORT" : "REPOS";
+      infoText = view.phase === "work" ? tr("run.info.effort") : tr("run.info.rest");
     }
   } else if (t.accumulatedMs > 0) {
     // Chrono en pause : on garde le temps atteint sous les yeux.
     displayTime =
       fmt === "amrap" ? fmtMS(t.durationSec - elapsed) : fmt === "emom" ? fmtMS(60 - (elapsed % 60)) : fmtMS(elapsed);
-    statusText = "⏸ EN PAUSE";
+    statusText = `⏸ ${tr("run.status.paused")}`;
     displayClass = styles.paused;
   } else if (fmt === "amrap" || fmt === "emom") {
     displayTime = fmtMS(t.durationSec);
@@ -2519,9 +2541,9 @@ function TimerZone({
       {countdown !== null && (
         <div className={styles.countdown}>
           <div className={styles.countdownNum}>{countdown}</div>
-          <div className={styles.countdownLabel}>Départ dans…</div>
+          <div className={styles.countdownLabel}>{tr("run.countdown")}</div>
           <button type="button" className={styles.countdownCancel} onClick={onCancelCountdown}>
-            Annuler
+            {tr("run.cancel")}
           </button>
         </div>
       )}
@@ -2540,29 +2562,29 @@ function TimerZone({
               </button>
             ))}
           </div>
-          <div className={styles.fmtAccentLine} style={{ background: FS_COLOR[fmt] }} />
+          <div className={styles.fmtAccentLine} style={{ background: themed(FS_COLOR[fmt]) }} />
         </>
       )}
 
       {showDurRow && (
         <DurationAdjust
-          label={fmt === "emom" ? "Durée / round" : fmt === "ft" ? "Durée cible" : "Durée"}
+          label={fmt === "emom" ? tr("run.dur.perRound") : fmt === "ft" ? tr("run.dur.target") : tr("run.dur.plain")}
           seconds={t.durationSec}
           // EMOM : un round dure toujours 60 s dans cette app — le pas porte donc
           // sur le nombre de rounds, pas la seconde.
           step={fmt === "emom" ? 60 : 5}
           min={fmt === "emom" ? 60 : 5}
           max={3600}
-          accent={FS_COLOR[fmt]}
+          accent={themed(FS_COLOR[fmt])}
           onChange={(v) => onPatch({ durationSec: v })}
         />
       )}
 
       {showTabataConfig && (
         <div className={styles.tabataConfig}>
-          <Stepper label="Travail" value={t.workSec} step={5} min={5} max={120} format={fmtDurationAdjust} longPressStep={60} onChange={(v) => onPatch({ workSec: v })} />
-          <Stepper label="Repos" value={t.restSec} step={5} min={5} max={120} format={fmtDurationAdjust} longPressStep={60} onChange={(v) => onPatch({ restSec: v })} />
-          <Stepper label="Tours" value={t.tabataRounds} step={1} min={1} max={30} onChange={(v) => onPatch({ tabataRounds: v })} />
+          <Stepper label={tr("run.tabata.work")} value={t.workSec} step={5} min={5} max={120} format={fmtDurationAdjust} longPressStep={60} onChange={(v) => onPatch({ workSec: v })} />
+          <Stepper label={tr("run.tabata.rest")} value={t.restSec} step={5} min={5} max={120} format={fmtDurationAdjust} longPressStep={60} onChange={(v) => onPatch({ restSec: v })} />
+          <Stepper label={tr("run.tabata.rounds")} value={t.tabataRounds} step={1} min={1} max={30} onChange={(v) => onPatch({ tabataRounds: v })} />
         </div>
       )}
 
@@ -2575,10 +2597,10 @@ function TimerZone({
       {tabataRunning && (
         <>
           <div className={cx(styles.tabataPhase, tabataRunning.phase === "work" ? styles.work : styles.rest)}>
-            {tabataRunning.phase === "work" ? `⚡ EFFORT — ${t.workSec}s` : `😮‍💨 REPOS — ${t.restSec}s`}
+            {tabataRunning.phase === "work" ? `⚡ ${tr("run.info.effort")} — ${t.workSec}s` : `😮‍💨 ${tr("run.info.rest")} — ${t.restSec}s`}
           </div>
           <div className={styles.roundCounter}>
-            Tour <span>{Math.min(tabataRunning.round, t.tabataRounds)}</span> / {t.tabataRounds}
+            {tr("run.tabata.round")} <span>{Math.min(tabataRunning.round, t.tabataRounds)}</span> / {t.tabataRounds}
           </div>
           <div className={styles.emomBarWrap}>
             <div
@@ -2617,50 +2639,50 @@ function TimerZone({
 
       {t.running && (
         <button type="button" className={styles.fsOpenBtn} onClick={onOpenFullscreen}>
-          ⛶ Chrono plein écran
+          ⛶ {tr("run.fullscreen")}
         </button>
       )}
 
       <div className={styles.timerControls} id={`tc-${index}`}>
         {t.done ? (
           <button className={cx(styles.tcBtn, styles.tcReset)} style={{ flex: "none", width: "100%" }} onClick={onReset}>
-            ↺ Refaire
+            ↺ {tr("run.redo")}
           </button>
         ) : countdown !== null ? (
           <button className={cx(styles.tcBtn, styles.tcPause)} style={{ flex: "none", width: "100%" }} onClick={onCancelCountdown}>
-            ⏸ Annuler le départ
+            ⏸ {tr("run.cancelStart")}
           </button>
         ) : !t.running && t.accumulatedMs === 0 ? (
           <>
             <button className={cx(styles.tcBtn, styles.tcStart)} onClick={onStart}>
-              ▷ Démarrer
+              ▷ {tr("run.startShort")}
             </button>
             <button className={cx(styles.tcBtn, styles.tcDone)} onClick={onDone}>
-              ✓ Terminer
+              ✓ {tr("run.finishShort")}
             </button>
           </>
         ) : t.running ? (
           <>
             <button className={cx(styles.tcBtn, styles.tcPause)} onClick={onPause}>
-              ⏸ Pause
+              ⏸ {tr("run.pause")}
             </button>
             <button className={cx(styles.tcBtn, styles.tcReset)} onClick={onReset}>
               ↺
             </button>
             <button className={cx(styles.tcBtn, styles.tcDone)} onClick={onDone}>
-              ✓ Fin
+              ✓ {tr("run.end")}
             </button>
           </>
         ) : (
           <>
             <button className={cx(styles.tcBtn, styles.tcStart)} onClick={onStart}>
-              ▷ Reprendre
+              ▷ {tr("run.resume")}
             </button>
             <button className={cx(styles.tcBtn, styles.tcReset)} onClick={onReset}>
               ↺
             </button>
             <button className={cx(styles.tcBtn, styles.tcDone)} onClick={onDone}>
-              ✓ Fin
+              ✓ {tr("run.end")}
             </button>
           </>
         )}
@@ -2694,6 +2716,8 @@ function FullscreenTimer({
   onDone: () => void;
   onClose: () => void;
 }) {
+  const tr = useT();
+  const { lang } = useLang();
   const fmt = t.format;
   const elapsed = elapsedSec(t, now);
   const countdown = t.countdownEndsAt ? Math.max(0, Math.ceil((t.countdownEndsAt - now) / 1000)) : null;
@@ -2703,18 +2727,18 @@ function FullscreenTimer({
   let info = "";
   if (fmt === "amrap") {
     time = fmtMS(t.durationSec - elapsed);
-    info = `${t.amrapRounds} round${t.amrapRounds > 1 ? "s" : ""} complété${t.amrapRounds > 1 ? "s" : ""}`;
+    info = tr(t.amrapRounds > 1 ? "run.fs.roundsDone.many" : "run.fs.roundsDone.one", { n: t.amrapRounds });
   } else if (fmt === "emom") {
     const emomRounds = Math.max(1, Math.round(t.durationSec / 60));
     time = fmtMS(60 - (elapsed % 60));
     info = `Round ${Math.min(emomRounds, Math.floor(elapsed / 60) + 1)} / ${emomRounds}`;
   } else if (tabata) {
     time = fmtMS(tabata.remaining);
-    info = `${tabata.phase === "work" ? "Travail" : "Repos"} · Round ${Math.min(tabata.round, t.tabataRounds)} / ${t.tabataRounds}`;
+    info = `${tabata.phase === "work" ? tr("run.tabata.work") : tr("run.tabata.rest")} · Round ${Math.min(tabata.round, t.tabataRounds)} / ${t.tabataRounds}`;
   } else if (fmt === "ft") {
-    info = "Pour le temps";
+    info = tr("run.fs.forTime");
   } else {
-    info = "Sans chrono";
+    info = tr("run.fs.noTimer");
   }
 
   // Couleur du format posée sur le fond radial (Tabata : verte en repos) — sert
@@ -2748,6 +2772,7 @@ function FullscreenTimer({
   return (
     <div
       data-hide-scroll-top
+      data-theme="dark"
       className={styles.fsRoot}
       style={{ background: `radial-gradient(circle at 50% 44%, ${mixOpaque(halo, "#050505", 0.3)} 0%, ${mixOpaque(halo, "#050505", 0.1)} 38%, #050505 72%)` }}
     >
@@ -2755,7 +2780,7 @@ function FullscreenTimer({
         <div className={styles.fsFormat} style={{ color: fmt === "nft" ? "#D1D5DB" : color }}>
           {FORMAT_LABELS[fmt]}
         </div>
-        <div className={styles.fsBloc} style={{ color: halo }}>{block.titre}</div>
+        <div className={styles.fsBloc} style={{ color: halo }}>{tc(lang, block.titre)}</div>
       </div>
 
       <div className={styles.fsCenter}>
@@ -2784,12 +2809,12 @@ function FullscreenTimer({
           </div>
         </div>
         {countdown === null && (
-          <button type="button" className={styles.fsResetBtn} onClick={onReset} aria-label="Remettre le chrono à zéro">
+          <button type="button" className={styles.fsResetBtn} onClick={onReset} aria-label={tr("run.fs.resetAria")}>
             ↺ Reset
           </button>
         )}
-        <div className={styles.fsInfo}>{countdown !== null ? "Départ dans…" : info}</div>
-        {!t.running && t.accumulatedMs > 0 && countdown === null && <div className={styles.fsPaused}>⏸ En pause</div>}
+        <div className={styles.fsInfo}>{countdown !== null ? tr("run.countdown") : info}</div>
+        {!t.running && t.accumulatedMs > 0 && countdown === null && <div className={styles.fsPaused}>⏸ {tr("run.fs.paused")}</div>}
         {fmt === "amrap" && t.running && (
           <button type="button" className={styles.fsRoundBtn} onClick={onAddRound}>
             + Round
@@ -2804,11 +2829,11 @@ function FullscreenTimer({
 
       <div className={styles.fsBottom}>
         <button type="button" className={styles.fsBtn} onClick={t.running ? onPause : onResume}>
-          {t.running ? "⏸ Pause" : "▷ Reprendre"}
+          {t.running ? `⏸ ${tr("run.pause")}` : `▷ ${tr("run.resume")}`}
         </button>
         <div className={styles.fsGlobal}>{globalLabel}</div>
         <button type="button" className={styles.fsBtn} onClick={onClose}>
-          ← Retour
+          ← {tr("run.back")}
         </button>
       </div>
     </div>
@@ -2834,13 +2859,14 @@ function MovementActions({
   replaced: boolean;
   onOpen: () => void;
 }) {
+  const t = useT();
   const [video, setVideo] = useState(false);
   return (
     <div className={styles.moveActions}>
       <button type="button" className={styles.replaceBtn} onClick={onOpen}>
-        ⇄ {replaced ? "Changer" : "Remplacer"}
+        ⇄ {replaced ? t("run.change") : t("run.replace")}
       </button>
-      <button type="button" className={styles.moveVideoBtn} onClick={() => setVideo(true)} aria-label={`Vidéo ${movementName}`}>
+      <button type="button" className={styles.moveVideoBtn} onClick={() => setVideo(true)} aria-label={t("run.videoAria", { name: movementName })}>
         ▶
       </button>
       <VideoModal open={video} onClose={() => setVideo(false)} title={movementName} searchQuery={movementName} videoUrl={videoUrl} />
@@ -2860,6 +2886,7 @@ function ReplaceSheet({
   onConfirm: (option: EquivalentOption, reason: string) => void;
   onClose: () => void;
 }) {
+  const t = useT();
   const [reason, setReason] = useState<string>(REPLACE_REASONS[0]);
   const [picked, setPicked] = useState(options[0]?.id ?? "");
   const [video, setVideo] = useState<EquivalentOption | null>(null);
@@ -2876,23 +2903,23 @@ function ReplaceSheet({
 
   return (
     <div data-hide-scroll-top className={styles.sheetOverlay} onClick={onClose}>
-      <div className={styles.sheet} role="dialog" aria-label={`Remplacer ${movementName}`} onClick={(e) => e.stopPropagation()}>
+      <div className={styles.sheet} role="dialog" aria-label={t("run.sheet.title", { name: movementName })} onClick={(e) => e.stopPropagation()}>
         <div className={styles.sheetTop}>
-          <div className={styles.sheetTitle}>Remplacer {movementName}</div>
-          <div className={styles.sheetHelp}>Pour cette séance seulement. Les séries et répétitions prévues sont gardées.</div>
+          <div className={styles.sheetTitle}>{t("run.sheet.title", { name: movementName })}</div>
+          <div className={styles.sheetHelp}>{t("run.sheet.help")}</div>
         </div>
 
         <div className={styles.sheetMiddle}>
-          <div className={styles.sheetLabel}>POURQUOI ?</div>
+          <div className={styles.sheetLabel}>{t("run.sheet.why")}</div>
           <div className={styles.reasonRow}>
             {REPLACE_REASONS.map((r) => (
               <button key={r} type="button" className={reason === r ? styles.reasonOn : styles.reason} onClick={() => setReason(r)}>
-                {r}
+                {t(REPLACE_REASON_KEYS[r])}
               </button>
             ))}
           </div>
 
-          <div className={styles.sheetLabel}>ÉQUIVALENTS</div>
+          <div className={styles.sheetLabel}>{t("run.sheet.equivalents")}</div>
           <div className={styles.equivList}>
             {options.map((o) => (
               <div
@@ -2914,7 +2941,7 @@ function ReplaceSheet({
                 <button
                   type="button"
                   className={styles.equivVideo}
-                  aria-label={`Vidéo ${o.name}`}
+                  aria-label={t("run.videoAria", { name: o.name })}
                   onClick={(e) => {
                     e.stopPropagation();
                     setVideo(o);
@@ -2929,10 +2956,10 @@ function ReplaceSheet({
 
         <div className={styles.sheetBottom}>
           <button type="button" className={styles.sheetConfirm} onClick={() => chosen && onConfirm(chosen, reason)}>
-            Remplacer
+            {t("run.replace")}
           </button>
           <button type="button" className={styles.sheetCancel} onClick={onClose}>
-            Annuler
+            {t("run.cancel")}
           </button>
         </div>
         {video && <VideoModal open onClose={() => setVideo(null)} title={video.name} searchQuery={video.name} videoUrl={video.videoUrl} />}
@@ -2973,6 +3000,8 @@ function CircuitBlock({
   onOpenReplace: (exIdx: number) => void;
   onRevert: (exIdx: number) => void;
 }) {
+  const tr = useT();
+  const { lang } = useLang();
   const [video, setVideo] = useState<number | null>(null);
   const items = block.items;
   const total = circuit.tours.length;
@@ -2989,11 +3018,11 @@ function CircuitBlock({
     <div className={styles.circuit}>
       <div className={styles.circuitHead}>
         <span className={styles.circuitLetter}>{block.lettre}</span>
-        <span className={styles.circuitTitle}>{block.titre}</span>
+        <span className={styles.circuitTitle}>{tc(lang, block.titre)}</span>
         <span className={styles.circuitTag}>{tag}</span>
       </div>
       <div className={styles.circuitHelp}>
-        {items.length} mouvements enchaînés, {total} tour{total > 1 ? "s" : ""}. Repos seulement à la fin de chaque tour.
+        {tr(total > 1 ? "run.circuit.help.many" : "run.circuit.help.one", { m: items.length, n: total })}
       </div>
 
       {circuit.tours.map((t, ti) => {
@@ -3003,9 +3032,9 @@ function CircuitBlock({
             <div className={`${styles.tourCard} ${current ? styles.tourCurrent : ""} ${t.done ? styles.tourDone : ""}`}>
               <div className={styles.tourHead}>
                 <span className={styles.tourLabel}>
-                  TOUR {ti + 1} / {total}
+                  {tr("run.circuit.tourLabel", { n: ti + 1, total })}
                 </span>
-                <span className={current ? styles.tourState : styles.tourStateMuted}>{t.done ? "✓ FAIT" : current ? "EN COURS" : "À VENIR"}</span>
+                <span className={current ? styles.tourState : styles.tourStateMuted}>{t.done ? `✓ ${tr("run.circuit.done")}` : current ? tr("run.status.running") : tr("run.circuit.upcoming")}</span>
               </div>
 
               {t.done && (
@@ -3015,7 +3044,7 @@ function CircuitBlock({
                     const parts = [c.charge.trim() ? `${c.charge} kg` : "", c.reps.trim() ? `× ${c.reps}` : ""].filter(Boolean).join(" ");
                     return (
                       <div key={j}>
-                        {t.names[j] ?? items[j].name} · {parts || "non renseigné"}
+                        {t.names[j] ?? items[j].name} · {parts || tr("run.circuit.empty")}
                       </div>
                     );
                   })}
@@ -3039,13 +3068,13 @@ function CircuitBlock({
                             {j + 1}
                           </span>
                           <div className={styles.tourName}>
-                            {it.replacedFrom && <span className={styles.replacedTag}>REMPLACÉ</span>}
-                            <div>{it.name}</div>
-                            <div className={styles.tourPresc}>{it.reps !== undefined ? `${it.reps} reps` : it.qty}</div>
-                            {it.replacedFrom && <div className={styles.replacedFrom}>à la place de : {it.replacedFrom}</div>}
+                            {it.replacedFrom && <span className={styles.replacedTag}>{tr("run.replacedTag")}</span>}
+                            <div>{tc(lang, it.name)}</div>
+                            <div className={styles.tourPresc}>{it.reps !== undefined ? `${it.reps} reps` : tc(lang, it.qty)}</div>
+                            {it.replacedFrom && <div className={styles.replacedFrom}>{tr("run.replacedInstead", { name: it.replacedFrom })}</div>}
                             {last && last.charge > 0 && (
                               <div className={styles.lastResult} style={{ margin: "2px 0 0" }}>
-                                Dernière fois : {last.charge} kg × {last.reps || "—"}
+                                {tr("run.last.short", { charge: last.charge, reps: last.reps || "—" })}
                               </div>
                             )}
                           </div>
@@ -3070,16 +3099,16 @@ function CircuitBlock({
                         </div>
                         <div className={styles.tourBtns}>
                           <button type="button" className={styles.tourBtn} onClick={() => setVideo(j)}>
-                            ▶️ Vidéo
+                            ▶️ {tr("run.video")}
                           </button>
                           {canReplace && (
                             <button type="button" className={styles.tourBtn} onClick={() => onOpenReplace(j)}>
-                              ⇄ {it.replacedFrom ? "Changer" : "Remplacer"}
+                              ⇄ {it.replacedFrom ? tr("run.change") : tr("run.replace")}
                             </button>
                           )}
                           {it.replacedFrom && (
                             <button type="button" className={styles.revertLink} style={{ padding: 0 }} onClick={() => onRevert(j)}>
-                              Rétablir
+                              {tr("run.restore")}
                             </button>
                           )}
                         </div>
@@ -3087,7 +3116,7 @@ function CircuitBlock({
                     );
                   })}
                   <button type="button" className={styles.tourValidate} onClick={onValidate}>
-                    {ti === total - 1 ? "VALIDER LE DERNIER TOUR" : "VALIDER LE TOUR"}
+                    {ti === total - 1 ? tr("run.circuit.validateLast") : tr("run.circuit.validate")}
                   </button>
                 </>
               )}
@@ -3096,11 +3125,11 @@ function CircuitBlock({
             {restTimer && restAfter === ti + 1 && (
               <div className={styles.tourRest}>
                 <div className={styles.tourRestLabel}>
-                  REPOS · TOUR {restAfter} / {total} TERMINÉ
+                  {tr("run.circuit.restAfter", { n: restAfter, total })}
                 </div>
                 <div className={styles.tourRestTime}>{fmtRest(remaining)}</div>
                 <button type="button" className={styles.tourRestSkip} onClick={onSkipRest}>
-                  Passer le repos
+                  {tr("run.circuit.skipRest")}
                 </button>
               </div>
             )}
@@ -3108,24 +3137,24 @@ function CircuitBlock({
         );
       })}
 
-      {blocDone && currentIdx === -1 && <div className={styles.circuitDone}>✓ BLOC TERMINÉ</div>}
+      {blocDone && currentIdx === -1 && <div className={styles.circuitDone}>✓ {tr("run.circuit.blockDone")}</div>}
 
       <div className={styles.circuitRestRow}>
         <span className={styles.sheetLabel} style={{ margin: 0 }}>
-          REPOS ENTRE TOURS
+          {tr("run.circuit.restBetween")}
         </span>
         <div className={styles.circuitRestCtl}>
-          <button type="button" className={styles.roundBtn} aria-label="Moins 5 secondes" {...dec}>
+          <button type="button" className={styles.roundBtn} aria-label={tr("run.circuit.minus5")} {...dec}>
             −
           </button>
           <span className={styles.circuitRestVal}>{fmtRest(circuit.restSec)}</span>
-          <button type="button" className={styles.roundBtn} aria-label="Plus 5 secondes" {...inc}>
+          <button type="button" className={styles.roundBtn} aria-label={tr("run.circuit.plus5")} {...inc}>
             +
           </button>
         </div>
       </div>
       <button type="button" className={styles.addSerieBtn} onClick={onAddTour}>
-        + Ajouter un tour
+        {tr("run.circuit.addTour")}
       </button>
 
       {video !== null && (
@@ -3150,6 +3179,7 @@ function InlineRestTimer({
   onStep: (deltaSec: number) => void;
   onCancel: () => void;
 }) {
+  const t = useT();
   const remaining = Math.max(0, Math.ceil((endsAt - now) / 1000));
   const dec = useLongPress(() => onStep(-5), () => onStep(-60));
   const inc = useLongPress(() => onStep(5), () => onStep(60));
@@ -3157,21 +3187,21 @@ function InlineRestTimer({
   return (
     <div className={styles.restInline}>
       <div className={styles.restInlineTop}>
-        <span className={styles.restInlineLabel}>Repos</span>
+        <span className={styles.restInlineLabel}>{t("run.tabata.rest")}</span>
         <button type="button" className={styles.restInlineCancel} onClick={onCancel}>
-          Passer ✕
+          {t("run.skip")} ✕
         </button>
       </div>
       <div className={styles.durAdjustRow}>
-        <button type="button" className={styles.durAdjustBtn} aria-label="Diminuer le repos" {...dec}>
+        <button type="button" className={styles.durAdjustBtn} aria-label={t("run.rest.dec")} {...dec}>
           −
         </button>
         <div className={styles.restInlineTime}>{fmtMS(remaining)}</div>
-        <button type="button" className={styles.durAdjustBtn} aria-label="Augmenter le repos" {...inc}>
+        <button type="button" className={styles.durAdjustBtn} aria-label={t("run.rest.inc")} {...inc}>
           +
         </button>
       </div>
-      <div className={styles.restInlineSub}>Repos entre séries</div>
+      <div className={styles.restInlineSub}>{t("run.restBetweenSets")}</div>
       <div className={styles.restBarWrap}>
         <div className={styles.restBar} style={{ width: `${totalSec > 0 ? ((totalSec - remaining) / totalSec) * 100 : 0}%` }} />
       </div>

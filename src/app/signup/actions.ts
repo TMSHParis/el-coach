@@ -11,6 +11,7 @@ import { getTemplate } from "@/lib/programming";
 import { prisma } from "@/lib/prisma";
 import { ensureUserId } from "@/lib/user-id";
 import { clerkEnabled } from "@/lib/clerk";
+import { getT } from "@/lib/i18n/server";
 
 const YEAR = 60 * 60 * 24 * 365;
 
@@ -282,7 +283,7 @@ export async function submitEcmSignup(
   const { firstName, lastName, email, programSlug, profile, cardNumber } = payload;
 
   if (!firstName || !email.includes("@")) {
-    return { ok: false, error: "Vérifie tes informations et réessaie." };
+    return { ok: false, error: (await getT()).t("srv.err.signupInvalid") };
   }
 
   const trialEnd = new Date();
@@ -503,9 +504,9 @@ export async function getMyEcmProfile(): Promise<EcmProfileCookie | null> {
 export async function updateEcmProfile(
   profile: EcmProfileCookie,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
-  if (!clerkEnabled) return { ok: false, error: "Connexion requise." };
+  if (!clerkEnabled) return { ok: false, error: (await getT()).t("srv.err.loginRequired") };
   const session = await auth();
-  if (!session.userId) return { ok: false, error: "Connecte-toi d'abord." };
+  if (!session.userId) return { ok: false, error: (await getT()).t("srv.err.loginFirst") };
   await persistEcmProfile(profile);
   return { ok: true };
 }

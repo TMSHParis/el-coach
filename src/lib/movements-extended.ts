@@ -149,7 +149,7 @@ export const EXTENDED_MOVEMENTS: Movement[] = [
   },
   {
     "id": "leg-curl-couche",
-    "name": "Leg Curl Couché",
+    "name": "Lying Leg Curl",
     "category": "dumbbell",
     "equipment": [
       "machine"
@@ -165,7 +165,7 @@ export const EXTENDED_MOVEMENTS: Movement[] = [
   },
   {
     "id": "leg-curl-assis",
-    "name": "Leg Curl Assis",
+    "name": "Seated Leg Curl",
     "category": "dumbbell",
     "equipment": [
       "machine"
@@ -301,7 +301,7 @@ export const EXTENDED_MOVEMENTS: Movement[] = [
   },
   {
     "id": "calf-raise-debout",
-    "name": "Calf Raise Debout",
+    "name": "Standing Calf Raise",
     "category": "barbell",
     "equipment": [
       "barbell",
@@ -318,7 +318,7 @@ export const EXTENDED_MOVEMENTS: Movement[] = [
   },
   {
     "id": "calf-raise-assis",
-    "name": "Calf Raise Assis",
+    "name": "Seated Calf Raise",
     "category": "dumbbell",
     "equipment": [
       "machine"
@@ -405,7 +405,7 @@ export const EXTENDED_MOVEMENTS: Movement[] = [
   },
   {
     "id": "pulldown-prise-neutre",
-    "name": "Pulldown Prise Neutre",
+    "name": "Neutral Grip Pulldown",
     "category": "dumbbell",
     "equipment": [
       "cable"
@@ -546,7 +546,7 @@ export const EXTENDED_MOVEMENTS: Movement[] = [
   },
   {
     "id": "deadlift-conventionnel",
-    "name": "Deadlift Conventionnel",
+    "name": "Conventional Deadlift",
     "category": "barbell",
     "equipment": [
       "barbell"
@@ -566,7 +566,7 @@ export const EXTENDED_MOVEMENTS: Movement[] = [
   },
   {
     "id": "deadlift-roumain",
-    "name": "Deadlift Roumain",
+    "name": "Romanian Deadlift",
     "category": "barbell",
     "equipment": [
       "barbell"
@@ -1220,7 +1220,7 @@ export const EXTENDED_MOVEMENTS: Movement[] = [
   },
   {
     "id": "snatch-arrache",
-    "name": "Snatch (Arraché)",
+    "name": "Snatch",
     "category": "barbell",
     "equipment": [
       "none"
@@ -1240,7 +1240,7 @@ export const EXTENDED_MOVEMENTS: Movement[] = [
   },
   {
     "id": "clean-jerk-epaule-jete",
-    "name": "Clean & Jerk (Épaulé-Jeté)",
+    "name": "Clean & Jerk",
     "category": "barbell",
     "equipment": [
       "none"
@@ -1260,7 +1260,7 @@ export const EXTENDED_MOVEMENTS: Movement[] = [
   },
   {
     "id": "clean-epaule",
-    "name": "Clean (Épaulé)",
+    "name": "Clean",
     "category": "barbell",
     "equipment": [
       "none"
@@ -1278,7 +1278,7 @@ export const EXTENDED_MOVEMENTS: Movement[] = [
   },
   {
     "id": "jerk-jete",
-    "name": "Jerk (Jeté)",
+    "name": "Jerk",
     "category": "barbell",
     "equipment": [
       "none"
@@ -1368,7 +1368,7 @@ export const EXTENDED_MOVEMENTS: Movement[] = [
   },
   {
     "id": "muscle-up-barre",
-    "name": "Muscle-Up (Barre)",
+    "name": "Bar Muscle-Up",
     "category": "gymnastics",
     "equipment": [
       "none"
@@ -1576,7 +1576,7 @@ export const EXTENDED_MOVEMENTS: Movement[] = [
   },
   {
     "id": "course-1km-entre-chaque-station",
-    "name": "Course 1km entre chaque station",
+    "name": "Run 1 km Between Stations",
     "category": "odd_object",
     "equipment": [
       "none"
@@ -1628,7 +1628,7 @@ export const EXTENDED_MOVEMENTS: Movement[] = [
   },
   {
     "id": "kb-swing-russe",
-    "name": "KB Swing Russe",
+    "name": "Russian KB Swing",
     "category": "kettlebell",
     "equipment": [
       "kettlebell"
@@ -1646,7 +1646,7 @@ export const EXTENDED_MOVEMENTS: Movement[] = [
   },
   {
     "id": "kb-swing-americain",
-    "name": "KB Swing Américain",
+    "name": "American KB Swing",
     "category": "kettlebell",
     "equipment": [
       "kettlebell"
@@ -1853,7 +1853,7 @@ export const EXTENDED_MOVEMENTS: Movement[] = [
   },
   {
     "id": "step-aerobic",
-    "name": "Step Aérobic",
+    "name": "Step Aerobics",
     "category": "bodyweight",
     "equipment": [
       "none"
@@ -1891,7 +1891,7 @@ export const EXTENDED_MOVEMENTS: Movement[] = [
   },
   {
     "id": "caf-cuisse-abdo-fessier",
-    "name": "CAF — Cuisse Abdo Fessier",
+    "name": "Legs, Abs & Glutes Class",
     "category": "bodyweight",
     "equipment": [
       "none"
@@ -1928,7 +1928,7 @@ export const EXTENDED_MOVEMENTS: Movement[] = [
   },
   {
     "id": "cardio-boxe",
-    "name": "Cardio Boxe",
+    "name": "Cardio Boxing",
     "category": "bodyweight",
     "equipment": [
       "none"
@@ -2168,7 +2168,7 @@ export const EXTENDED_MOVEMENTS: Movement[] = [
   },
   {
     "id": "fente-variations-bw",
-    "name": "Fente variations BW",
+    "name": "Lunge Variations BW",
     "category": "gymnastics",
     "equipment": [
       "none"
@@ -2373,7 +2373,7 @@ export const EXTENDED_MOVEMENTS: Movement[] = [
   },
   {
     "id": "teep-coup-de-pied-frontal",
-    "name": "Teep (Coup de pied frontal)",
+    "name": "Teep (Front Kick)",
     "category": "bodyweight",
     "equipment": [
       "none"
@@ -2469,7 +2469,7 @@ export const EXTENDED_MOVEMENTS: Movement[] = [
   },
   {
     "id": "sac-de-frappe",
-    "name": "Sac de frappe",
+    "name": "Heavy Bag Work",
     "category": "bodyweight",
     "equipment": [
       "none"
@@ -2488,7 +2488,7 @@ export const EXTENDED_MOVEMENTS: Movement[] = [
   },
   {
     "id": "pattes-d-ours",
-    "name": "Pattes d'ours",
+    "name": "Bear Crawl",
     "category": "bodyweight",
     "equipment": [
       "none"
@@ -2507,7 +2507,7 @@ export const EXTENDED_MOVEMENTS: Movement[] = [
   },
   {
     "id": "corde-a-sauter-boxe",
-    "name": "Corde à sauter boxe",
+    "name": "Boxing Jump Rope",
     "category": "bodyweight",
     "equipment": [
       "none"
@@ -2566,7 +2566,7 @@ export const EXTENDED_MOVEMENTS: Movement[] = [
   },
   {
     "id": "marche-nordic-walking",
-    "name": "Marche / Nordic Walking",
+    "name": "Walking / Nordic Walking",
     "category": "monostructural",
     "equipment": [
       "none"
@@ -2586,7 +2586,7 @@ export const EXTENDED_MOVEMENTS: Movement[] = [
   },
   {
     "id": "cyclisme-velo",
-    "name": "Cyclisme / Vélo",
+    "name": "Cycling",
     "category": "monostructural",
     "equipment": [
       "none"
@@ -2721,7 +2721,7 @@ export const EXTENDED_MOVEMENTS: Movement[] = [
   },
   {
     "id": "escalade",
-    "name": "Escalade",
+    "name": "Climbing",
     "category": "monostructural",
     "equipment": [
       "none"

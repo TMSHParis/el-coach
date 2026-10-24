@@ -10,6 +10,9 @@ import { resolveSequenceToday } from "@/lib/program-position";
 import { getOrCreateActiveBlock } from "@/lib/training-block";
 import { applyLevel, levelForToday } from "@/lib/level";
 import { cookies } from "next/headers";
+import { getT } from "@/lib/i18n/server";
+import { tc } from "@/lib/i18n/content";
+import { formatDate } from "@/lib/i18n";
 import { applyChains } from "@/lib/chains";
 import { applyDaySubstitutions, NO_IMPACT_COOKIE, ZONE_COOKIE } from "@/lib/substitutions";
 import { getChainLevels } from "@/lib/chain-progress";
@@ -31,7 +34,10 @@ import { SessionRunnerV2 } from "./session-runner-v2";
 import { RecoveryPage } from "./recovery-page";
 import { sessionFontVariables } from "./session-fonts";
 
-export const metadata = { title: "Séance en cours — EL COACH METHOD" };
+export async function generateMetadata() {
+  const { t } = await getT();
+  return { title: t("run.meta.title") };
+}
 
 export default async function SessionPage({
   searchParams,
@@ -39,6 +45,7 @@ export default async function SessionPage({
   searchParams: Promise<{ variant?: string; v?: string; d?: string }>;
 }) {
   const { variant: variantParam, v: modularParam, d: dayParam } = await searchParams;
+  const { t, lang } = await getT();
   const variant = variantParam === "b" ? "b" : "a";
 
   const userId = await getUserId();
@@ -82,7 +89,7 @@ export default async function SessionPage({
   // (déjà affiché en permanence dans le bandeau du haut) au lieu d'un chrono par bloc.
   if (output?.mode === "advice" && output.advice) {
     const seance = todayCheckin?.seance ?? null;
-    const advice = buildAdviceSession(seance, output.advice);
+    const advice = buildAdviceSession(seance, output.advice, t);
     const sessionKind: "sportHorsEcm" | "repos" | "recuperationActive" = isReposSubtype(seance)
       ? "repos"
       : isRecupSubtype(seance)
@@ -90,7 +97,7 @@ export default async function SessionPage({
         : "sportHorsEcm";
     // Repos et récupération active : mode léger, aucune séance à cocher (partie 4, mission 4).
     if (sessionKind !== "sportHorsEcm") {
-      const dl = new Date().toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "long" });
+      const dl = formatDate(lang, new Date(), { weekday: "short", day: "numeric", month: "long" });
       return (
         <div className={sessionFontVariables}>
           <RecoveryPage
@@ -106,7 +113,7 @@ export default async function SessionPage({
       <div className={sessionFontVariables}>
         <SessionRunnerV2
           sessionName={advice.titre}
-          sessionMeta={`${advice.dureeEstimee} · ${advice.blocks.length} blocs`}
+          sessionMeta={`${advice.dureeEstimee} · ${advice.blocks.length} ${t("run.blocks")}`}
           blocks={advice.blocks}
           initial={advice.blocks.map(() => ({ format: "nft" as const, durationMin: 10, tabataRounds: 8 }))}
           date={todayKey()}
@@ -153,7 +160,7 @@ export default async function SessionPage({
   }
 
   const baseDay = generatedDay ?? today.day;
-  const sessionTitle = generatedDay ? baseDay.focus : `${today.template.name} — ${baseDay.focus}`;
+  const sessionTitle = generatedDay ? tc(lang, baseDay.focus) : `${today.template.name} — ${tc(lang, baseDay.focus)}`;
 
   const injuryAreas = detectInjuryAreas(
     profile?.blessures ? profile.blessuresDetail : null,
@@ -169,7 +176,7 @@ export default async function SessionPage({
         dayNumber: today.dayNumber,
       })
     : baseDay;
-  const leveledBase = applyLevel(applyCompetition(themedBase, profile, demo.programSlug, todayKey()).day, levelForToday(effCycle as Parameters<typeof levelForToday>[0], demo.programSlug, profile?.niveau, today.dayNumber));
+  const leveledBase = applyLevel(applyCompetition(themedBase, profile, demo.programSlug, todayKey(), t).day, levelForToday(effCycle as Parameters<typeof levelForToday>[0], demo.programSlug, profile?.niveau, today.dayNumber));
   // At Home : cran actuel des chaînes de progression et niveau de matériel du jour (2.7).
   const homeBase =
     userId && demo.programSlug === "at-home"
@@ -200,14 +207,14 @@ export default async function SessionPage({
   const safeDay = modular.day;
   const day = variant === "b" ? reduceVolume(safeDay) : safeDay;
 
-  const displayBlocks = toDisplayBlocks(day.blocks);
+  const displayBlocks = toDisplayBlocks(day.blocks, t);
   // Équivalents proposés pour « Remplacer » (mission 11) : filtrés par le matériel du jour du check-in.
   const dayEquipment = equipmentTierFor(todayCheckin?.seanceEquipement || profile?.equipement || "");
   const equivalents: Record<string, EquivalentOption[]> = {};
   for (const b of displayBlocks) {
     for (const it of b.items) {
       if (!it.movementId || it.noVideo || equivalents[it.movementId]) continue;
-      const list = equivalentsFor(it.movementId, dayEquipment);
+      const list = equivalentsFor(it.movementId, dayEquipment, t);
       if (list.length > 0) equivalents[it.movementId] = list;
     }
   }
@@ -221,7 +228,7 @@ export default async function SessionPage({
     <div className={sessionFontVariables}>
       <SessionRunnerV2
         sessionName={sessionTitle}
-        sessionMeta={`${minutesToHM(day.estimatedMinutes)} · ${displayBlocks.length} blocs`}
+        sessionMeta={`${minutesToHM(day.estimatedMinutes)} · ${displayBlocks.length} ${t("run.blocks")}`}
         blocks={displayBlocks}
         initial={initial}
         date={todayKey()}

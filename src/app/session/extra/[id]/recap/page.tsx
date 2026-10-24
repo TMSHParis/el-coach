@@ -1,3 +1,5 @@
+import { getT } from "@/lib/i18n/server";
+import { formatDate } from "@/lib/i18n";
 import { redirect } from "next/navigation";
 import { getExtraActivity, updateExtraActivityRecap } from "../../../extra-activity-actions";
 import { sessionFontVariables } from "../../../session-fonts";
@@ -7,19 +9,23 @@ import { isRestLikeSeance } from "@/lib/seance-kinds";
 import { freeActivityMessage } from "@/lib/recap-text";
 import { leadingEmoji, recoveryBlocks, stripLeadingEmoji } from "@/lib/advice-session";
 
-export const metadata = { title: "Compte rendu — EL COACH METHOD" };
+export async function generateMetadata() {
+  const { t } = await getT();
+  return { title: t("sp.extra.recapTitle") };
+}
 
 /** Compte rendu d'une 2e (ou 3e...) activité du jour — même page que /session/recap
  * mais source ExtraActivity. Pas de comparaisons historique/mouvement par mouvement :
  * ces activités n'ont pas le suivi détaillé des séances ECM. */
 export default async function ExtraActivityRecapPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  const { t, lang } = await getT();
   const activity = await getExtraActivity(id);
   if (!activity || !activity.completed) redirect("/dashboard");
 
   const situation: "A" | "B" = activity.seance in SPORT_LABEL_TO_SLUG ? "A" : "B";
   const [y, m, d] = activity.date.split("-").map(Number);
-  const dl = new Date(y, m - 1, d).toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "long" });
+  const dl = formatDate(lang, new Date(y, m - 1, d), { weekday: "short", day: "numeric", month: "long" });
   const recup = isRestLikeSeance(activity.seance);
 
   return (
@@ -39,9 +45,9 @@ export default async function ExtraActivityRecapPage({ params }: { params: Promi
         blocs={[]}
         missing={[]}
         comparisons={[]}
-        coachText={situation === "A" ? activity.coachMessage : freeActivityMessage({ prenom: "", durationSec: activity.durationSec ?? 0, energie: null, recuperation: recup })}
+        coachText={situation === "A" ? activity.coachMessage : freeActivityMessage({ prenom: "", durationSec: activity.durationSec ?? 0, energie: null, recuperation: recup }, t)}
         watch={activity.caloriesBrulees !== null ? { kcalActive: null, kcalTotal: null, effort: null, bpm: null, kcalUnknown: activity.caloriesBrulees } : null}
-        recovery={situation === "B" && recup ? recoveryBlocks(null) : null}
+        recovery={situation === "B" && recup ? recoveryBlocks(null, t) : null}
         onUpdate={updateExtraActivityRecap.bind(null, id)}
       />
     </div>

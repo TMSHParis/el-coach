@@ -13,8 +13,8 @@ export function CrossFitPureIcon({ size = 32, className }: IconProps) {
     <svg width={size} height={size} viewBox="0 0 32 32" fill="none" className={className} aria-hidden="true">
       <defs>
         <linearGradient id="cf-accent" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#f4ff7a" />
-          <stop offset="100%" stopColor="#b8cc00" />
+          <stop offset="0%" stopColor="var(--c-f4ff7a)" />
+          <stop offset="100%" stopColor="var(--c-b8cc00)" />
         </linearGradient>
       </defs>
       <line x1="3" y1="16" x2="29" y2="16" stroke="url(#cf-accent)" strokeWidth="2.5" strokeLinecap="round" />
@@ -32,8 +32,8 @@ export function HybridEngineIcon({ size = 32, className }: IconProps) {
     <svg width={size} height={size} viewBox="0 0 32 32" fill="none" className={className} aria-hidden="true">
       <defs>
         <linearGradient id="hy-accent" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#f4ff7a" />
-          <stop offset="100%" stopColor="#b8cc00" />
+          <stop offset="0%" stopColor="var(--c-f4ff7a)" />
+          <stop offset="100%" stopColor="var(--c-b8cc00)" />
         </linearGradient>
       </defs>
       <path d="M5 5 L16 16 M16 16 L11 16 M16 16 L16 11" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -49,8 +49,8 @@ export function HyroxPureIcon({ size = 32, className }: IconProps) {
     <svg width={size} height={size} viewBox="0 0 32 32" fill="none" className={className} aria-hidden="true">
       <defs>
         <linearGradient id="hx-accent" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#f4ff7a" />
-          <stop offset="100%" stopColor="#b8cc00" />
+          <stop offset="0%" stopColor="var(--c-f4ff7a)" />
+          <stop offset="100%" stopColor="var(--c-b8cc00)" />
         </linearGradient>
       </defs>
       <line x1="3" y1="9" x2="26" y2="9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
@@ -68,8 +68,8 @@ export function VolumeBlockIcon({ size = 32, className }: IconProps) {
     <svg width={size} height={size} viewBox="0 0 32 32" fill="none" className={className} aria-hidden="true">
       <defs>
         <linearGradient id="vb-accent" x1="0%" y1="0%" x2="100%" y2="1">
-          <stop offset="0%" stopColor="#f4ff7a" />
-          <stop offset="100%" stopColor="#b8cc00" />
+          <stop offset="0%" stopColor="var(--c-f4ff7a)" />
+          <stop offset="100%" stopColor="var(--c-b8cc00)" />
         </linearGradient>
       </defs>
       <rect x="4" y="22" width="24" height="5" stroke="currentColor" strokeWidth="1.5" fill="none" />
@@ -85,8 +85,8 @@ export function AtHomeIcon({ size = 32, className }: IconProps) {
     <svg width={size} height={size} viewBox="0 0 32 32" fill="none" className={className} aria-hidden="true">
       <defs>
         <linearGradient id="ah-accent" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#f4ff7a" />
-          <stop offset="100%" stopColor="#b8cc00" />
+          <stop offset="0%" stopColor="var(--c-f4ff7a)" />
+          <stop offset="100%" stopColor="var(--c-b8cc00)" />
         </linearGradient>
       </defs>
       <path d="M4 14 L16 4 L28 14" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" fill="none" />
