@@ -28,6 +28,7 @@ import { buildLastResults } from "@/lib/last-results";
 import { blobEnabled } from "@/lib/blob";
 import type { HistoriqueSession } from "@/app/api/extract-photo-data/route";
 import { SessionRunnerV2 } from "./session-runner-v2";
+import { RecoveryPage } from "./recovery-page";
 import { sessionFontVariables } from "./session-fonts";
 
 export const metadata = { title: "Séance en cours — EL COACH METHOD" };
@@ -87,6 +88,20 @@ export default async function SessionPage({
       : isRecupSubtype(seance)
         ? "recuperationActive"
         : "sportHorsEcm";
+    // Repos et récupération active : mode léger, aucune séance à cocher (partie 4, mission 4).
+    if (sessionKind !== "sportHorsEcm") {
+      const dl = new Date().toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "long" });
+      return (
+        <div className={sessionFontVariables}>
+          <RecoveryPage
+            blocks={advice.blocks}
+            duration={advice.dureeEstimee}
+            seance={seance ?? "🚶 Marche"}
+            dateLabel={dl.charAt(0).toUpperCase() + dl.slice(1)}
+          />
+        </div>
+      );
+    }
     return (
       <div className={sessionFontVariables}>
         <SessionRunnerV2

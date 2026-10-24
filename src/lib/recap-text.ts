@@ -161,6 +161,26 @@ export function missingEntries(blocs: RecapBloc[]): MissingEntry[] {
 
 const MENTAL_WORD: Record<string, string> = { clair: "clair", moyen: "moyen", brouillard: "dans le brouillard" };
 
+/** « Mental clair » pour la pastille de la page de fin d'activité — null si non renseigné. */
+export function mentalLabel(mental: string | null | undefined): string | null {
+  const word = MENTAL_WORD[(mental ?? "").replace(/[^\p{L}]/gu, "").toLowerCase()];
+  return word ? `Mental ${word}` : null;
+}
+
+/**
+ * Message du coach pour une activité libre (situation B) : positif, appuyé sur la durée et l'énergie,
+ * jamais de pourcentage.
+ */
+export function freeActivityMessage(input: { prenom: string; durationSec: number; energie: number | null; recuperation?: boolean }): string {
+  const who = input.prenom ? `${input.prenom}, ` : "";
+  const energy = input.energie !== null ? ` avec une énergie à ${input.energie}/10` : "";
+  if (input.recuperation) {
+    const min = Math.max(1, Math.round(input.durationSec / 60));
+    return `${who}${min} minutes de récupération active${energy}. Bouger doucement un jour de repos aide le corps à se régénérer : tu as bien fait.`;
+  }
+  return `${who}${fmtDurationH(input.durationSec)} d'activité${energy}. Bouger régulièrement entretient ta forme et nourrit ta progression : continue comme ça.`;
+}
+
 export function coachMessage(input: {
   prenom: string;
   durationSec: number;

@@ -1,0 +1,19 @@
+.root { background: #080808; color: #e6e8eb; min-height: 100vh; max-width: 480px; margin: 0 auto; padding: 14px 14px calc(110px + env(safe-area-inset-bottom)); font-family: var(--font-barlow, sans-serif); box-sizing: border-box; }
+.top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.topDate { font-size: 13px; color: #aeb4bd; }
+.back { display: inline-flex; align-items: center; min-height: 42px; border: 1px solid #262a30; border-radius: 12px; padding: 0 14px; color: #e6e8eb; font-size: 14px; text-decoration: none; }
+.header { border: 1px solid #262a30; border-radius: 20px; background: #0e0f12; padding: 16px; }
+.status { display: flex; align-items: center; gap: 9px; font-size: 13px; font-weight: 700; color: #aeb4bd; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: #6b717b; }
+.headMain { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; margin-top: 12px; }
+.big { font-family: var(--font-bebas, sans-serif); font-size: 52px; line-height: .95; color: #fff; letter-spacing: 1px; }
+.headRight { text-align: right; }
+.headName { font-size: 19px; font-weight: 700; color: #fff; }
+.headSub { font-size: 12.5px; color: #aeb4bd; margin-top: 3px; }
+.sep { height: 1px; background: #262a30; margin: 14px 0; }
+.text { font-size: 14px; line-height: 1.5; color: #d8dbe0; margin: 0; }
+.sectionTitle { display: flex; align-items: center; gap: 10px; font-family: var(--font-bebas, sans-serif); font-size: 22px; letter-spacing: 3px; text-transform: uppercase; color: #fff; margin: 22px 0 6px; }
+.sectionTitle::after { content: ""; flex: 1; height: 1px; background: #262a30; }
+.help { font-size: 12.5px; color: #aeb4bd; margin: 0 0 10px; }
+.ctaBar { position: fixed; left: 0; right: 0; bottom: 0; padding: 26px 14px calc(12px + env(safe-area-inset-bottom)); background: linear-gradient(to top, #080808 62%, rgba(8, 8, 8, 0)); }
+.cta { display: flex; align-items: center; justify-content: center; max-width: 452px; margin: 0 auto; height: 52px; border: 1.5px solid #3a3f47; border-radius: 14px; background: transparent; color: #e6e8eb; font-family: var(--font-bebas, sans-serif); font-size: 22px; letter-spacing: 3px; text-decoration: none; }

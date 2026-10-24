@@ -1100,7 +1100,8 @@ export function SessionRunnerV2({
   const globalSec = Math.max(0, Math.floor((now - sessionStartedAt) / 1000));
 
   const movementsTotal = useMemo(() => blockData.reduce((sum, b) => sum + b.items.length, 0), [blockData]);
-  const movementsDone = blocks.reduce((sum, b) => sum + b.checked.filter(Boolean).length, 0);
+  // Un bloc terminé compte comme entièrement réalisé : tous blocs validés = 100 %.
+  const movementsDone = blocks.reduce((sum, b) => sum + (b.done ? b.checked.length : b.checked.filter(Boolean).length), 0);
   const completionRate = movementsTotal > 0 ? movementsDone / movementsTotal : 0;
 
   // Ouvre le bloc suivant quand un bloc se termine, et détecte la fin de séance.
@@ -1169,7 +1170,7 @@ export function SessionRunnerV2({
         type: b.type,
         format: b.format,
         done: state.done || (b.items.length > 0 && state.checked.every(Boolean)),
-        items: b.items.map((it, j) => ({ name: it.name, done: !!state.checked[j], kind: resultKindFor(b, it), replacedFrom: it.replacedFrom })),
+        items: b.items.map((it, j) => ({ name: it.name, done: !!state.checked[j] || state.done, kind: resultKindFor(b, it), replacedFrom: it.replacedFrom })),
       };
     });
 
@@ -1268,10 +1269,12 @@ export function SessionRunnerV2({
 
       <div className={styles.content}>
         <div className={styles.sessHero}>
-          <div className={styles.sessLabel}>
-            <span className={styles.sessLabelDot} />
-            Séance en cours
-          </div>
+          {sessionStarted && (
+            <div className={styles.sessLabel}>
+              <span className={styles.sessLabelDot} />
+              Séance en cours
+            </div>
+          )}
           <div className={styles.sessTitleRow}>
             <div className={styles.sessIconBadge}>{SESSION_KIND_ICON[sessionKind]}</div>
             <div>

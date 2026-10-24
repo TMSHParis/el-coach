@@ -1,6 +1,8 @@
 "use server";
 
 import { Prisma } from "@prisma/client";
+import { revalidatePath } from "next/cache";
+import { todayKey } from "@/lib/date-key";
 import { getUserId } from "@/lib/user-id";
 import { prisma } from "@/lib/prisma";
 import { generateSessionCongrats, type HeartRateZoneSplit } from "@/lib/ecm-engine";
@@ -249,6 +251,56 @@ export async function updateSessionRecap(date: string, patch: SessionRecapPatch)
     return { ok: true };
   } catch (err) {
     console.error("updateSessionRecap: échec de l'enregistrement du compte rendu:", err);
+    return { ok: false };
+  }
+}
+
+/**
+ * Enregistre une activité de récupération (partie 4, mission 4) : aucune séance, aucun pourcentage.
+ * Crée la séance du jour (situation B) ; si la journée a déjà une séance terminée, une activité
+ * supplémentaire. Renvoie la page de fin d'activité à ouvrir.
+ */
+export async function saveRecoveryActivity(input: {
+  durationMin: number;
+  energy: number | null;
+  feeling: string | null;
+  seance: string;
+}): Promise<{ ok: true; href: string } | { ok: false }> {
+  const userId = await getUserId();
+  if (!userId) return { ok: false };
+  const date = todayKey();
+  const durationSec = Math.max(5, Math.round(input.durationMin)) * 60;
+  const energy = input.energy !== null && input.energy >= 1 && input.energy <= 10 ? Math.round(input.energy) : null;
+  const feeling = input.feeling && isSessionFeeling(input.feeling) ? input.feeling : null;
+  const data = { recovery: true, ...(energy !== null ? { energie: energy } : {}) };
+  try {
+    const existing = await prisma.session.findUnique({ where: { userId_date: { userId, date } } });
+    if (!existing?.completed) {
+      await prisma.session.upsert({
+        where: { userId_date: { userId, date } },
+        create: { userId, date, completed: true, data, durationSec, sessionFeeling: feeling },
+        update: { completed: true, data, durationSec, sessionFeeling: feeling },
+      });
+      revalidatePath("/dashboard");
+      return { ok: true, href: "/session/recap" };
+    }
+    const now = new Date();
+    const extra = await prisma.extraActivity.create({
+      data: {
+        userId,
+        date,
+        seance: input.seance,
+        heureReelle: `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`,
+        completed: true,
+        data,
+        durationSec,
+        sessionFeeling: feeling,
+      },
+    });
+    revalidatePath("/dashboard");
+    return { ok: true, href: `/session/extra/${extra.id}/recap` };
+  } catch (err) {
+    console.error("saveRecoveryActivity:", err);
     return { ok: false };
   }
 }

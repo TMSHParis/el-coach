@@ -1,38 +1,43 @@
 "use client";
 
+// Page de fin d'activité (partie 4, mission 3). Situation A = séance ECM terminée, B = autre activité.
+// Couleur de la situation : A = accent du dashboard, B = bleu clair.
+
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { updateSessionRecap } from "../actions";
 import { upgradeChain } from "../chain-actions";
 import type { ChainId } from "@/lib/chains";
 import type { SessionRecapPatch } from "../actions";
+import type { DisplayBlock } from "@/lib/session-format";
 import { SESSION_FEELINGS } from "@/lib/session-feeling";
-import {
-  bestSerieIndex,
-  blocKeyResult,
-  fmtDurationH,
-  fmtSerie,
-  type MissingEntry,
-  type RecapBloc,
-  type WatchData,
-} from "@/lib/recap-text";
+import { bestSerieIndex, fmtSerie, type MissingEntry, type RecapBloc, type WatchData } from "@/lib/recap-text";
+import { ActivityCard } from "@/app/dashboard/activity-card";
+import { RecoveryBlocks } from "../recovery-blocks";
 import styles from "./recap.module.css";
 
-/** "Dim. 11 octobre" */
-function fmtDate(date: string): string {
-  const [y, m, d] = date.split("-").map(Number);
-  const text = new Date(y, m - 1, d).toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "long" });
-  return text.charAt(0).toUpperCase() + text.slice(1);
+/** Petit libellé à droite d'un bloc : « Terminé », « 5 × 5 » ou « Non réalisé ». */
+function blocLabel(b: RecapBloc): string {
+  if (!b.done) return "Non réalisé";
+  const lines = b.items.filter((i) => i.series.length > 0);
+  if (b.items.length === 1 && lines.length === 1) {
+    const s = lines[0].series;
+    const reps = s[0]?.reps?.trim();
+    if (reps && s.every((x) => x.reps?.trim() === reps)) return `${s.length} × ${reps}`;
+  }
+  return "Terminé";
 }
 
-const RING_R = 52;
-const RING_C = 2 * Math.PI * RING_R;
-
 export function RecapView({
+  situation,
   date,
-  sport,
+  dateLabel,
+  name,
+  icon,
   durationSec,
-  completionRate,
+  percent,
+  energy,
+  mental,
   feeling: initialFeeling,
   note: initialNote,
   blocs,
@@ -40,15 +45,21 @@ export function RecapView({
   comparisons,
   coachText,
   watch,
-  watchText,
-  gauge,
   chainProposals = [],
+  recovery = null,
   onUpdate = updateSessionRecap,
 }: {
+  situation: "A" | "B";
   date: string;
-  sport: string;
+  /** « Ven. 23 octobre » */
+  dateLabel: string;
+  name: string;
+  icon: string;
   durationSec: number;
-  completionRate: number;
+  /** Pourcentage de la séance réalisée — situation A seulement. */
+  percent: number;
+  energy: number | null;
+  mental: string | null;
   feeling: string | null;
   note: string | null;
   blocs: RecapBloc[];
@@ -58,12 +69,11 @@ export function RecapView({
   coachText: string | null;
   /** Null = aucune montre connectée : la section n'est pas affichée. */
   watch: WatchData | null;
-  watchText: string | null;
-  gauge: { min: number; max: number; value: number } | null;
   /** At Home : montées de cran proposées (objectif de reps atteint). */
   chainProposals?: { chain: ChainId; from: string; to: string; toIndex: number }[];
-  /** Cible de l'enregistrement — Session (par date) par défaut. Une 2e
-   * activité du jour (doc G.3) passe sa propre action, liée par id. */
+  /** Récupération : blocs consultables (situation B d'une récupération). */
+  recovery?: DisplayBlock[] | null;
+  /** Cible de l'enregistrement — Session (par date) par défaut. */
   onUpdate?: (date: string, patch: SessionRecapPatch) => Promise<{ ok: boolean }>;
 }) {
   const [feeling, setFeeling] = useState(initialFeeling);
@@ -71,10 +81,9 @@ export function RecapView({
   const [openBlocs, setOpenBlocs] = useState<Set<number>>(new Set());
   const [missingOpen, setMissingOpen] = useState(false);
   const [upgraded, setUpgraded] = useState<Set<string>>(new Set());
-  const percent = Math.round(completionRate * 100);
+  const noun = situation === "A" ? "cette séance" : "cette activité";
 
-  // La note libre s'enregistre après une pause de frappe — pas de bouton
-  // "Sauvegarder", pas un aller-retour serveur par caractère.
+  // La note libre s'enregistre après une pause de frappe.
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (note === (initialNote ?? "")) return;
@@ -93,66 +102,47 @@ export function RecapView({
     void onUpdate(date, { feeling: value });
   }
 
-  function toggleBloc(n: number) {
+  const toggleBloc = (n: number) =>
     setOpenBlocs((prev) => {
       const next = new Set(prev);
       if (next.has(n)) next.delete(n);
       else next.add(n);
       return next;
     });
-  }
 
+  // Montre : on n'affiche que les mesures reçues.
   const kcal = watch?.kcalActive ?? watch?.kcalUnknown ?? null;
-  const gaugePos = gauge && gauge.max > gauge.min ? Math.max(0, Math.min(1, (gauge.value - gauge.min) / (gauge.max - gauge.min))) : null;
-  const subParts = [`⚡ ${sport}`, fmtDurationH(durationSec)];
-  if (blocs.length > 0) subParts.push(`${blocs.length} bloc${blocs.length > 1 ? "s" : ""}`);
+  const missingWatch = [watch?.effort ? null : "Temps d'effort", watch?.bpm ? null : "fréquence cardiaque"].filter(Boolean) as string[];
 
   return (
-    <div className={styles.root}>
+    <div className={`${styles.root} ${situation === "B" ? styles.sitB : styles.sitA}`}>
       <div className={styles.top}>
-        {/* Retour vers l'accueil, pas vers le dashboard. */}
         <Link href="/" className={styles.back}>
           ← Accueil
         </Link>
-        <span className={styles.topDate}>{fmtDate(date)}</span>
+        <span className={styles.topDate}>{dateLabel}</span>
       </div>
 
-      <div className={styles.header}>
-        <div className={styles.ringWrap}>
-          <svg viewBox="0 0 120 120" className={styles.ring} aria-hidden="true">
-            <circle cx="60" cy="60" r={RING_R} fill="none" stroke="#1c1c1c" strokeWidth="8" />
-            <circle
-              cx="60"
-              cy="60"
-              r={RING_R}
-              fill="none"
-              stroke="#E8FF00"
-              strokeWidth="8"
-              strokeLinecap="round"
-              strokeDasharray={RING_C}
-              strokeDashoffset={RING_C * (1 - Math.min(1, Math.max(0, completionRate)))}
-              transform="rotate(-90 60 60)"
-            />
-          </svg>
-          <div className={styles.ringText}>
-            <div className={styles.percentValue}>{percent}%</div>
-            <div className={styles.percentLabel}>Complété</div>
-          </div>
-        </div>
-        <h1 className={styles.title}>Séance terminée</h1>
-        <div className={styles.sub}>{subParts.join(" · ")}</div>
-      </div>
+      <ActivityCard
+        showPlus={false}
+        data={{
+          situation,
+          dateLabel: "",
+          durationSec,
+          icon,
+          name,
+          percent,
+          energy,
+          detailHref: "",
+          recap: { mental },
+        }}
+      />
 
-      {missing.length > 0 && (
+      {situation === "A" && missing.length > 0 && percent < 100 && (
         <div className={styles.missing}>
-          <button
-            type="button"
-            className={styles.missingBtn}
-            onClick={() => setMissingOpen((v) => !v)}
-            aria-expanded={missingOpen}
-          >
-            <span>Ce qui manque ({100 - percent} %)</span>
-            <span className={styles.chev}>{missingOpen ? "▴" : "▾"}</span>
+          <button type="button" className={styles.missingBtn} onClick={() => setMissingOpen((v) => !v)} aria-expanded={missingOpen}>
+            <span>Ce qui manque</span>
+            <span className={styles.missingPct}>{100 - percent} %</span>
           </button>
           {missingOpen && (
             <ul className={styles.missingList}>
@@ -167,12 +157,12 @@ export function RecapView({
       )}
 
       {coachText && (
-        <div className={styles.congrats}>
-          <div className={styles.congratsHead}>
-            <span className={styles.ecBadge}>EC</span>
-            <span className={styles.congratsLabel}>Message de ton coach</span>
+        <div className={styles.coachCard}>
+          <div className={styles.ec}>EC</div>
+          <div>
+            <div className={styles.coachName}>Ton coach</div>
+            <p className={styles.coachText}>{coachText}</p>
           </div>
-          {coachText}
         </div>
       )}
 
@@ -191,8 +181,8 @@ export function RecapView({
       )}
 
       {chainProposals.length > 0 && (
-        <div className={styles.congrats}>
-          <div className={styles.congratsLabel}>Monter d&apos;un cran ?</div>
+        <div className={styles.coachCard} style={{ display: "block" }}>
+          <div className={styles.coachName}>Monter d&apos;un cran ?</div>
           {chainProposals.map((p) => (
             <div key={p.chain} className={styles.compareLine}>
               <span>
@@ -214,77 +204,70 @@ export function RecapView({
         </div>
       )}
 
-      {/* RESSENTI — alimente Claude pour ajuster les prochaines séances. */}
-      <div className={styles.sectionTitle}>Ton ressenti</div>
-      <div className={styles.feelingBlock}>
-        <div className={styles.feelingRow}>
-          {SESSION_FEELINGS.map((f) => (
-            <button
-              key={f.value}
-              type="button"
-              className={feeling === f.value ? styles.feelingOn : styles.feeling}
-              onClick={() => chooseFeeling(f.value)}
-              aria-pressed={feeling === f.value}
-            >
-              <span className={styles.feelingEmoji}>{f.emoji}</span>
-              {f.label}
-            </button>
-          ))}
-        </div>
-        <textarea
-          className={styles.noteInput}
-          placeholder="Une note sur cette séance ? (facultatif)"
-          value={note}
-          maxLength={1000}
-          onChange={(e) => setNote(e.target.value)}
-        />
+      <div className={styles.sectionTitle}>
+        <span>Ton ressenti</span>
       </div>
+      <div className={styles.tiles}>
+        {SESSION_FEELINGS.map((f) => (
+          <button
+            key={f.value}
+            type="button"
+            className={feeling === f.value ? styles.tileOn : styles.tile}
+            onClick={() => chooseFeeling(f.value)}
+            aria-pressed={feeling === f.value}
+          >
+            <span className={styles.tileEmoji}>{f.emoji}</span>
+            <span className={styles.tileLabel}>{f.label}</span>
+          </button>
+        ))}
+      </div>
+      <textarea
+        className={styles.noteInput}
+        placeholder={`Une note sur ${noun} ? (facultatif)`}
+        value={note}
+        maxLength={1000}
+        onChange={(e) => setNote(e.target.value)}
+      />
 
-      {blocs.length > 0 && (
+      {situation === "A" && blocs.length > 0 && (
         <>
-          <div className={styles.sectionTitle}>Résultats par bloc</div>
+          <div className={styles.sectionTitle}>
+            <span>Résultats par bloc</span>
+          </div>
           <div className={styles.blocList}>
             {blocs.map((b) => {
               const open = openBlocs.has(b.bloc);
-              const key = blocKeyResult(b);
               const withSeries = b.items.filter((it) => it.series.length > 0);
               return (
                 <div key={b.bloc} className={styles.blocCard}>
                   <button type="button" className={styles.blocHead} onClick={() => toggleBloc(b.bloc)} aria-expanded={open}>
-                    <span className={b.done ? styles.blocCheck : styles.blocCheckOff}>{b.done ? "✓" : ""}</span>
-                    <span className={styles.blocInfo}>
-                      <span className={styles.blocName}>{b.titre}</span>
-                      {key && <span className={styles.blocKey}>{key}</span>}
-                    </span>
-                    <span className={styles.chev}>{open ? "▴" : "▾"}</span>
+                    <span className={b.done ? styles.blocCheck : styles.blocCheckOff}>{b.done ? "✓" : "–"}</span>
+                    <span className={styles.blocName}>{b.titre}</span>
+                    <span className={styles.blocLabel}>{blocLabel(b)}</span>
+                    <span className={`${styles.chev} ${open ? styles.chevOpen : ""}`}>▾</span>
                   </button>
                   {open && (
                     <div className={styles.blocBody}>
+                      {b.wodLine && <div>{b.wodLine}</div>}
                       {withSeries.length === 0 && !b.wodLine && (
-                        <div className={styles.blocEmpty}>
-                          {b.items.length > 0 ? b.items.map((it) => it.name).join(" · ") : "Aucun résultat saisi"}
-                        </div>
+                        <div>{b.items.length > 0 ? b.items.map((it) => it.name).join(" · ") : "Aucun résultat saisi"}</div>
                       )}
-                      {b.wodLine && <div className={styles.blocEmpty}>{b.wodLine}</div>}
                       {withSeries.map((it) => {
-                        const bestIdx = bestSerieIndex(it.series);
+                        const best = bestSerieIndex(it.series);
                         return (
-                          <div key={it.name} className={styles.moveRow}>
+                          <div key={it.name}>
                             <Link href={`/progress?movement=${encodeURIComponent(it.name)}`} className={styles.resultName}>
                               {it.name}
                             </Link>
-                            {it.replacedFrom && <span className={styles.replacedNote}>remplacé · à la place de {it.replacedFrom}</span>}
-                            <div className={styles.pillRow}>
-                              {it.series.map((s, k) => {
+                            {it.replacedFrom && <span className={styles.replacedNote}> · remplacé, à la place de {it.replacedFrom}</span>}
+                            {" : "}
+                            {it.series
+                              .map((s, k) => {
                                 const text = fmtSerie(s, it.kind);
-                                if (!text) return null;
-                                return (
-                                  <span key={k} className={k === bestIdx && it.series.length > 1 ? styles.pillBest : styles.pill}>
-                                    {text}
-                                  </span>
-                                );
-                              })}
-                            </div>
+                                return text ? (k === best && it.series.length > 1 ? `${text} ★` : text) : null;
+                              })
+                              .filter(Boolean)
+                              .join(" · ")}
                           </div>
                         );
                       })}
@@ -297,37 +280,50 @@ export function RecapView({
         </>
       )}
 
+      {situation === "B" && recovery && recovery.length > 0 && (
+        <>
+          <div className={styles.sectionTitle}>
+            <span>Ta récupération</span>
+          </div>
+          <RecoveryBlocks blocks={recovery} />
+        </>
+      )}
+
       {watch && (
         <>
           <div className={styles.sectionTitle}>
-            Ta montre <span className={styles.auto}>✓ Auto</span>
+            <span>Ta montre</span>
+            <span className={styles.auto}>✓ AUTO</span>
           </div>
           <div className={styles.watchCard}>
-            <div className={styles.watchStats}>
-              <div>
-                <div className={styles.statVal}>{kcal ?? "—"}</div>
-                <div className={styles.statLabel}>{watch.kcalActive !== null ? "Kcal en activité" : "Kcal"}</div>
+            {kcal !== null && (
+              <div className={styles.kcalRow}>
+                <span className={styles.kcal}>{kcal}</span>
+                <span className={styles.kcalUnit}>{watch.kcalActive !== null ? "kcal en activité" : "kcal"}</span>
               </div>
-              <div>
-                <div className={styles.statVal}>{watch.effort ?? "—"}</div>
-                <div className={styles.statLabel}>Temps d&apos;effort</div>
+            )}
+            {(watch.effort || watch.bpm) && (
+              <div className={styles.watchStats}>
+                {watch.effort && (
+                  <div>
+                    <div className={styles.statVal}>{watch.effort}</div>
+                    <div className={styles.statLabel}>Temps d&apos;effort</div>
+                  </div>
+                )}
+                {watch.bpm && (
+                  <div>
+                    <div className={styles.statVal}>{watch.bpm}</div>
+                    <div className={styles.statLabel}>BPM moyen</div>
+                  </div>
+                )}
               </div>
-              <div>
-                <div className={styles.statVal}>{watch.bpm ?? "—"}</div>
-                <div className={styles.statLabel}>BPM moyen</div>
-              </div>
-            </div>
-            {watchText && <div className={styles.narratif}>{watchText}</div>}
-            {gauge && gaugePos !== null && (
-              <div className={styles.gauge}>
-                <div className={styles.gaugeTrack}>
-                  <div className={styles.gaugeDot} style={{ left: `${gaugePos * 100}%` }} />
-                </div>
-                <div className={styles.gaugeScale}>
-                  <span>{gauge.min}</span>
-                  <span>{gauge.max}</span>
-                </div>
-              </div>
+            )}
+            {missingWatch.length > 0 && (
+              <p className={styles.watchMissing}>
+                {missingWatch.length === 2
+                  ? "Temps d'effort et fréquence cardiaque : pas de donnée reçue de ta montre."
+                  : `${missingWatch[0].charAt(0).toUpperCase() + missingWatch[0].slice(1)} : pas de donnée reçue de ta montre.`}
+              </p>
             )}
           </div>
         </>
@@ -335,7 +331,7 @@ export function RecapView({
 
       <div className={styles.ctaBar}>
         <Link href="/dashboard" className={styles.cta}>
-          Voir mon dashboard →
+          VOIR MON DASHBOARD
         </Link>
       </div>
     </div>

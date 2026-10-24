@@ -78,3 +78,31 @@ export function buildAdviceSession(seance: string | null, advice: StoredAdvice):
 
   return { titre, emoji: leadingEmoji(seance), repos, dureeEstimee: a.dureeEstimee, blocks };
 }
+
+/** Contenu de récupération par défaut quand aucun conseil n'a été généré pour la journée (partie 4, mission 4). */
+export const DEFAULT_RECOVERY_ADVICE: NonEcmAdvice = {
+  dureeEstimee: "20-30 min",
+  warmup: [
+    { nom: "Marche tranquille", duree: "15 min" },
+    { nom: "Rotations de hanches", duree: "2 min" },
+    { nom: "Cat-Cow", duree: "10 reps" },
+    { nom: "Fente basse (mobilité)", duree: "8 reps / côté" },
+    { nom: "Respiration diaphragmatique", duree: "3 min" },
+  ],
+  prevention: [
+    "Reste à une intensité où tu peux parler sans t'essouffler.",
+    "Hydrate-toi régulièrement, même sans effort.",
+    "Évite toute position qui provoque une douleur vive.",
+  ],
+  mindset: "Aujourd'hui, ton corps se reconstruit. Respire, bouge doucement, n'ajoute rien de plus.",
+};
+
+/** Blocs de récupération en consultation : conseils du jour s'ils existent, sinon contenu par défaut. */
+export function recoveryBlocks(advice: StoredAdvice | null | undefined): DisplayBlock[] {
+  return buildAdviceSession("😴 Repos total", advice ?? DEFAULT_RECOVERY_ADVICE).blocks;
+}
+
+/** Durée indiquée par le contenu (« 20-30 min »). */
+export function recoveryDuration(advice: StoredAdvice | null | undefined): string {
+  return normalizeAdvice(advice ?? DEFAULT_RECOVERY_ADVICE).dureeEstimee;
+}

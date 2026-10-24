@@ -5,7 +5,7 @@ import { isCheckinDoneToday } from "../checkin/actions";
 import { getEcmProfileState, getSignupState } from "../signup/actions";
 import { SPORT_LABEL_TO_SLUG } from "@/lib/ecm-programs";
 import { clerkEnabled } from "@/lib/clerk";
-import { getDemoState, resolveTodaySession } from "@/lib/demo-session";
+import { getDemoState, resolveTodaySession, todayDayNumber } from "@/lib/demo-session";
 import { getUserId } from "@/lib/user-id";
 import { prisma } from "@/lib/prisma";
 import { todayKey } from "@/lib/date-key";
@@ -76,6 +76,9 @@ import { homeLevelForToday } from "@/lib/home-equipment";
 import { applyCompetition } from "@/lib/competition-day";
 import { competitionPlanFor, effectiveTheme, objectifsOf } from "@/lib/competition";
 import { CompetitionCard } from "./competition-card";
+import { ActivityCard, ActivitySectionTitle, AddActivityLink, type ActivityCardData } from "./activity-card";
+import { WEEK_DAYS } from "@/lib/week-cycle";
+import { freeActivityMessage } from "@/lib/recap-text";
 import { loadsLine } from "@/lib/hyrox-reference";
 import { applyBlockToDay, themeLabel } from "@/lib/training-themes";
 import { effectiveWeekCycle } from "@/lib/week-overrides";
@@ -330,6 +333,50 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
   // 2e (ou 3e...) activité du jour (doc G.3) — même traitement visuel que la
   // séance principale, empilée en dessous, statut indépendant par activité.
+  // Cartes « Activité du jour » (partie 4, mission 1) : A séance ECM, B autre activité, C repos.
+  const dateLabel = (() => {
+    const t = new Date().toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" });
+    return t.charAt(0).toUpperCase() + t.slice(1);
+  })();
+  const plannedRestToday = (() => {
+    const day = (effCycle as Record<string, { repos?: boolean; slots?: unknown[] }> | null | undefined)?.[WEEK_DAYS[todayDayNumber() - 1]];
+    return !!day && (day.repos || (day.slots?.length ?? 0) === 0);
+  })();
+  const feelingOf = (v: string | null) => {
+    const f = SESSION_FEELINGS.find((x) => x.value === v);
+    return f ? { emoji: f.emoji, label: f.label } : null;
+  };
+  const freeDetail = (restLike: boolean) => (restLike || plannedRestToday ? "Jour de repos · activité libre" : "Sport hors ECM");
+  const mainProgramSlug = (todaySession?.data as { programSlug?: string } | null)?.programSlug;
+  const seanceNumber =
+    mainProgramSlug && userId
+      ? (await prisma.session.findMany({ where: { userId, completed: true }, select: { data: true } })).filter(
+          (r) => (r.data as { programSlug?: string } | null)?.programSlug === mainProgramSlug,
+        ).length
+      : 0;
+  const mainEnergy = (todaySession?.data as { energie?: number } | null)?.energie ?? todayCheckin?.energie ?? null;
+  const mainCard: ActivityCardData = {
+    situation: todaySessionKind === "ecm" ? "A" : "B",
+    dateLabel,
+    durationSec: todaySession?.durationSec ?? 0,
+    icon: todaySessionIcon,
+    name: todaySessionKind === "ecm" ? (checkinSeance ? stripLeadingEmoji(checkinSeance) : today.template.name) : todaySessionLabel,
+    detail:
+      todaySessionKind === "ecm"
+        ? `${baseDay.focus}${seanceNumber > 0 ? ` · séance ${seanceNumber}` : ""}`
+        : freeDetail(todaySessionKind === "repos"),
+    percent: Math.round((todaySession?.completionRate ?? 0) * 100),
+    energy: mainEnergy,
+    feeling: feelingOf(todaySession?.sessionFeeling ?? null),
+    // Hors situation A, jamais de pourcentage dans le message : texte positif fondé sur la durée et l'énergie.
+    coachMessage:
+      todaySessionKind === "ecm"
+        ? (real?.sessionMessage ?? null)
+        : freeActivityMessage({ prenom: userFirstName ?? "", durationSec: todaySession?.durationSec ?? 0, energie: mainEnergy, recuperation: todaySessionKind === "repos" }),
+    detailHref: "/session/recap",
+  };
+  const restCard: ActivityCardData = { situation: "C", dateLabel, detailHref: "/session/repos" };
+
   const extraActivityCards = extraActivities.map((a) => ({
     id: a.id,
     seanceLabel: stripLeadingEmoji(a.seance),
@@ -342,6 +389,27 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
     best: a.bestResult as { nom: string; charge: number; reps: string } | null,
     coachMessage: a.coachMessage,
     heureReelle: a.heureReelle,
+    card: {
+      situation: a.seance in SPORT_LABEL_TO_SLUG ? "A" : "B",
+      dateLabel,
+      durationSec: a.durationSec ?? 0,
+      icon: isRestDaySeance(a.seance) ? "🛌" : a.seance in SPORT_LABEL_TO_SLUG ? "⚡" : "🥊",
+      name: stripLeadingEmoji(a.seance),
+      detail: a.seance in SPORT_LABEL_TO_SLUG ? "Séance ajoutée" : freeDetail(isRestDaySeance(a.seance)),
+      percent: Math.round((a.completionRate ?? 0) * 100),
+      energy: (a.data as { energie?: number } | null)?.energie ?? todayCheckin?.energie ?? null,
+      feeling: feelingOf(a.sessionFeeling),
+      coachMessage:
+        a.seance in SPORT_LABEL_TO_SLUG
+          ? a.coachMessage
+          : freeActivityMessage({
+              prenom: userFirstName ?? "",
+              durationSec: a.durationSec ?? 0,
+              energie: (a.data as { energie?: number } | null)?.energie ?? todayCheckin?.energie ?? null,
+              recuperation: isRestDaySeance(a.seance),
+            }),
+      detailHref: `/session/extra/${a.id}/recap`,
+    } as ActivityCardData,
   }));
 
   // Tri par heure réelle plutôt que par ordre d'ajout (doc G.3/mockup
@@ -513,23 +581,6 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
             <div className={styles.snackNote}>{snack.note}</div>
           </div>
 
-          {/* ACTIVITÉS TERMINÉES PLUS TÔT QUE LA SÉANCE PRINCIPALE (doc G.3 — tri par heure réelle) */}
-          {doneExtrasBeforePrimary.map((a) => (
-            <SessionRecapCard
-              key={a.id}
-              durationSec={a.durationSec}
-              completionRate={a.completionRate}
-              feeling={a.feeling}
-              calories={a.calories}
-              best={a.best}
-              programme={a.seanceLabel}
-              icon={a.icon}
-              coachMessage={a.coachMessage}
-              tag="Ajoutée après coup"
-              recapHref={`/session/extra/${a.id}/recap`}
-            />
-          ))}
-
           {/* ACTIVITÉ DU JOUR — titre de section (doc H.2), bloc "Prévu aujourd'hui" inchangé */}
           {competitionPlan && (
             <CompetitionCard
@@ -542,11 +593,18 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
               loads={competitionPlan.event === "Hyrox" ? loadsLine(profile?.genre, competitionPlan.categorie) : undefined}
             />
           )}
-          <div className={styles.sl}>Activité du jour</div>
+          <ActivitySectionTitle />
+          {doneExtrasBeforePrimary.map((a) => (
+            <div key={a.id} style={{ marginBottom: 10 }}>
+              <ActivityCard data={a.card} showPlus={false} />
+            </div>
+          ))}
 
           {/* SÉANCE DU JOUR — contenu selon le check-in, structure identique */}
           {finishedSession ? (
-            <SessionRecapCard {...finishedSession} />
+            <ActivityCard data={mainCard} showPlus={doneExtrasAfterPrimary.length === 0} />
+          ) : adviceSession?.repos || (!adviceSession && isRestDay) ? (
+            <ActivityCard data={restCard} showPlus={doneExtrasBeforePrimary.length === 0 && doneExtrasAfterPrimary.length === 0 && notDoneExtras.length === 0} />
           ) : adviceSession ? (
             <div className={styles.upcomingCard}>
               <div className={styles.upcomingHead}>
@@ -575,18 +633,6 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
               >
                 <ApercuCards cards={blocksToApercuCards(adviceSession.blocks)} />
               </SessionPreviewToggle>
-            </div>
-          ) : isRestDay ? (
-            <div className={styles.upcomingCard}>
-              <div className={styles.upcomingHead}>
-                <div className={styles.l}>
-                  <span>🛌</span>
-                  <span className={styles.txt}>REPOS ACTIF</span>
-                </div>
-              </div>
-              <div className={styles.upcomingSub}>
-                <span className={styles.name}>{baseDay.notes ?? "Récupération complète."}</span>
-              </div>
             </div>
           ) : (
             <div className={styles.upcomingCard}>
@@ -702,20 +748,10 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           )}
 
           {/* ACTIVITÉS TERMINÉES PLUS TARD QUE LA SÉANCE PRINCIPALE */}
-          {doneExtrasAfterPrimary.map((a) => (
-            <SessionRecapCard
-              key={a.id}
-              durationSec={a.durationSec}
-              completionRate={a.completionRate}
-              feeling={a.feeling}
-              calories={a.calories}
-              best={a.best}
-              programme={a.seanceLabel}
-              icon={a.icon}
-              coachMessage={a.coachMessage}
-              tag="Ajoutée après coup"
-              recapHref={`/session/extra/${a.id}/recap`}
-            />
+          {doneExtrasAfterPrimary.map((a, i) => (
+            <div key={a.id} style={{ marginTop: 10 }}>
+              <ActivityCard data={a.card} showPlus={i === doneExtrasAfterPrimary.length - 1} />
+            </div>
           ))}
 
           {/* ACTIVITÉS SUPPLÉMENTAIRES PAS ENCORE TERMINÉES */}
@@ -744,9 +780,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
               {extraActivityCards.length + 1} activités · compte pour 1 jour de streak
             </div>
           )}
-          <Link href="/session/add" className={styles.addActivityLink}>
-            + Ajouter une activité
-          </Link>
+          {!(finishedSession || adviceSession?.repos || (!adviceSession && isRestDay)) || notDoneExtras.length > 0 ? <AddActivityLink /> : null}
 
           {/* DEMAIN */}
           <div className={styles.sl} style={{ marginTop: 20 }}>
@@ -812,98 +846,6 @@ function CheckinPendingState({
         {everCheckedIn ? "Faire mon check-in maintenant" : "Commencer mon premier check-in"}
       </Link>
     </section>
-  );
-}
-
-/** Date du jour affichée dans l'en-tête du bloc "Séance terminée" — "VEN 25 SEPT". */
-function todayLabel(): string {
-  return new Date()
-    .toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short" })
-    .toUpperCase()
-    .replace(/\./g, "");
-}
-
-/** Compte rendu du jour, à la place du bloc "Démarrer la séance" une fois la séance faite —
- * bloc unique fusionnant stats et message du coach (avant : deux blocs distincts et redondants). */
-function SessionRecapCard({
-  durationSec,
-  completionRate,
-  feeling,
-  best,
-  programme,
-  icon,
-  coachMessage,
-  tag,
-  recapHref = "/session/recap",
-}: {
-  durationSec: number;
-  completionRate: number;
-  feeling: string | null;
-  calories: number | null;
-  best: { nom: string; charge: number; reps: string } | null;
-  programme: string | null;
-  icon: string;
-  coachMessage: string | null;
-  /** Ex. "Ajoutée après coup" pour une 2e activité du jour (doc G.3). */
-  tag?: string;
-  recapHref?: string;
-}) {
-  const percent = Math.round(completionRate * 100);
-  const feelingInfo = SESSION_FEELINGS.find((f) => f.value === feeling);
-  const durationLabel = durationSec < 60 ? `${durationSec}s` : minutesToHM(Math.round(durationSec / 60));
-
-  return (
-    <div className={styles.doneCard}>
-      <div className={styles.doneHeader}>
-        <span className={styles.doneHeaderTitle}>
-          🏆 Séance terminée
-          {tag && <span className={styles.addedTag}>{tag}</span>}
-        </span>
-        <span className={styles.doneHeaderDate}>{todayLabel()}</span>
-      </div>
-
-      {programme && (
-        <div className={styles.doneSubheader}>
-          <span>{icon}</span>
-          <span>{programme.toUpperCase()}</span>
-        </div>
-      )}
-
-      <div className={styles.doneStats}>
-        <div className={styles.doneStat}>
-          <div className={styles.doneStatVal}>{durationLabel}</div>
-          <div className={styles.doneStatLabel}>Durée</div>
-        </div>
-        <div className={cx(styles.doneStat, styles.doneStatMid)}>
-          <div className={styles.doneStatVal}>{percent}%</div>
-          <div className={styles.doneStatLabel}>Complété</div>
-        </div>
-        <div className={styles.doneStat}>
-          <div className={styles.doneStatVal}>{feelingInfo?.emoji ?? "—"}</div>
-          <div className={styles.doneStatLabel}>{feelingInfo?.label ?? "Ressenti"}</div>
-        </div>
-      </div>
-
-      {best && (
-        <div className={styles.doneBest}>
-          <div className={styles.bestResultTitle}>Meilleur résultat du jour</div>
-          <div className={styles.snackContent}>
-            {best.nom} — {best.charge} kg × {best.reps || "—"}
-          </div>
-        </div>
-      )}
-
-      {coachMessage && (
-        <div className={styles.doneCoach}>
-          <div className={styles.doneCoachLabel}>Ton coach</div>
-          <div className={styles.doneCoachText}>{coachMessage}</div>
-        </div>
-      )}
-
-      <Link href={recapHref} className={styles.doneCta}>
-        Voir le détail complet →
-      </Link>
-    </div>
   );
 }
 
