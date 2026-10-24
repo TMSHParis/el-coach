@@ -1,18 +1,15 @@
 // Traduction : `translate(lang, clé, variables)`. Module neutre (client et serveur).
-import { fr, type DictKey } from "./fr";
-import { en } from "./en";
-import { es } from "./es";
-import { LANG_META, type Lang } from "./lang";
+import { DICT, type DictKey } from "./dict";
+import { LANGS, LANG_META, type Lang } from "./lang";
 
-export type { DictKey } from "./fr";
+export type { DictKey } from "./dict";
 export * from "./lang";
-
-const DICTS: Record<Lang, Record<DictKey, string>> = { fr, en, es };
 
 export type Translate = (key: DictKey, vars?: Record<string, string | number>) => string;
 
 export function translate(lang: Lang, key: DictKey, vars?: Record<string, string | number>): string {
-  let s = DICTS[lang][key] ?? fr[key] ?? key;
+  const entry = DICT[key];
+  let s: string = entry ? (entry[LANGS.indexOf(lang)] ?? entry[0]) : key;
   if (vars) for (const [k, v] of Object.entries(vars)) s = s.replaceAll(`{${k}}`, String(v));
   return s;
 }
