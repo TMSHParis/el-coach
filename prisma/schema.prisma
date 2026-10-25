@@ -369,3 +369,138 @@ model SessionStart {
   @@index([userId, startedAt])
   @@map("session_starts")
 }
+
+// ---------------------------------------------------------------------------------------------------------
+// Partie 6 · mission 2 : bibliothèque de mouvements, enchaînements, WODs et séances modèles.
+// Source officielle : les quatre listes de data/library/*.txt, importées par scripts/import-library.ts
+// (relançable, sans doublon). Ces tables sont des bibliothèques : rien ici n'est affecté à un jour, un
+// programme ou une semaine enregistrée.
+// ---------------------------------------------------------------------------------------------------------
+
+model LibMovement {
+  id   String @id @default(cuid())
+  /// Nom normalisé (casse, tiret, espace, pluriel ignorés) : un seul mouvement par clé.
+  key  String @unique
+  /// Nom en anglais, tel qu'écrit dans la liste. Jamais traduit.
+  name String
+  /// Autres écritures rencontrées dans les listes pour ce même mouvement (même clé).
+  aliases String[] @default([])
+  /// Clés de catégories (ex. "POUSSÉE VERTICALE"), affichées dans la langue de l'utilisateur.
+  categories String[] @default([])
+  /// musculation | gainage | endurance | metcon | echauffement | retour_au_calme | a_definir
+  type    String
+  sources String[] @default([])
+  equipment String[] @default([])
+  videoUrl  String? @map("video_url")
+  /// "importe_a_completer" tant qu'un coach n'a pas validé la fiche.
+  status    String  @default("importe_a_completer")
+  /// Identifiant du mouvement correspondant dans movements.ts quand il existe déjà dans l'app.
+  appMovementId String? @map("app_movement_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  lines LibLine[] @relation("LineMovement")
+  altLines LibLine[] @relation("LineAltMovement")
+
+  @@map("lib_movements")
+}
+
+/// Enchaînement ([COMBO]) : liste ordonnée de mouvements.
+model LibCombo {
+  id   String @id @default(cuid())
+  key  String @unique
+  name String
+  /// Identifiants LibMovement, dans l'ordre.
+  movementIds String[] @default([]) @map("movement_ids")
+  sources     String[] @default([])
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  lines LibLine[]
+
+  @@map("lib_combos")
+}
+
+model LibWod {
+  id   String @id @default(cuid())
+  key  String @unique
+  name String
+  /// "The Girls" | "Hero" | "Open" | nom du groupe de la source.
+  group    String
+  subgroup String?
+  source   String
+  format   String?
+  scheme   String?
+  timeCap  String? @map("time_cap")
+  /// Titre exact de la liste.
+  rawTitle String  @map("raw_title")
+  /// Ordre dans la source.
+  position Int
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  lines LibLine[]
+
+  @@map("lib_wods")
+}
+
+model LibTemplate {
+  id   String @id @default(cuid())
+  key  String @unique
+  name String
+  source   String
+  group    String
+  format   String?
+  scheme   String?
+  rawTitle String @map("raw_title")
+  position Int
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  lines LibLine[]
+
+  @@map("lib_templates")
+}
+
+/// Une ligne ordonnée d'un WOD ou d'une séance modèle. La quantité appartient à la ligne, jamais au mouvement.
+model LibLine {
+  id         String  @id @default(cuid())
+  wodId      String? @map("wod_id")
+  templateId String? @map("template_id")
+  position   Int
+  /// Partie de la séance (Warm-up, Strength, Conditioning, Accessory / Core, Mobility) ou du WOD (Partie 1, Série 1).
+  part       String?
+  partFormat String? @map("part_format")
+  /// "movement" | "combo" | "choice"
+  kind       String
+  /// Quantité telle qu'écrite (répétitions, distance, calories, durée, séries × répétitions).
+  quantity   String?
+  /// Emplacement dans un EMOM (M1, M2...).
+  slot       String?
+  note       String?
+  /// Ligne telle qu'écrite dans la liste.
+  raw        String
+  movementId    String? @map("movement_id")
+  comboId       String? @map("combo_id")
+  /// Choix : première alternative = movementId, seconde = altMovementId.
+  altMovementId String? @map("alt_movement_id")
+
+  wod         LibWod?      @relation(fields: [wodId], references: [id], onDelete: Cascade)
+  template    LibTemplate? @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  movement    LibMovement? @relation("LineMovement", fields: [movementId], references: [id])
+  altMovement LibMovement? @relation("LineAltMovement", fields: [altMovementId], references: [id])
+  combo       LibCombo?    @relation(fields: [comboId], references: [id])
+
+  @@index([wodId, position])
+  @@index([templateId, position])
+  @@map("lib_lines")
+}
+
+/// Journal des imports : un rapport par exécution.
+model LibImportRun {
+  id        String   @id @default(cuid())
+  startedAt DateTime @default(now()) @map("started_at")
+  report    Json
+
+  @@map("lib_import_runs")
+}

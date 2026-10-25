@@ -13,6 +13,7 @@ import { legacy } from "./legacy";
 import { server } from "./server";
 import { notif } from "./notif";
 import { settings } from "./settings";
+import { library } from "./library";
 
 export const DICT = {
   ...core,
@@ -26,6 +27,7 @@ export const DICT = {
   ...server,
   ...notif,
   ...settings,
+  ...library,
 } as const;
 
 export type DictKey = keyof typeof DICT;
