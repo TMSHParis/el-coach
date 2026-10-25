@@ -114,7 +114,7 @@ export async function updateNotifPrefs(prefs: NotifPrefs, timezone?: string): Pr
 }
 
 /** Appareil déduit du user-agent : "iphone" | "android" | "ordinateur". */
-export function deviceFromUserAgent(ua: string | undefined): "iphone" | "android" | "ordinateur" {
+function deviceFromUserAgent(ua: string | undefined): "iphone" | "android" | "ordinateur" {
   const u = ua ?? "";
   if (/iPhone|iPad|iPod/.test(u)) return "iphone";
   if (/Android/.test(u)) return "android";
