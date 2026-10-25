@@ -5,6 +5,8 @@ export const notif = {
   "notif.title.checkin": ["Check-in du matin", "Morning check-in", "Check-in de la mañana"],
   "notif.title.seance": ["Séance du jour", "Today's session", "Sesión de hoy"],
   "notif.title.injury": ["Zone signalée", "Reported area", "Zona indicada"],
+  "notif.title.test": ["Test", "Test", "Prueba"],
+  "notif.test": ["Test : tes notifications fonctionnent.", "Test: your notifications are working.", "Prueba: tus notificaciones funcionan."],
   "notif.title.recap": ["Récapitulatif de la semaine", "Weekly recap", "Resumen de la semana"],
   "notif.checkin": [
     "Ton check-in du matin t'attend : 1 minute pour adapter ta séance.",
@@ -17,7 +19,7 @@ export const notif = {
     "Your reported area ({zone}) has been active for more than 5 days: review it in your profile.",
     "Tu zona indicada ({zone}) lleva activa más de 5 días: revísala en tu perfil.",
   ],
-  "notif.recap.none": ["Aucune séance enregistrée cette semaine.", "No session recorded this week.", "Ninguna sesión registrada esta semana."],
+  "notif.recap.none": ["Semaine calme : prêt pour la suivante ?", "Quiet week: ready for the next one?", "Semana tranquila: ¿listo para la siguiente?"],
   "notif.recap.count.one": ["{n} séance", "{n} session", "{n} sesión"],
   "notif.recap.count.many": ["{n} séances", "{n} sessions", "{n} sesiones"],
   "notif.recap.line": ["Cette semaine : {count}", "This week: {count}", "Esta semana: {count}"],

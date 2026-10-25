@@ -14,6 +14,12 @@ export const INJURY_SEND_FROM_MIN = 9 * 60;
 export const RECAP_WINDOW_MIN = 90;
 export const DEFAULT_CHECKIN_TIME = "07:00";
 export const DEFAULT_RECAP_TIME = "19:00";
+/** Plafond par jour et par utilisateur, tous types confondus. */
+export const DAILY_CAP = 3;
+/** Une séance démarrée dans l'heure qui précède un créneau (ou après) compte comme « ce créneau est déjà commencé ». */
+export const SEANCE_STARTED_LOOKBACK_MIN = 60;
+/** Ordre de conservation au-delà du plafond : le récapitulatif saute en premier, le rappel check-in en dernier. */
+export const KEEP_PRIORITY: NotifKind[] = ["checkin", "seance", "injury", "recap"];
 
 export type NotifKind = "checkin" | "seance" | "injury" | "recap";
 
@@ -33,6 +39,8 @@ export type NotifContext = {
   checkinDone: boolean;
   /** Créneaux d'aujourd'hui (semaine enregistrée) ; vide un jour de repos. */
   slots: { sport: string; heure: string }[];
+  /** Minutes (heure locale) auxquelles une séance a été démarrée aujourd'hui. */
+  startsToday: number[];
   /** Zone signalée, telle que saisie, et premier jour de la période active. */
   injury: { zone: string; startKey: string; lastKey: string } | null;
   week: { count: number; totalSec: number; best: { name: string; pct: number } | null };
@@ -76,7 +84,8 @@ export function planNotifications(input: {
       const at = parseClock(s.heure);
       if (at === null || !s.sport) return;
       const target = at - SEANCE_LEAD_MIN;
-      if (minutes >= target && minutes < at) {
+      const started = ctx.startsToday.some((m) => m >= at - SEANCE_STARTED_LOOKBACK_MIN && m <= minutes);
+      if (minutes >= target && minutes < at && !started) {
         out.push({
           kind: "seance",
           key: `${dateKey}:${i}`,
@@ -115,4 +124,12 @@ export function planNotifications(input: {
     }
   }
   return out;
+}
+
+/** Garde au plus `DAILY_CAP - alreadySent` notifications, en abandonnant d'abord les moins importantes. */
+export function withinDailyCap(planned: Planned[], alreadySent: number): Planned[] {
+  const room = Math.max(0, DAILY_CAP - alreadySent);
+  if (planned.length <= room) return planned;
+  const ranked = [...planned].sort((a, b) => KEEP_PRIORITY.indexOf(a.kind) - KEEP_PRIORITY.indexOf(b.kind));
+  return ranked.slice(0, room);
 }

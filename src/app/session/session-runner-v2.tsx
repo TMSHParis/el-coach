@@ -10,7 +10,7 @@ import { SessionItemRow } from "../dashboard/session-item-row";
 import { VideoModal } from "../dashboard/session/video-modal";
 import { REPLACE_REASONS, REPLACE_REASON_KEYS, type EquivalentOption } from "@/lib/movement-equivalents";
 import { CARDIO_ZONES, cardioLine, paceText } from "@/lib/cardio";
-import { saveSessionResult, updateSessionRecap, type BlocSummary, type ResultKind, type SessionBlocResult } from "./actions";
+import { markSessionStarted, saveSessionResult, updateSessionRecap, type BlocSummary, type ResultKind, type SessionBlocResult } from "./actions";
 import { SessionPhotos, type PhotoAnalysisContext } from "@/components/session-photos";
 import type { PhotoExtraction } from "@/app/api/extract-photo-data/route";
 import type { LastResult } from "@/lib/last-results";
@@ -869,6 +869,7 @@ export function SessionRunnerV2({
     if (sessionStarted) return;
     setShowPreview(false);
     setSessionStarted(true);
+    void markSessionStarted();
     const idx = blocks.findIndex((b) => !b.done);
     if (idx === -1) return;
     openBloc(idx);

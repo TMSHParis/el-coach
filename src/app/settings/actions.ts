@@ -9,6 +9,7 @@ import { clerkEnabled } from "@/lib/clerk";
 import { LANG_COOKIE, isLang } from "@/lib/i18n/lang";
 import { THEME_COOKIE, isTheme } from "@/lib/theme";
 import { addDays, localParts } from "@/lib/notifications/time";
+import { sendTestNotification } from "@/lib/notifications/run";
 import { makeT } from "@/lib/i18n";
 import { getLang } from "@/lib/i18n/server";
 
@@ -112,6 +113,14 @@ export async function updateNotifPrefs(prefs: NotifPrefs, timezone?: string): Pr
   }
 }
 
+/** Appareil déduit du user-agent : "iphone" | "android" | "ordinateur". */
+export function deviceFromUserAgent(ua: string | undefined): "iphone" | "android" | "ordinateur" {
+  const u = ua ?? "";
+  if (/iPhone|iPad|iPod/.test(u)) return "iphone";
+  if (/Android/.test(u)) return "android";
+  return "ordinateur";
+}
+
 export type PushSubscriptionInput = { endpoint: string; p256dh: string; auth: string; userAgent?: string; timezone?: string };
 
 /** Enregistre l'abonnement push de cet appareil dans le profil. */
@@ -121,13 +130,40 @@ export async function savePushSubscription(sub: PushSubscriptionInput): Promise<
     if (!sub.endpoint || !sub.p256dh || !sub.auth) throw new Error("Abonnement invalide.");
     await prisma.pushSubscription.upsert({
       where: { endpoint: sub.endpoint },
-      create: { userId, endpoint: sub.endpoint, p256dh: sub.p256dh, auth: sub.auth, userAgent: sub.userAgent?.slice(0, 300) },
-      update: { userId, p256dh: sub.p256dh, auth: sub.auth, userAgent: sub.userAgent?.slice(0, 300) },
+      create: { userId, endpoint: sub.endpoint, p256dh: sub.p256dh, auth: sub.auth, userAgent: sub.userAgent?.slice(0, 300), device: deviceFromUserAgent(sub.userAgent) },
+      update: { userId, p256dh: sub.p256dh, auth: sub.auth, userAgent: sub.userAgent?.slice(0, 300), device: deviceFromUserAgent(sub.userAgent) },
     });
     if (sub.timezone) await prisma.profile.update({ where: { userId }, data: { timezone: sub.timezone } });
     return { ok: true };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : await genericError() };
+  }
+}
+
+/** Envoie la notification de test à l'appareil qui la demande. */
+export async function sendTestPush(endpoint: string): Promise<{ ok: true } | { ok: false; reason: "no-subscription" | "failed" }> {
+  try {
+    const userId = await requireUserId();
+    const res = await sendTestNotification(userId, endpoint);
+    return res.ok ? { ok: true } : { ok: false, reason: res.reason === "no-subscription" ? "no-subscription" : "failed" };
+  } catch (err) {
+    console.error("sendTestPush", err);
+    return { ok: false, reason: "failed" };
+  }
+}
+
+/** À chaque ouverture de l'app : garde le fuseau de l'appareil à jour (les heures de rappel en dépendent). */
+export async function syncTimezone(timezone: string): Promise<void> {
+  try {
+    const userId = await requireUserId();
+    try {
+      new Intl.DateTimeFormat("en-US", { timeZone: timezone });
+    } catch {
+      return;
+    }
+    await prisma.profile.updateMany({ where: { userId, NOT: { timezone } }, data: { timezone } });
+  } catch {
+    /* non connecté ou profil absent : rien à synchroniser */
   }
 }
 

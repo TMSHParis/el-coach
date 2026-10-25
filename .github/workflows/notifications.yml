@@ -1,19 +1,45 @@
-# Tâche planifiée des notifications push (partie 5, mission 4A).
-# Le plan Vercel Hobby n'autorise qu'une tâche par jour : GitHub Actions appelle l'endpoint toutes les 10 minutes.
-# GitHub peut retarder une exécution de quelques minutes : les fenêtres d'envoi (plan.ts) en tiennent compte.
+# Tâche planifiée des notifications push, une passe par minute (partie 6, mission 1).
+#
+# Pourquoi cette forme : le forfait Vercel Hobby n'autorise qu'une tâche planifiée par jour, et le « schedule »
+# de GitHub Actions est limité à 5 minutes au mieux et exécuté de façon très irrégulière (quelques fois par
+# jour constatées). Le travail tourne donc en boucle : chaque exécution appelle la route une fois par minute
+# pendant ~50 minutes, puis met en file la suivante (le groupe de concurrence les enchaîne sans chevauchement).
+# Le « schedule » ne sert qu'à relancer la chaîne si elle s'est interrompue.
+# Les appels en double sont sans effet : la route réserve chaque notification avant de l'envoyer.
 name: notifications
 on:
   schedule:
-    - cron: "*/10 * * * *"
+    - cron: "*/15 * * * *"
   workflow_dispatch:
+permissions:
+  actions: write
+  contents: read
+concurrency:
+  group: notifications-loop
+  cancel-in-progress: false
 jobs:
-  run:
+  loop:
     runs-on: ubuntu-latest
+    timeout-minutes: 58
     steps:
-      - name: Appeler /api/cron/notifications
+      - name: Une passe par minute pendant 50 minutes
         env:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          GH_TOKEN: ${{ github.token }}
         run: |
-          curl --fail --silent --show-error --max-time 60 \
-            -H "Authorization: Bearer $CRON_SECRET" \
-            https://el-coach-gamma.vercel.app/api/cron/notifications
+          end=$(( $(date +%s) + 50*60 ))
+          queued=0
+          while [ "$(date +%s)" -lt "$end" ]; do
+            started=$(date +%s)
+            # À 10 minutes de la fin, la prochaine exécution est mise en file d'attente.
+            if [ "$queued" = 0 ] && [ $(( end - started )) -le 600 ]; then
+              gh workflow run notifications.yml --repo "$GITHUB_REPOSITORY" --ref "$GITHUB_REF_NAME" && queued=1 || true
+            fi
+            printf '%s ' "$(date -u +%H:%M:%S)"
+            curl --silent --show-error --max-time 50 \
+              -H "Authorization: Bearer $CRON_SECRET" \
+              https://el-coach-gamma.vercel.app/api/cron/notifications || echo "appel échoué"
+            echo
+            # Attend le début de la minute suivante.
+            sleep $(( 60 - $(date +%s) % 60 ))
+          done

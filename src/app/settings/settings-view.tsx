@@ -9,6 +9,7 @@ import {
   updateRecordsRm,
   updateProgrammes,
   updateNotifPrefs,
+  sendTestPush,
   updateLangue,
   updateTheme,
   deleteAccount,
@@ -17,7 +18,7 @@ import {
 import { useLang, useT } from "@/lib/i18n/provider";
 import { LANGS, LANG_META, isLang, type Lang } from "@/lib/i18n/lang";
 import { applyTheme, isTheme, type Theme } from "@/lib/theme";
-import { deviceTimezone, enablePush } from "@/lib/push-client";
+import { currentEndpoint, deviceTimezone, enablePush } from "@/lib/push-client";
 import styles from "./settings.module.css";
 import { BackHomeButton } from "@/components/back-home-button";
 
@@ -157,6 +158,16 @@ export function SettingsView({
     }
   }
 
+  async function handleTestPush() {
+    setBusy(true);
+    const endpoint = await currentEndpoint();
+    const res = endpoint ? await sendTestPush(endpoint) : null;
+    setBusy(false);
+    if (res?.ok) flash(t("st.notif.test.sent"), 5000);
+    else if (!endpoint || res?.reason === "no-subscription") flash(t("st.notif.test.noSub"), 5000);
+    else flash(t("st.notif.test.fail"), 5000);
+  }
+
   async function handleSaveTime(time: string) {
     const previous = prefs;
     const next = { ...previous, notifCheckinTime: time };
@@ -276,6 +287,7 @@ export function SettingsView({
         <Row icon="🏋️" title={t("st.notif.seance")} sub={t("st.notif.seance.sub")} right={<Toggle on={notifSeance} label={t("st.notif.seance")} onChange={(v) => handleToggle("notifSeance", v)} />} />
         <Row icon="🔴" title={t("st.notif.blessure")} sub={t("st.notif.blessure.sub")} right={<Toggle on={notifBlessure} label={t("st.notif.blessure")} onChange={(v) => handleToggle("notifBlessure", v)} />} />
         <Row icon="📊" title={t("st.notif.recap")} sub={t("st.notif.recap.sub")} right={<Toggle on={notifRecap} label={t("st.notif.recap")} onChange={(v) => handleToggle("notifRecap", v)} />} />
+        <Row icon="🔔" title={t("st.notif.test")} sub="" onClick={busy ? undefined : () => void handleTestPush()} />
       </div>
 
       {/* DONNÉES */}

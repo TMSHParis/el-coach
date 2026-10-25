@@ -59,3 +59,15 @@ export async function enablePush(): Promise<EnableResult> {
     return { ok: false, reason: "error" };
   }
 }
+
+/** Point de terminaison de l'abonnement de cet appareil (null s'il n'est pas abonné). */
+export async function currentEndpoint(): Promise<string | null> {
+  try {
+    if (!("serviceWorker" in navigator)) return null;
+    const reg = await navigator.serviceWorker.getRegistration("/sw.js");
+    const sub = await reg?.pushManager.getSubscription();
+    return sub?.endpoint ?? null;
+  } catch {
+    return null;
+  }
+}

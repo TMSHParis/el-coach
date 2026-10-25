@@ -106,6 +106,7 @@ model Profile {
   chainProgress    ChainProgress[]
   pushSubscriptions PushSubscription[]
   notificationLogs  NotificationLog[]
+  sessionStarts     SessionStart[]
 
   @@map("profiles")
 }
@@ -324,7 +325,10 @@ model PushSubscription {
   p256dh    String
   auth      String
   userAgent String?  @map("user_agent")
-  createdAt DateTime @default(now()) @map("created_at")
+  /// Appareil reconnu à l'abonnement : "iphone" | "android" | "ordinateur".
+  device     String?
+  createdAt  DateTime  @default(now()) @map("created_at")
+  lastUsedAt DateTime? @map("last_used_at")
 
   profile Profile @relation(fields: [userId], references: [userId], onDelete: Cascade)
 
@@ -339,9 +343,29 @@ model NotificationLog {
   kind   String
   key    String
   sentAt DateTime @default(now()) @map("sent_at")
+  /// Jour local de l'utilisateur (YYYY-MM-DD) : sert au plafond de 3 notifications par jour.
+  day    String   @default("")
+  /// "ok" (au moins un appareil atteint), "echec" (aucun appareil atteint), "test".
+  result String   @default("ok")
+  detail String?
+  attempts Int    @default(1)
 
   profile Profile @relation(fields: [userId], references: [userId], onDelete: Cascade)
 
   @@unique([userId, kind, key])
+  @@index([userId, day])
   @@map("notification_logs")
+}
+
+// Partie 6 : "Démarrer la séance" appuyé (la ligne Session n'est écrite qu'à la fin). Sert à ne pas
+// envoyer le rappel d'une séance déjà commencée.
+model SessionStart {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  startedAt DateTime @default(now()) @map("started_at")
+
+  profile Profile @relation(fields: [userId], references: [userId], onDelete: Cascade)
+
+  @@index([userId, startedAt])
+  @@map("session_starts")
 }

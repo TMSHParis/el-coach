@@ -308,3 +308,14 @@ export async function saveRecoveryActivity(input: {
     return { ok: false };
   }
 }
+
+/** « Démarrer la séance » appuyé : le rappel de séance du jour n'est plus envoyé pour ce créneau. */
+export async function markSessionStarted(): Promise<void> {
+  try {
+    const userId = await getUserId();
+    if (!userId) return;
+    await prisma.sessionStart.create({ data: { userId } });
+  } catch (err) {
+    console.error("markSessionStarted:", err);
+  }
+}
