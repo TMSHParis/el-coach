@@ -41,7 +41,7 @@ export const COACH_PARAMS = {
   chainUpgradeReps: 12,
   chainUpgradeSets: 3,
   /** Check-in : durées proposées. */
-  durationOptions: [30, 45, 60, 75] as const,
+  durationOptions: [30, 45, 60, 75, 90] as const,
   durationOptionsAtHome: [20, 30, 45, 60] as const,
 } as const;
 

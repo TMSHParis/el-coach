@@ -17,7 +17,7 @@
   background: var(--bg);
   color: var(--t);
   font-family: var(--font-barlow);
-  padding-bottom: 80px;
+  padding-bottom: 110px;
   min-height: 100vh;
   -webkit-tap-highlight-color: transparent;
 }
@@ -277,3 +277,23 @@
 .pickerTitle { font-size: 18px; font-weight: 700; color: var(--w); margin-bottom: 4px; }
 .pickerGroup { font-size: 12px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--c-9a9a9a); margin: 16px 0 8px; }
 .pickerSheet .progRow { margin-bottom: 8px; }
+
+/* Carte « Une demande pour aujourd'hui ? » (partie 6, mission 4) : tous les textes >= 11 px et >= #9aa1ab sur fond sombre. */
+.reqCard { background: var(--c-0e0f12); border: 1px dashed var(--c-262a30); border-radius: 18px; padding: 16px 14px; margin-bottom: 8px; }
+.reqHead { display: flex; align-items: center; gap: 8px; width: 100%; background: none; border: 0; padding: 0; cursor: pointer; font: inherit; color: inherit; text-align: left; }
+.reqIcon { font-size: 18px; font-style: normal; }
+.reqTitle { font-size: 17px; font-weight: 700; color: var(--ct-f4f5f7); line-height: 1.25; }
+.reqBadge { margin-left: auto; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .12em; color: var(--ct-9aa1ab); border: 1px solid var(--c-262a30); border-radius: 6px; padding: 4px 8px; white-space: nowrap; }
+.reqChevron { font-size: 13px; color: var(--ct-9aa1ab); }
+.reqIntro { font-size: 13px; line-height: 1.45; color: var(--ct-9aa1ab); margin-top: 8px; }
+.reqSec { margin-top: 20px; }
+.reqLabel { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .14em; color: var(--ct-9aa1ab); margin-bottom: 8px; }
+.reqHelp { font-size: 12px; line-height: 1.4; color: var(--ct-9aa1ab); margin-top: 8px; }
+.reqGrid { display: grid; gap: 8px; }
+.reqBtn { min-height: 44px; display: flex; align-items: center; justify-content: center; text-align: center; padding: 6px 4px; background: var(--c-16181c); border: 1px solid var(--c-262a30); border-radius: 12px; color: var(--ct-f4f5f7); font: inherit; font-size: 13.5px; line-height: 1.2; cursor: pointer; }
+.reqBtnDense { font-size: 13px; padding: 6px 2px; }
+.reqBtnLeft { justify-content: flex-start; text-align: left; padding-left: 14px; }
+.reqSelH { border-color: var(--blue); color: var(--blue); background: color-mix(in srgb, var(--blue) 12%, var(--c-16181c)); }
+.reqSelF { border-color: var(--pink); color: var(--pink); background: color-mix(in srgb, var(--pink) 12%, var(--c-16181c)); }
+.reqNote { width: 100%; min-height: 76px; box-sizing: border-box; padding: 12px; background: var(--c-16181c); border: 1px solid var(--c-262a30); border-radius: 12px; color: var(--ct-f4f5f7); font: inherit; font-size: 14px; resize: vertical; outline: none; }
+.reqNote::placeholder { color: var(--ct-6d737c); opacity: 1; }

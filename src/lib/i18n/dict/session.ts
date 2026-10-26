@@ -3,6 +3,12 @@ import type { Entries } from "../types";
 // Domaine « session » : textes de l'interface au format { "clé": [français, English, Español] }.
 export const session = {
   "run.toast.replaced": ["Remplacé par {name}", "Replaced with {name}", "Sustituido por {name}"],
+  "run.mode.circuit": ["⟳ CIRCUIT", "⟳ CIRCUIT", "⟳ CIRCUITO"],
+  "run.mode.series": ["☰ SÉRIES", "☰ SETS", "☰ SERIES"],
+  "run.mode.tagSeries": ["SÉRIES", "SETS", "SERIES"],
+  "run.mode.locked": ["Mode verrouillé : une série ou un tour est déjà validé.", "Mode locked: a set or a round is already completed.", "Modo bloqueado: ya se validó una serie o una vuelta."],
+  "run.series.help": ["{m} mouvements, {n} séries chacun. Repos après chaque série.", "{m} movements, {n} sets each. Rest after each set.", "{m} movimientos, {n} series cada uno. Descanso tras cada serie."],
+  "run.series.restBetween": ["REPOS ENTRE SÉRIES", "REST BETWEEN SETS", "DESCANSO ENTRE SERIES"],
   "run.circuit.tourN": ["Tour {n}", "Round {n}", "Vuelta {n}"],
   "run.confirm.quit": ["Quitter la séance ?", "Leave the session?", "¿Salir de la sesión?"],
   "run.done.title1": ["Séance", "Session", "Sesión"],

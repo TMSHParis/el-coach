@@ -151,10 +151,10 @@ export const checkin = {
     "If you change nothing, the session stays as planned in the program.",
     "Si no tocas nada, la sesión sigue siendo la prevista en el programa.",
   ],
-  "ci.req.duration": ["DURÉE DISPONIBLE · facultatif", "AVAILABLE TIME · optional", "TIEMPO DISPONIBLE · opcional"],
-  "ci.req.format": ["FORMAT DE LA SÉANCE · facultatif", "SESSION FORMAT · optional", "FORMATO DE LA SESIÓN · opcional"],
+  "ci.req.duration": ["DURÉE DISPONIBLE", "AVAILABLE TIME", "TIEMPO DISPONIBLE"],
+  "ci.req.format": ["FORMAT DE LA SÉANCE", "SESSION FORMAT", "FORMATO DE LA SESIÓN"],
   "ci.req.proposed": ["Proposé d'après la durée : {format}", "Suggested from the time available: {format}", "Propuesto según la duración: {format}"],
-  "ci.req.focus": ["FOCUS DU JOUR · facultatif", "TODAY'S FOCUS · optional", "ENFOQUE DEL DÍA · opcional"],
+  "ci.req.focus": ["FOCUS DU JOUR", "TODAY'S FOCUS", "ENFOQUE DEL DÍA"],
   "ci.req.focusHome": [
     "Le focus choisi s'ajoute à la séance, il ne remplace pas le cœur de la séance.",
     "The chosen focus is added to the session; it doesn't replace the core of the session.",
@@ -166,16 +166,16 @@ export const checkin = {
     "El grupo elegido se añade al Bloque 4 (accesorios); no sustituye el núcleo de la sesión.",
   ],
   "ci.req.equipment": [
-    "MATÉRIEL DISPONIBLE AUJOURD'HUI · facultatif",
-    "EQUIPMENT AVAILABLE TODAY · optional",
-    "MATERIAL DISPONIBLE HOY · opcional",
+    "MATÉRIEL DISPONIBLE AUJOURD'HUI",
+    "EQUIPMENT AVAILABLE TODAY",
+    "MATERIAL DISPONIBLE HOY",
   ],
   "ci.req.equipmentHint": [
     "Par défaut : ton équipement du profil. Le changement vaut pour la journée seulement.",
     "Default: the equipment in your profile. The change applies to today only.",
     "Por defecto: el equipo de tu perfil. El cambio vale solo para hoy.",
   ],
-  "ci.req.intensity": ["INTENSITÉ SOUHAITÉE · facultatif", "DESIRED INTENSITY · optional", "INTENSIDAD DESEADA · opcional"],
+  "ci.req.intensity": ["INTENSITÉ SOUHAITÉE", "DESIRED INTENSITY", "INTENSIDAD DESEADA"],
   "ci.req.note": ["NOTE LIBRE SUR LA SÉANCE", "FREE NOTE ON THE SESSION", "NOTA LIBRE SOBRE LA SESIÓN"],
   "ci.req.notePlaceholder": [
     "ex : Je veux travailler les épaules · Pas de deadlift aujourd'hui",
@@ -187,7 +187,7 @@ export const checkin = {
     "No impact / quiet: replaces jumps with no-impact variations",
     "Sin impacto / silencioso: sustituye los saltos por variantes sin impacto",
   ],
-  "ci.req.zone": ["ZONE À MÉNAGER · facultatif", "AREA TO PROTECT · optional", "ZONA A PROTEGER · opcional"],
+  "ci.req.zone": ["ZONE À MÉNAGER", "AREA TO PROTECT", "ZONA A PROTEGER"],
   "ci.req.zoneWarning": [
     "Cette demande touche à la santé : elle ne vaut que pour la séance du jour, n'est pas enregistrée dans le profil, et l'app affiche « Ce n'est pas un avis médical ».",
     "This request relates to health: it only applies to today's session, isn't saved in your profile, and the app displays “This is not medical advice”.",

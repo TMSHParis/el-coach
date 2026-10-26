@@ -894,71 +894,85 @@ export function CheckinForm({
           const durations = (atHome ? COACH_PARAMS.durationOptionsAtHome : COACH_PARAMS.durationOptions).map((m) => `${m} min`);
           const minutes = parseAvailableMinutes(d.seanceDuree);
           const proposed = minutes ? FORMAT_BY_MINUTES.find((f) => minutes <= f.maxMinutes)?.format : null;
+          const formatLabel = (f: (typeof FORMAT_OPTIONS)[number]) => `${f.label} (${f.hint})`;
           return (
-            <div className={cx(styles.qc, styles.opt)}>
-              <button
-                type="button"
-                className={styles.ql}
-                style={{ width: "100%", background: "none", border: "none", cursor: "pointer", textAlign: "left", font: "inherit", color: "inherit" }}
-                onClick={() => setDemandeOpen((v) => !v)}
-                aria-expanded={demandeOpen}
-              >
-                <i>🎛️</i> {t("ci.q.request")} <span className={styles.bo}>{t("ci.badge.optional")}</span>
-                <span style={{ marginLeft: "auto" }}>{demandeOpen ? "▴" : "▾"}</span>
+            <div className={styles.reqCard}>
+              <button type="button" className={styles.reqHead} onClick={() => setDemandeOpen((v) => !v)} aria-expanded={demandeOpen}>
+                <i className={styles.reqIcon}>🎛️</i>
+                <span className={styles.reqTitle}>{t("ci.q.request")}</span>
+                <span className={styles.reqBadge}>{t("ci.badge.optional")}</span>
+                <span className={styles.reqChevron}>{demandeOpen ? "▴" : "▾"}</span>
               </button>
-              <div className={styles.dl}>{t("ci.req.default")}</div>
+              <div className={styles.reqIntro}>{t("ci.req.default")}</div>
 
               {demandeOpen && (
                 <>
-                  <div className={styles.dl} style={{ marginTop: 12 }}>{t("ci.req.duration")}</div>
-                  <OptRow gender={g} options={durations} value={d.seanceDuree} onChange={(v) => set({ seanceDuree: v })} />
+                  <section className={styles.reqSec}>
+                    <div className={styles.reqLabel}>{t("ci.req.duration")}</div>
+                    <ReqGrid cols={durations.length} gender={g} options={durations} value={d.seanceDuree} dense onChange={(v) => set({ seanceDuree: d.seanceDuree === v ? "" : v })} />
+                  </section>
 
-                  <div className={styles.dl} style={{ marginTop: 12 }}>{t("ci.req.format")}</div>
-                  <OptRow
-                    gender={g}
-                    options={FORMAT_OPTIONS.map((f) => `${f.label} (${f.hint})`)}
-                    value={FORMAT_OPTIONS.filter((f) => f.value === d.seanceFormat).map((f) => `${f.label} (${f.hint})`)[0] ?? ""}
-                    onChange={(label) => set({ seanceFormat: FORMAT_OPTIONS.find((f) => `${f.label} (${f.hint})` === label)?.value ?? "" })}
-                  />
-                  {proposed && (
-                    <div className={styles.dl}>{t("ci.req.proposed", { format: t(FORMAT_OPTIONS.find((f) => f.value === proposed)?.nameKey ?? "ci.opt.fmtFullName") })}</div>
-                  )}
+                  <section className={styles.reqSec}>
+                    <div className={styles.reqLabel}>{t("ci.req.format")}</div>
+                    <ReqGrid
+                      cols={1}
+                      left
+                      gender={g}
+                      options={FORMAT_OPTIONS.map(formatLabel)}
+                      value={FORMAT_OPTIONS.filter((f) => f.value === d.seanceFormat).map(formatLabel)[0] ?? ""}
+                      onChange={(label) => {
+                        const v = FORMAT_OPTIONS.find((f) => formatLabel(f) === label)?.value ?? "";
+                        set({ seanceFormat: d.seanceFormat === v ? "" : v });
+                      }}
+                    />
+                    {proposed && (
+                      <div className={styles.reqHelp}>{t("ci.req.proposed", { format: t(FORMAT_OPTIONS.find((f) => f.value === proposed)?.nameKey ?? "ci.opt.fmtFullName") })}</div>
+                    )}
+                  </section>
 
-                  <div className={styles.dl} style={{ marginTop: 12 }}>{t("ci.req.focus")}</div>
-                  <MultiOptRow
-                    gender={g}
-                    options={[...(atHome ? FOCUS_AT_HOME_OPTIONS : FOCUS_MUSCLE_OPTIONS)]}
-                    values={d.seanceFocus}
-                    onToggle={(v) =>
-                      set({ seanceFocus: d.seanceFocus.includes(v) ? d.seanceFocus.filter((x) => x !== v) : [...d.seanceFocus, v] })
-                    }
-                  />
-                  <div className={styles.dl}>
-                    {atHome ? t("ci.req.focusHome") : t("ci.req.focusEcm")}
-                  </div>
+                  <section className={styles.reqSec}>
+                    <div className={styles.reqLabel}>{t("ci.req.focus")}</div>
+                    <ReqGrid
+                      cols={4}
+                      gender={g}
+                      options={[...(atHome ? FOCUS_AT_HOME_OPTIONS : FOCUS_MUSCLE_OPTIONS)]}
+                      values={d.seanceFocus}
+                      onChange={(v) =>
+                        set({ seanceFocus: d.seanceFocus.includes(v) ? d.seanceFocus.filter((x) => x !== v) : [...d.seanceFocus, v] })
+                      }
+                    />
+                    <div className={styles.reqHelp}>{atHome ? t("ci.req.focusHome") : t("ci.req.focusEcm")}</div>
+                  </section>
 
-                  <div className={styles.dl} style={{ marginTop: 12 }}>{t("ci.req.equipment")}</div>
-                  <OptRow
-                    gender={g}
-                    options={[...(atHome ? EQUIPMENT_OPTIONS_AT_HOME : EQUIPMENT_OPTIONS_ECM)]}
-                    value={d.seanceEquipement}
-                    onChange={(v) => set({ seanceEquipement: v })}
-                  />
-                  <div className={styles.dl}>{t("ci.req.equipmentHint")}</div>
+                  <section className={styles.reqSec}>
+                    <div className={styles.reqLabel}>{t("ci.req.equipment")}</div>
+                    <ReqGrid
+                      cols={3}
+                      gender={g}
+                      options={[...(atHome ? EQUIPMENT_OPTIONS_AT_HOME : EQUIPMENT_OPTIONS_ECM)]}
+                      value={d.seanceEquipement}
+                      onChange={(v) => set({ seanceEquipement: d.seanceEquipement === v ? "" : v })}
+                    />
+                    <div className={styles.reqHelp}>{t("ci.req.equipmentHint")}</div>
+                  </section>
 
-                  <div className={styles.dl} style={{ marginTop: 12 }}>{t("ci.req.intensity")}</div>
-                  <OptRow gender={g} options={INTENSITE_OPTIONS} value={d.seanceIntensite} onChange={(v) => set({ seanceIntensite: v })} />
+                  <section className={styles.reqSec}>
+                    <div className={styles.reqLabel}>{t("ci.req.intensity")}</div>
+                    <ReqGrid cols={4} dense gender={g} options={INTENSITE_OPTIONS} value={d.seanceIntensite} onChange={(v) => set({ seanceIntensite: d.seanceIntensite === v ? "" : v })} />
+                  </section>
 
-                  <div className={styles.dl} style={{ marginTop: 12 }}>{t("ci.req.note")}</div>
-                  <textarea
-                    className={styles.ta}
-                    placeholder={t("ci.req.notePlaceholder")}
-                    value={d.seanceNote}
-                    onChange={(e) => set({ seanceNote: e.target.value })}
-                  />
+                  <section className={styles.reqSec}>
+                    <div className={styles.reqLabel}>{t("ci.req.note")}</div>
+                    <textarea
+                      className={styles.reqNote}
+                      placeholder={t("ci.req.notePlaceholder")}
+                      value={d.seanceNote}
+                      onChange={(e) => set({ seanceNote: e.target.value })}
+                    />
+                  </section>
                   {/* Zone à ménager et "Sans impact" : derrière FEATURE_FLAGS (6.3), désactivés tant qu'un coach et le juridique n'ont pas validé. */}
                   {atHome && FEATURE_FLAGS.sansImpact && (
-                    <label className={styles.dl} style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                    <label className={styles.reqHelp} style={{ display: "flex", gap: 8, marginTop: 20 }}>
                       <input
                         type="checkbox"
                         onChange={(e) => {
@@ -969,9 +983,10 @@ export function CheckinForm({
                     </label>
                   )}
                   {FEATURE_FLAGS.zoneAMenager && (
-                    <>
-                      <div className={styles.dl} style={{ marginTop: 12 }}>{t("ci.req.zone")}</div>
-                      <OptRow
+                    <section className={styles.reqSec}>
+                      <div className={styles.reqLabel}>{t("ci.req.zone")}</div>
+                      <ReqGrid
+                        cols={3}
                         gender={g}
                         options={[...ZONES]}
                         value=""
@@ -979,8 +994,8 @@ export function CheckinForm({
                           document.cookie = `${ZONE_COOKIE}=${encodeURIComponent(v)}; path=/; max-age=${24 * 3600}; samesite=lax`;
                         }}
                       />
-                      <div className={styles.dl}>{t("ci.req.zoneWarning")}</div>
-                    </>
+                      <div className={styles.reqHelp}>{t("ci.req.zoneWarning")}</div>
+                    </section>
                   )}
                 </>
               )}
@@ -1057,6 +1072,48 @@ function SectionKicker({ number, title }: { number: string; title: string }) {
   );
 }
 
+/** Grille régulière de choix de la carte « Une demande pour aujourd'hui ? » : mêmes hauteurs, 8 px d'écart. */
+function ReqGrid({
+  gender,
+  options,
+  value,
+  values,
+  cols,
+  dense,
+  left,
+  onChange,
+}: {
+  gender: CheckinGender;
+  options: string[];
+  value?: string;
+  values?: string[];
+  cols: number;
+  dense?: boolean;
+  left?: boolean;
+  onChange: (v: string) => void;
+}) {
+  const t = useT();
+  const { lang } = useLang();
+  return (
+    <div className={styles.reqGrid} style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
+      {options.map((o) => {
+        const on = values ? values.includes(o) : value === o;
+        return (
+          <button
+            key={o}
+            type="button"
+            aria-pressed={on}
+            className={cx(styles.reqBtn, dense && styles.reqBtnDense, left && styles.reqBtnLeft, on && (gender === "h" ? styles.reqSelH : styles.reqSelF))}
+            onClick={() => onChange(o)}
+          >
+            {optText(t, lang, o)}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 function OptRow({
   gender,
   options,
@@ -1077,34 +1134,6 @@ function OptRow({
           key={o}
           className={cx(styles.optBtn, value === o && (gender === "h" ? styles.selH : styles.selF))}
           onClick={() => onChange(o)}
-        >
-          {optText(t, lang, o)}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function MultiOptRow({
-  gender,
-  options,
-  values,
-  onToggle,
-}: {
-  gender: CheckinGender;
-  options: string[];
-  values: string[];
-  onToggle: (v: string) => void;
-}) {
-  const t = useT();
-  const { lang } = useLang();
-  return (
-    <div className={styles.opts}>
-      {options.map((o) => (
-        <div
-          key={o}
-          className={cx(styles.optBtn, values.includes(o) && (gender === "h" ? styles.selH : styles.selF))}
-          onClick={() => onToggle(o)}
         >
           {optText(t, lang, o)}
         </div>
