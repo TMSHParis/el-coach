@@ -8,6 +8,7 @@ import { Footer } from "@/components/footer";
 import { ChromeGate } from "@/components/chrome-gate";
 import { NavigationTracker } from "@/components/back-home-button";
 import { SupportChat } from "@/components/support-chat";
+import { VersionGuard } from "@/components/version-guard";
 import { ScrollTopButton } from "@/components/scroll-top-button";
 import { LangProvider } from "@/lib/i18n/provider";
 import { getPrefs } from "@/lib/prefs-server";
@@ -64,6 +65,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             l'ID Crisp n'est pas renseigné. */}
         {clerkEnabled && crispWebsiteId && <SupportChat websiteId={crispWebsiteId} />}
         <ScrollTopButton />
+        <VersionGuard />
         </LangProvider>
       </body>
     </html>

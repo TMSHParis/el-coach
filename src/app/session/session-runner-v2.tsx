@@ -520,6 +520,8 @@ export function SessionRunnerV2({
    * (doc H.8). Ne redevient jamais faux : la fin de séance se fait via
    * "Terminer la séance", pas en revenant sur ce bouton. */
   const [sessionStarted, setSessionStarted] = useState(false);
+  /** Garde synchrone : « démarrer » ne s'exécute qu'une fois, même si l'état n'a pas encore été rendu. */
+  const startedRef = useRef(false);
   /** Bloc affiché en chrono plein écran (null = liste des mouvements). */
   const [fullscreen, setFullscreen] = useState<number | null>(null);
   /** Aperçu en lecture seule du déroulé — jamais affiché par défaut (doc G.4). */
@@ -579,7 +581,9 @@ export function SessionRunnerV2({
           setSessionStartedAt(saved.sessionStartedAt);
           // Rétrocompatible avec une séance sauvegardée avant sessionStarted
           // (doc H.8) : on déduit l'état depuis les blocs déjà actifs.
-          setSessionStarted(saved.sessionStarted ?? saved.blocks.some((b) => b.running || b.done));
+          const wasStarted = saved.sessionStarted ?? saved.blocks.some((b) => b.running || b.done);
+          startedRef.current = wasStarted;
+          setSessionStarted(wasStarted);
         }
       }
     } catch {
@@ -815,6 +819,7 @@ export function SessionRunnerV2({
 
   function startTimer(i: number) {
     unlockAudio(); // geste utilisateur : seul moment où iOS autorise le son
+    markStarted(); // lancer le chrono d'un bloc démarre aussi la séance
     const cfg = blocks[i];
     prepareVoices(cfg?.format === "emom" ? Math.round(cfg.durationSec / 60) : cfg?.format === "tabata" ? cfg.tabataRounds : 0);
     setBlocks((prev) =>
@@ -895,12 +900,19 @@ export function SessionRunnerV2({
 
   /** "▷ Démarrer la séance" du header (doc G.4, socle commun) — ouvre le
    * premier bloc non terminé et, en ECM, lance aussi son chrono. */
-  function startSession() {
-    // Déjà démarrée : ne rien refaire (sinon on rouvrirait/relancerait le chrono du premier bloc non terminé).
-    if (sessionStarted) return;
-    setShowPreview(false);
+  /** Passe la séance à « démarrée » une seule fois (état, trace serveur). Vrai si c'est le premier appel. */
+  function markStarted(): boolean {
+    if (startedRef.current || sessionStarted) return false;
+    startedRef.current = true;
     setSessionStarted(true);
     void markSessionStarted();
+    return true;
+  }
+
+  function startSession() {
+    // Déjà démarrée : ne rien refaire (ni relancer le chrono du premier bloc, ni créer une seconde trace de démarrage).
+    if (!markStarted()) return;
+    setShowPreview(false);
     const idx = blocks.findIndex((b) => !b.done);
     if (idx === -1) return;
     openBloc(idx);
@@ -1313,6 +1325,8 @@ export function SessionRunnerV2({
   const doneCount = blocks.filter((b) => b.done).length;
   const total = blocks.length;
   const globalSec = Math.max(0, Math.floor((now - sessionStartedAt) / 1000));
+  // Source unique « séance démarrée » : badge, bouton « Démarrer la séance » et aperçu lisent cette valeur.
+  const started = sessionStarted || blocks.some((b) => b.running || b.done || b.accumulatedMs > 0 || !!b.countdownEndsAt);
 
   const movementsTotal = useMemo(() => blockData.reduce((sum, b) => sum + b.items.length, 0), [blockData]);
   // Un bloc terminé compte comme entièrement réalisé : tous blocs validés = 100 %.
@@ -1501,7 +1515,7 @@ export function SessionRunnerV2({
 
       <div className={styles.content}>
         <div className={styles.sessHero}>
-          {sessionStarted && (
+          {started && (
             <div className={styles.sessLabel}>
               <span className={styles.sessLabelDot} />
               {t("run.inProgress")}
@@ -1534,7 +1548,7 @@ export function SessionRunnerV2({
             </button>
             {/* Séance déjà lancée : "Démarrer" n'a plus de sens ici, la fin de
                 séance se fait via "Terminer la séance" plus bas (doc H.8). */}
-            {!sessionStarted && (
+            {restored && !started && (
               <button type="button" className={styles.ctaStart} onClick={startSession}>
                 ▷ {t("run.start")}
               </button>

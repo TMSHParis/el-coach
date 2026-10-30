@@ -3,6 +3,7 @@
 // Menu « Choisir ta séance… » (partie 4, mission 6) : feuille du bas avec six groupes toujours présents,
 // quel que soit le jour, la semaine enregistrée, les habitudes ou l'équipement.
 
+import { useEffect, useRef, useState } from "react";
 import { SPORT_GROUPS, normalizeSport, sportLabel } from "@/lib/sports-catalog";
 import type { Lang, Translate } from "@/lib/i18n";
 import { useLang, useT } from "@/lib/i18n/provider";
@@ -67,6 +68,41 @@ export function SeancePicker({
   const t = useT();
   const { lang } = useLang();
   const current = currentItem(groups, value, accordion, t, lang);
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const touchY = useRef<number | null>(null);
+  const [drag, setDrag] = useState(0);
+
+  // Le bouton retour du téléphone (ou le geste de retour) ferme le menu sans quitter l'écran d'accueil.
+  useEffect(() => {
+    if (!open) return;
+    let popped = false;
+    history.pushState({ elcPicker: true }, "");
+    const onPop = () => {
+      popped = true;
+      onOpenChange(false);
+    };
+    window.addEventListener("popstate", onPop);
+    return () => {
+      window.removeEventListener("popstate", onPop);
+      if (!popped && history.state?.elcPicker) history.back();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  // Tirer le menu vers le bas (depuis le haut de la liste) le ferme, sans rien changer.
+  function onTouchStart(e: React.TouchEvent) {
+    touchY.current = (sheetRef.current?.scrollTop ?? 0) <= 0 ? e.touches[0].clientY : null;
+  }
+  function onTouchMove(e: React.TouchEvent) {
+    if (touchY.current === null) return;
+    setDrag(Math.max(0, e.touches[0].clientY - touchY.current));
+  }
+  function onTouchEnd() {
+    if (touchY.current !== null && drag > 90) onOpenChange(false);
+    touchY.current = null;
+    setDrag(0);
+  }
+
   const selected = accordion ? (accordion === "repos" ? "__repos__" : "__recup__") : normalizeSport(value);
 
   return (
@@ -88,8 +124,23 @@ export function SeancePicker({
 
       {open && (
         <div data-hide-scroll-top className={styles.pickerOverlay} onClick={() => onOpenChange(false)}>
-          <div className={styles.pickerSheet} role="dialog" aria-label={t("ci.picker.title")} onClick={(e) => e.stopPropagation()}>
-            <div className={styles.pickerTitle}>{t("ci.picker.title")}</div>
+          <div
+            ref={sheetRef}
+            className={styles.pickerSheet}
+            style={drag ? { transform: `translateY(${drag}px)`, transition: "none" } : undefined}
+            role="dialog"
+            aria-label={t("ci.picker.title")}
+            onClick={(e) => e.stopPropagation()}
+            onTouchStart={onTouchStart}
+            onTouchMove={onTouchMove}
+            onTouchEnd={onTouchEnd}
+          >
+            <div className={styles.pickerHead}>
+              <div className={styles.pickerTitle}>{t("ci.picker.title")}</div>
+              <button type="button" className={styles.pickerClose} aria-label={t("ci.picker.close")} onClick={() => onOpenChange(false)}>
+                ✕
+              </button>
+            </div>
             {groups.map((g) => (
               <div key={g.label}>
                 <div className={styles.pickerGroup}>{g.label}</div>

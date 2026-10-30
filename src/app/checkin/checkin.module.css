@@ -273,8 +273,10 @@
 .pickerPlaceholder { flex: 1; font-size: 16px; color: var(--c-9a9a9a); }
 .pickerChev { margin-left: auto; color: var(--c-9a9a9a); }
 .pickerOverlay { position: fixed; inset: 0; z-index: 70; background: rgba(0, 0, 0, .65); display: flex; align-items: flex-end; justify-content: center; }
-.pickerSheet { width: 100%; max-width: 520px; max-height: 90vh; overflow-y: auto; background: var(--c-121212); border-radius: 20px 20px 0 0; padding: 16px 16px calc(20px + env(safe-area-inset-bottom)); box-sizing: border-box; overscroll-behavior: contain; }
-.pickerTitle { font-size: 18px; font-weight: 700; color: var(--w); margin-bottom: 4px; }
+.pickerSheet { width: 100%; max-width: 520px; max-height: 90vh; overflow-y: auto; background: var(--c-121212); border-radius: 20px 20px 0 0; padding: 0 16px calc(20px + env(safe-area-inset-bottom)); box-sizing: border-box; overscroll-behavior: contain; transition: transform .2s; }
+.pickerHead { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0 8px; background: var(--c-121212); }
+.pickerTitle { font-size: 18px; font-weight: 700; color: var(--w); }
+.pickerClose { flex: none; width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: var(--c-16181c); border: 1px solid var(--c-262a30); color: var(--ct-f4f5f7); font-size: 18px; line-height: 1; cursor: pointer; padding: 0; font-family: inherit; }
 .pickerGroup { font-size: 12px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--c-9a9a9a); margin: 16px 0 8px; }
 .pickerSheet .progRow { margin-bottom: 8px; }
 

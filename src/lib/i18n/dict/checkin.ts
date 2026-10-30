@@ -32,6 +32,7 @@ export const checkin = {
   "ci.plan.restTitle": ["Repos prévu aujourd'hui", "Rest planned today", "Descanso previsto hoy"],
   "ci.plan.restSub": ["Ta semaine prévoit du repos.", "Your week includes rest.", "Tu semana prevé descanso."],
   "ci.plan.trainAnyway": ["Je m'entraîne quand même", "I'm training anyway", "Entreno igualmente"],
+  "ci.picker.close": ["Fermer", "Close", "Cerrar"],
   "ci.picker.title": ["Choisir ta séance…", "Choose your session…", "Elige tu sesión…"],
   "ci.picker.restFull": ["Repos complet", "Full rest", "Descanso completo"],
   "ci.picker.restFullSub": ["Journée sans entraînement", "A day without training", "Día sin entrenamiento"],

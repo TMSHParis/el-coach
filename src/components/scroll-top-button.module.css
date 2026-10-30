@@ -1,16 +1,16 @@
 .btn {
   position: fixed;
-  right: 16px;
+  left: 16px;
   z-index: 90;
-  width: 48px;
-  height: 48px;
-  min-width: 48px;
-  min-height: 48px;
+  width: 56px;
+  height: 56px;
+  min-width: 56px;
+  min-height: 56px;
   border-radius: 50%;
   border: 1.5px solid var(--scroll-top-accent, var(--c-e8ff00));
-  background: color-mix(in srgb, var(--c-0e0f12) 92%, transparent);
+  background: color-mix(in srgb, var(--c-0e0f12) 94%, transparent);
   color: var(--scroll-top-accent, var(--c-e8ff00));
-  font-size: 22px;
+  font-size: 24px;
   line-height: 1;
   display: flex;
   align-items: center;
